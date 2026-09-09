@@ -52,15 +52,31 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ## Working hypothesis
 
+### Latest user feedback and current trial
+
+The user liked the starting point and requested these changes:
+
+- Compact import: show included/excluded counts as quiet plus/minus subtext, without previews of row contents or a pre-review monthly breakdown.
+- Incoming money receives a purpose: general income, job income, selling something, or repayment of an expense.
+- A repayment can cover multiple expenses in a shared collection or trip.
+- People are reusable entities. Explicitly recognized e-transfer senders can be remembered and brought into linked expenses.
+- Expense shares should be adjustable with sliders, initially split equally by participant count.
+- Improve spending views later; focus now on import and review.
+
+`prototypes/review-flow.html` is the current trial. The earlier `monthly-flow.html` remains available as design history. The sample demonstrates a $180 payment covering Alex's $60 dinner share and $120 cabin share. Remembering the exact sample sender recognizes Alex on the next transfer, without guessing that transfer's purpose.
+
+The sliders preserve each expense total while redistributing the remaining shares. This interaction, the oldest-expense-first allocation suggestion, and hiding spending until review is complete are assistant design choices to try, not individually confirmed requirements.
+
 The first useful experience may be: select a month, review a small number of unresolved money movements, and understand personal spending separately from cash paid and money owed back.
 
-The interactive trial in `prototypes/monthly-flow.html` now makes this proposal tangible. It records the user's agreed share as personal spending immediately, and tracks the friend's share separately as owed back. A repayment settles that balance without changing spending again. This timing choice awaits the user's reaction.
+The trials record the user's agreed share as personal spending, and track the friend's share separately as owed back. A repayment settles that balance without changing spending again. The user has supported the general direction, without explicitly resolving every timing case.
 
 ## Open questions
 
-1. Does recording the user's share before reimbursement arrives feel right, with unpaid amounts kept visible?
-2. Does the import → review → spending flow feel straightforward when tried?
-3. Which import and recurring-split details should the next iteration cover?
+1. Does the revised incoming-payment flow make expense and group repayment management feel natural?
+2. Do per-person sliders that redistribute the remainder feel right for two and three people?
+3. Should a group repayment fill the oldest outstanding expenses first, or should another allocation default be used?
+4. Later: real file selection, statement formats, persistent storage, recurring arrangements, transfers, and cross-month balances.
 
 ## Next action and review point
 

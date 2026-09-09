@@ -19,7 +19,10 @@ These are priorities recovered from an earlier conversation, pending confirmatio
 
 - [Direction and open questions](docs/direction.md)
 - [A small example to make the experience concrete](docs/first-trial.md)
-- [Interactive monthly workflow](prototypes/monthly-flow.html) — an HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Current review experience](prototypes/review-flow.html) — compact import, people, share sliders, income buckets, and group repayments. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [First monthly workflow](prototypes/monthly-flow.html) — preserved as an earlier design trial.
 - [Prototype scope and verification](docs/prototype-notes.md)
+
+Run the current prototype's calculation checks with `node --test tests/review-prototype.test.cjs`.
 
 Only synthetic examples belong in this repository. Personal imports, configuration, financial decisions, generated reports, and agent proposals belong under the ignored `private/` directory.

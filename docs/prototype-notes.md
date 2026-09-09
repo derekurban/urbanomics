@@ -1,5 +1,7 @@
 # Monthly experience trial
 
+This document describes the first trial. See [the current review trial](review-trial.md) for the iteration responding to user feedback.
+
 Date: 2026-09-09
 
 ## Purpose
