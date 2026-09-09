@@ -54,6 +54,12 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ### Latest user feedback and current trial
 
+The user has clarified the next direction: transactions may have multiple tags, defaulting to equal monetary portions, while categories provide a separate layer for viewing selected tags and organizing insights. The prior assumption that each tag is owned by exactly one category is superseded. Transaction tagging and the organization of insight views should be independent.
+
+The implementation brief is `docs/fable-one-brief.md`, prepared for Fable One. It proposes reusable, potentially overlapping category views and explicitly prevents double counting their tag allocations. Overlapping views are an assistant design default to try, not a separately confirmed requirement. Category editing must not mutate transaction tags or financial links. No sixth prototype has been implemented yet; the fifth trial below still has fixed category ownership and remains the latest runnable version.
+
+### Fifth iteration
+
 The fifth iteration is `prototypes/board-flow.html`. The user asked for visible contents within categories/groups, assigned items leaving the unassigned queue, synchronized group/expense selection, and multiple estimated monetary tags on one purchase.
 
 The trial uses an unassigned lane beside a two-column board of categories containing tag lanes and transaction portions. Grouping uses a parallel board of event contents. Dropping an unassigned item gives its whole amount to a tag. Editing tags supports rough splits using the existing dollar/cent divider. Moving a tagged portion changes only that portion; category totals sum tag amounts, with incoming/outgoing amounts shown separately. They are organization totals before repayment deductions.
@@ -119,12 +125,12 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 ## Open questions
 
 1. Does the visible contents board make sorting and finding assigned items easier?
-2. Does the proposed category → tags → estimated portions hierarchy match how the user thinks about purchases?
+2. Do reusable category views over independently tagged transactions provide the right insight organization? Should those views overlap?
 3. Does the distinction between received-repayment cost and an explicitly agreed share match the user's expectations?
 4. Later: tag/category management, how repayments affect individual tag portions in spending reports, real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
 
 ## Next action and review point
 
-Let the user try the synthetic monthly workflow and react. Change the interaction before adding architecture if needed. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by this prototype.
+Use `docs/fable-one-brief.md` for the next implementation trial, separating transaction tagging from category insight views. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.

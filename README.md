@@ -18,6 +18,7 @@ These are priorities recovered from an earlier conversation, pending confirmatio
 ## Discovery notes
 
 - [Direction and open questions](docs/direction.md)
+- [Next implementation brief for Fable One](docs/fable-one-brief.md) — independent transaction tags and category insight views; not implemented in the current prototype yet.
 - [A small example to make the experience concrete](docs/first-trial.md)
 - [Current organization board](prototypes/board-flow.html) — visible category/tag contents, an unassigned queue, estimated tag amounts, event groups, and synchronized group/expense repayment selection. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
 - [Previous staged experience](prototypes/staged-flow.html) — preserved as the fourth design trial.
