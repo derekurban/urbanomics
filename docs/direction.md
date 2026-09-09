@@ -52,6 +52,16 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ## Working hypothesis
 
+### User acceptance and transition to implementation
+
+After the sixth trial, the user said the flow and experience are in a good spot. They value the fun of dragging, dropping, and organizing alongside the ability to inspect and divide transactions into richer structures. They are comfortable deferring cleanup and animations until the full app is built. This settles the overall experience direction; it does not individually confirm every proposed accounting default.
+
+The assistant's proposed next milestone is one real month from CSV import through saved organization and repayments to a traceable spending breakdown. Begin with a chequing account and credit card so own-account payments are exercised, while designing account support for the user's full account set. Preserve original imports, handle repeat and overlapping imports without silent loss or double counting, retain edits across restarts, and support backup/restore. Bank-specific parsing requires representative export headers and redacted sample rows; formats have not been validated yet.
+
+Before net spending by tag is implemented, settle how an expense-level repayment reduces tag portions. A proportional default with an explicit override is a proposal, not a confirmed user decision. Cash paid, personal share, repayments received, and outstanding amounts must remain distinguishable.
+
+Completion evidence for that milestone: import the month, organize a mixed-tag purchase, link a repayment, close and reopen with decisions intact, reimport without changing totals, and trace a category total back to source rows and allocations. The existing prototype only establishes interaction fit and synthetic calculation behavior, not real-data reliability. This milestone is a recommendation in response to the user's next-step question; implementation has not started.
+
 ### Sixth iteration, the current prototype
 
 The user clarified the direction: transactions may have multiple tags, defaulting to equal monetary portions, while categories provide a separate layer for viewing selected tags and organizing insights. The prior assumption that each tag is owned by exactly one category is superseded. Transaction tagging and the organization of insight views are independent.
@@ -142,6 +152,6 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Next action and review point
 
-Review `prototypes/insights-flow.html` in the browser: tag Walmart, watch Food and Home, add Groceries to Essentials and combine it with Food, delete a view, then allocate Alex's payment to Mountain weekend with dinner excluded. Use the user's reaction to decide whether the two-layer model is settled before real import work. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
+The user has accepted the overall sixth-trial experience. Move toward the proposed one-real-month milestone above, starting with representative bank export formats and a persistent transaction model. Keep detailed accounting defaults visible for validation during implementation. Actual file selection, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.
