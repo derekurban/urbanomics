@@ -1,5 +1,7 @@
 # Staged experience, fourth trial
 
+Superseded by [the organization board trial](board-trial.md). This file describes the preserved fourth prototype.
+
 Source: `prototypes/staged-flow.html`. Synthetic data and in-memory state only; reload resets the trial.
 
 ## Experience under test

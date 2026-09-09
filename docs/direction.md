@@ -54,6 +54,18 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ### Latest user feedback and current trial
 
+The fifth iteration is `prototypes/board-flow.html`. The user asked for visible contents within categories/groups, assigned items leaving the unassigned queue, synchronized group/expense selection, and multiple estimated monetary tags on one purchase.
+
+The trial uses an unassigned lane beside a two-column board of categories containing tag lanes and transaction portions. Grouping uses a parallel board of event contents. Dropping an unassigned item gives its whole amount to a tag. Editing tags supports rough splits using the existing dollar/cent divider. Moving a tagged portion changes only that portion; category totals sum tag amounts, with incoming/outgoing amounts shown separately. They are organization totals before repayment deductions.
+
+Working taxonomy proposal: each tag belongs to one broad category. Groceries and Dining out belong to Food; Furniture and Household belong to Home. This makes the user's Walmart example one transaction split across categories, while an event group continues to hold whole transactions independently. Category/tag definitions are fixed sample choices in this trial; the user has not finalized the taxonomy.
+
+Repayment selection now stores unique expense IDs. Choosing a group selects all its expense members and updates each child checkmark. Unchecking one child makes the group partially selected; clicking a partially selected group fills its missing members. Deselecting a fully selected group removes those expense members; overlapping groups update their checkmarks accordingly. Group membership alone remains organizational and does not create a repayment allocation.
+
+Verified: actual pointer drops remove dinner from Needs tags and an incoming payment from Ungrouped; a $240 Walmart purchase splits into $140 Groceries and $100 Furniture; group/child checkmarks remain synchronized. Sixteen model tests pass, and the tag editor fits at 360px. See `docs/board-trial.md` for limitations and the next review point.
+
+### Fourth iteration
+
 The fourth iteration is `prototypes/staged-flow.html`. The user requested:
 
 - Import → Categorize → Group → Deduct & balance, with broad categories and thematic groups kept independent.
@@ -106,10 +118,10 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Open questions
 
-1. Does the four-stage workflow make organization clearer without creating unnecessary work?
-2. Does one mixed target list and expense-level allocation fit real repayment cases?
+1. Does the visible contents board make sorting and finding assigned items easier?
+2. Does the proposed category → tags → estimated portions hierarchy match how the user thinks about purchases?
 3. Does the distinction between received-repayment cost and an explicitly agreed share match the user's expectations?
-4. Later: real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
+4. Later: tag/category management, how repayments affect individual tag portions in spending reports, real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
 
 ## Next action and review point
 

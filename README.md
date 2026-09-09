@@ -19,12 +19,13 @@ These are priorities recovered from an earlier conversation, pending confirmatio
 
 - [Direction and open questions](docs/direction.md)
 - [A small example to make the experience concrete](docs/first-trial.md)
-- [Current staged experience](prototypes/staged-flow.html) — Import → Categorize → Group → Deduct & balance. Independent categories and event groups, a mixed repayment target picker, dollar/cent dividers, and explicit unassigned transfer income. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Current organization board](prototypes/board-flow.html) — visible category/tag contents, an unassigned queue, estimated tag amounts, event groups, and synchronized group/expense repayment selection. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Previous staged experience](prototypes/staged-flow.html) — preserved as the fourth design trial.
 - [Previous inbox experience](prototypes/inbox-flow.html) — preserved as the third design trial.
 - [Previous review experience](prototypes/review-flow.html) — preserved as the second design trial.
 - [First monthly workflow](prototypes/monthly-flow.html) — preserved as an earlier design trial.
 - [Prototype scope and verification](docs/prototype-notes.md)
 
-Run the current prototype's calculation checks with `node --test tests/staged-prototype.test.cjs`. See [the current trial notes](docs/staged-trial.md) for scope and verification.
+Run the current prototype's calculation checks with `node --test tests/board-prototype.test.cjs`. See [the current trial notes](docs/board-trial.md) for scope and verification.
 
 Only synthetic examples belong in this repository. Personal imports, configuration, financial decisions, generated reports, and agent proposals belong under the ignored `private/` directory.
