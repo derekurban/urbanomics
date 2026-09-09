@@ -54,7 +54,25 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ### Latest user feedback and current trial
 
-The third iteration is now `prototypes/inbox-flow.html`. It follows the user's latest direction:
+The fourth iteration is `prototypes/staged-flow.html`. The user requested:
+
+- Import → Categorize → Group → Deduct & balance, with broad categories and thematic groups kept independent.
+- A full list of incoming and outgoing items on the left, with drag destinations on the right during organization.
+- Dollar or cent precision for both people-share and repayment-allocation dividers.
+- One searchable multi-select list containing individual expenses and groups, including mixed selections.
+- Repayment allocation across the selected expenses, with groups initially distributed evenly.
+- An explicit unassigned e-transfer income remainder when a payment exceeds what is allocated.
+- Saving a payment must not mark its linked expenses reviewed.
+
+The trial expands groups into unique expense leaves, so selecting a group and one of its members does not count the member twice. Incoming items may belong to groups, but are never themselves repayment targets. Categories and group membership do not create repayment links.
+
+Working interpretation: without an explicit agreed split, the expense's unreimbursed portion is personal cost. An explicitly agreed split preserves the user's share and tracks unpaid friend shares separately. This timing distinction remains a proposal to validate with the user. Amounts use integer cents, with capped allocation and exact conservation of the payment across expenses and unassigned income.
+
+Browser checks confirmed independent expense reviews, mixed group/individual selection, exact sender recognition, dollar/cent adjustment, and a completed example with $419.43 personal expense cost, $178.99 allocated repayments, and $31.01 unassigned e-transfer income. Imports and pre-triage remain synthetic fixtures. See `docs/staged-trial.md` for scope.
+
+### Third iteration
+
+The third iteration was `prototypes/inbox-flow.html`. It followed this direction:
 
 - Import a batch across chequing and savings accounts at two banks, plus Mastercard, and triage known movements.
 - Set up groups before review, with group management also available within review.
@@ -84,13 +102,13 @@ The sliders preserve each expense total while redistributing the remaining share
 
 The first useful experience may be: select a month, review a small number of unresolved money movements, and understand personal spending separately from cash paid and money owed back.
 
-The trials record the user's agreed share as personal spending, and track the friend's share separately as owed back. A repayment settles that balance without changing spending again. The user has supported the general direction, without explicitly resolving every timing case.
+The earlier trials recorded the user's agreed share as personal spending and tracked the friend's share separately as owed back. The fourth trial also supports the user's requested received-repayments method when no agreed split is recorded.
 
 ## Open questions
 
-1. Does the third iteration's groups-first workflow and attention-only inbox feel right?
-2. Do adjacent dividers behave as the user expects when several people share an expense?
-3. Should a group repayment fill the oldest outstanding expenses first, or should another allocation default be used?
+1. Does the four-stage workflow make organization clearer without creating unnecessary work?
+2. Does one mixed target list and expense-level allocation fit real repayment cases?
+3. Does the distinction between received-repayment cost and an explicitly agreed share match the user's expectations?
 4. Later: real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
 
 ## Next action and review point

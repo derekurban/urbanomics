@@ -1,5 +1,7 @@
 # Inbox experience, third trial
 
+Superseded by [the fourth staged trial](staged-trial.md). This file describes the preserved third prototype, including its now-replaced one-expense/group picker and repayment completion rules.
+
 Source: `prototypes/inbox-flow.html`. This is a self-contained HTML fragment for the Codex preview, using synthetic data and in-memory state only.
 
 ## Changes requested by the user
