@@ -44,20 +44,26 @@ Potential weaknesses to resolve through implementation and focused checks:
 
 Bank export formats and limits quoted in the old conversation have not been independently verified. Validate supported formats against actual, user-provided or safely redacted examples when implementing parsers.
 
+## Confirmed focus for the restart
+
+The user wants to nail the uploading and finance-management experience. Their first question is how much they spend on different things, accounting for expenses they cover for friends who repay their share.
+
+The proposed interaction calls this a shared expense and linked repayment. The user's term was a "deductible based system"; tax deductions are not part of the stated request.
+
 ## Working hypothesis
 
 The first useful experience may be: select a month, review a small number of unresolved money movements, and understand personal spending separately from cash paid and money owed back.
 
-This is a proposal, not a settled scope. `first-trial.md` makes it tangible with synthetic numbers.
+The interactive trial in `prototypes/monthly-flow.html` now makes this proposal tangible. It records the user's agreed share as personal spending immediately, and tracks the friend's share separately as owed back. A repayment settles that balance without changing spending again. This timing choice awaits the user's reaction.
 
 ## Open questions
 
-1. What felt missing or wrong in the earlier approach, prompting this restart?
-2. What is the first real question the user wants Urbanomics to answer?
-3. Which historical preferences still apply, particularly local-only use and monthly cadence?
+1. Does recording the user's share before reimbursement arrives feel right, with unpaid amounts kept visible?
+2. Does the import → review → spending flow feel straightforward when tried?
+3. Which import and recurring-split details should the next iteration cover?
 
 ## Next action and review point
 
-Use the user's response to choose one core workflow. Build a small runnable slice with synthetic data and let the user try it before committing to the broader architecture. If the example reveals that a different question matters more, revise it first.
+Let the user try the synthetic monthly workflow and react. Change the interaction before adding architecture if needed. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by this prototype.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.
