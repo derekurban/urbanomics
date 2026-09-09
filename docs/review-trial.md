@@ -1,5 +1,7 @@
 # Review experience, second trial
 
+This is the second iteration. See [the current inbox trial](inbox-trial.md) for the groups-first workflow, task inbox, avatars, and adjacent dividers.
+
 This trial responds to the user's feedback on import space, incoming-payment purpose, shared collections, people, and adjustable splits. All data is synthetic and all changes remain in memory. Source: `prototypes/review-flow.html`.
 
 ## Current experience

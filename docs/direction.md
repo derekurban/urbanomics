@@ -54,6 +54,21 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ### Latest user feedback and current trial
 
+The third iteration is now `prototypes/inbox-flow.html`. It follows the user's latest direction:
+
+- Import a batch across chequing and savings accounts at two banks, plus Mastercard, and triage known movements.
+- Set up groups before review, with group management also available within review.
+- Use visible choices instead of dropdowns for income/repayment, scope, category, and target selection.
+- Show people as a horizontally scrolling row of avatars with names underneath.
+- Select the sender before choosing an expense or group.
+- Drag expenses between groups, with a select-and-move alternative.
+- Use dividers between share segments. A divider changes only the two adjacent people; other shares stay fixed.
+- Show only unfinished tasks in the left inbox, under Money in and Money out. Completed items leave the list.
+
+This supersedes the previous prototype's proportional redistribution sliders and always-visible list of reviewed items. The sample starts with five routed account files, known rule results, and two paired own-account movements. These are simulated fixtures, not tested bank integrations or a general rule engine. The concrete $200 personal-share case passes both model tests and browser interaction checks.
+
+### Previous iteration
+
 The user liked the starting point and requested these changes:
 
 - Compact import: show included/excluded counts as quiet plus/minus subtext, without previews of row contents or a pre-review monthly breakdown.
@@ -63,7 +78,7 @@ The user liked the starting point and requested these changes:
 - Expense shares should be adjustable with sliders, initially split equally by participant count.
 - Improve spending views later; focus now on import and review.
 
-`prototypes/review-flow.html` is the current trial. The earlier `monthly-flow.html` remains available as design history. The sample demonstrates a $180 payment covering Alex's $60 dinner share and $120 cabin share. Remembering the exact sample sender recognizes Alex on the next transfer, without guessing that transfer's purpose.
+`prototypes/review-flow.html` was the second trial. It and `monthly-flow.html` remain available as design history. The sample demonstrates a $180 payment covering Alex's $60 dinner share and $120 cabin share. Remembering the exact sample sender recognizes Alex on the next transfer, without guessing that transfer's purpose.
 
 The sliders preserve each expense total while redistributing the remaining shares. This interaction, the oldest-expense-first allocation suggestion, and hiding spending until review is complete are assistant design choices to try, not individually confirmed requirements.
 
@@ -73,10 +88,10 @@ The trials record the user's agreed share as personal spending, and track the fr
 
 ## Open questions
 
-1. Does the revised incoming-payment flow make expense and group repayment management feel natural?
-2. Do per-person sliders that redistribute the remainder feel right for two and three people?
+1. Does the third iteration's groups-first workflow and attention-only inbox feel right?
+2. Do adjacent dividers behave as the user expects when several people share an expense?
 3. Should a group repayment fill the oldest outstanding expenses first, or should another allocation default be used?
-4. Later: real file selection, statement formats, persistent storage, recurring arrangements, transfers, and cross-month balances.
+4. Later: real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
 
 ## Next action and review point
 
