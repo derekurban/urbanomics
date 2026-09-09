@@ -18,15 +18,16 @@ These are priorities recovered from an earlier conversation, pending confirmatio
 ## Discovery notes
 
 - [Direction and open questions](docs/direction.md)
-- [Next implementation brief for Fable One](docs/fable-one-brief.md) — independent transaction tags and category insight views; not implemented in the current prototype yet.
+- [Current tags and category views experience](prototypes/insights-flow.html) — the sixth trial. Transactions carry several reusable tags with exact-cent portions; category views are editable insight lenses over chosen tags; events hold whole transactions; repayment review is unchanged. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Implementation brief for Fable 5.1](docs/fable-one-brief.md) — the product direction the sixth trial implements (the filename is historical).
 - [A small example to make the experience concrete](docs/first-trial.md)
-- [Current organization board](prototypes/board-flow.html) — visible category/tag contents, an unassigned queue, estimated tag amounts, event groups, and synchronized group/expense repayment selection. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Previous organization board](prototypes/board-flow.html) — preserved as the fifth design trial, with fixed category ownership of tags.
 - [Previous staged experience](prototypes/staged-flow.html) — preserved as the fourth design trial.
 - [Previous inbox experience](prototypes/inbox-flow.html) — preserved as the third design trial.
 - [Previous review experience](prototypes/review-flow.html) — preserved as the second design trial.
 - [First monthly workflow](prototypes/monthly-flow.html) — preserved as an earlier design trial.
 - [Prototype scope and verification](docs/prototype-notes.md)
 
-Run the current prototype's calculation checks with `node --test tests/board-prototype.test.cjs`. See [the current trial notes](docs/board-trial.md) for scope and verification.
+Run the current prototype's calculation checks with `node --test tests/insights-prototype.test.cjs`. See [the current trial notes](docs/insights-trial.md) for interaction decisions, evidence, and limits. Earlier trials keep their own tests, such as `node --test tests/board-prototype.test.cjs`.
 
 Only synthetic examples belong in this repository. Personal imports, configuration, financial decisions, generated reports, and agent proposals belong under the ignored `private/` directory.

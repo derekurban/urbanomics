@@ -52,19 +52,29 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 ## Working hypothesis
 
-### Latest user feedback and current trial
+### Sixth iteration, the current prototype
 
-The user has clarified the next direction: transactions may have multiple tags, defaulting to equal monetary portions, while categories provide a separate layer for viewing selected tags and organizing insights. The prior assumption that each tag is owned by exactly one category is superseded. Transaction tagging and the organization of insight views should be independent.
+The user clarified the direction: transactions may have multiple tags, defaulting to equal monetary portions, while categories provide a separate layer for viewing selected tags and organizing insights. The prior assumption that each tag is owned by exactly one category is superseded. Transaction tagging and the organization of insight views are independent.
 
-The implementation brief is `docs/fable-one-brief.md`, prepared for Fable One. It proposes reusable, potentially overlapping category views and explicitly prevents double counting their tag allocations. Overlapping views are an assistant design default to try, not a separately confirmed requirement. Category editing must not mutate transaction tags or financial links. No sixth prototype has been implemented yet; the fifth trial below still has fixed category ownership and remains the latest runnable version.
+The implementation brief is `docs/fable-one-brief.md`, prepared for Fable 5.1 (the filename is historical). Fable 5.1 implemented it as `prototypes/insights-flow.html`, delegated through Claude Code at the user's request. The workflow is Import → Organize → Events → Deduct & balance → Insights, with every stage reachable after import.
+
+What the sixth trial does:
+
+- Every expense, incoming payment, and internal transfer carries reusable tags with exact-cent portions that sum to the transaction. One tag takes the full amount; several tags start equal, with the rounding remainder assigned deterministically. Adjacent dividers adjust neighbouring tags at $1 or $0.01 precision, with a visible Split evenly action.
+- Changing tags on a manually adjusted split keeps the user's amounts, starts new tags at $0.00, and shows a review notice instead of silently resetting.
+- Tags are created, renamed, and removed in Organize; removal is blocked while a tag has portions.
+- Category views are created, renamed, given tags, and deleted in Insights. The same tag may sit in several views. Each view shows gross money out and in, money in by financial purpose, internal transfers separately, per-tag contributions, and the transactions with their in-view portions. Combining views counts each portion once and names overlapping tags.
+- Events still hold whole transactions and drive repayment selection with one canonical set of expense IDs. Deduct & balance is unchanged.
+
+Overlapping views remain an assistant design default to try, not a separately confirmed requirement. Net personal cost by tag is still unspecified, so every tag and view total is labelled as a gross flow before repayments and shares. Fable 5.1 implemented the trial through Claude Code; the coordinating assistant reviewed it and fixed mixed-transfer reporting and small display issues. Sixteen current tests pass, including structural and headless UI checks. Browser checks verified category and tag management, manual splits, overlapping totals, drag assignment, independent repayment review, and a 360px layout without horizontal overflow. See `docs/insights-trial.md`.
 
 ### Fifth iteration
 
-The fifth iteration is `prototypes/board-flow.html`. The user asked for visible contents within categories/groups, assigned items leaving the unassigned queue, synchronized group/expense selection, and multiple estimated monetary tags on one purchase.
+The fifth iteration was `prototypes/board-flow.html`, preserved as design history. The user asked for visible contents within categories/groups, assigned items leaving the unassigned queue, synchronized group/expense selection, and multiple estimated monetary tags on one purchase.
 
 The trial uses an unassigned lane beside a two-column board of categories containing tag lanes and transaction portions. Grouping uses a parallel board of event contents. Dropping an unassigned item gives its whole amount to a tag. Editing tags supports rough splits using the existing dollar/cent divider. Moving a tagged portion changes only that portion; category totals sum tag amounts, with incoming/outgoing amounts shown separately. They are organization totals before repayment deductions.
 
-Working taxonomy proposal: each tag belongs to one broad category. Groceries and Dining out belong to Food; Furniture and Household belong to Home. This makes the user's Walmart example one transaction split across categories, while an event group continues to hold whole transactions independently. Category/tag definitions are fixed sample choices in this trial; the user has not finalized the taxonomy.
+Its taxonomy proposal, each tag belonging to one broad category, was superseded by the sixth iteration's independent category views. Category/tag definitions were fixed sample choices in that trial; the user has not finalized a taxonomy.
 
 Repayment selection now stores unique expense IDs. Choosing a group selects all its expense members and updates each child checkmark. Unchecking one child makes the group partially selected; clicking a partially selected group fills its missing members. Deselecting a fully selected group removes those expense members; overlapping groups update their checkmarks accordingly. Group membership alone remains organizational and does not create a repayment allocation.
 
@@ -124,13 +134,14 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Open questions
 
-1. Does the visible contents board make sorting and finding assigned items easier?
-2. Do reusable category views over independently tagged transactions provide the right insight organization? Should those views overlap?
-3. Does the distinction between received-repayment cost and an explicitly agreed share match the user's expectations?
-4. Later: tag/category management, how repayments affect individual tag portions in spending reports, real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
+1. Does the tag board with a Needs tags lane make sorting and finding assigned items easier?
+2. Do reusable category views over independently tagged transactions provide the right insight organization? Should those views overlap, and is the combined once-only count understandable?
+3. Is keeping a manual split with new tags at $0.00 the right reviewable default, or should new tags take an equal share immediately?
+4. Does the distinction between received-repayment cost and an explicitly agreed share match the user's expectations?
+5. Later: how repayments affect individual tag portions in spending reports, merging a tag into another, real multi-file selection, ambiguous account routing, bank-specific formats, persistent storage, recurring arrangements, unmatched transfers, and cross-month balances.
 
 ## Next action and review point
 
-Use `docs/fable-one-brief.md` for the next implementation trial, separating transaction tagging from category insight views. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
+Review `prototypes/insights-flow.html` in the browser: tag Walmart, watch Food and Home, add Groceries to Essentials and combine it with Food, delete a view, then allocate Alex's payment to Mountain weekend with dinner excluded. Use the user's reaction to decide whether the two-layer model is settled before real import work. Actual file selection, preview, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.

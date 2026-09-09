@@ -1,6 +1,6 @@
 # Organization board, fifth trial
 
-Source: `prototypes/board-flow.html`. Synthetic in-memory experience trial; reload resets changes.
+Source: `prototypes/board-flow.html`. Synthetic in-memory experience trial; reload resets changes. Superseded by [the sixth trial](insights-trial.md), which replaces fixed category ownership with independent category views.
 
 ## User direction and proposed interaction
 
