@@ -4,7 +4,7 @@ Updated: 2026-09-09
 
 ## Current request
 
-Create a new `urbanomics` GitHub repository in the current working directory, restart from scratch, and use the wayfind process to establish a useful direction.
+Build an operational Electron app in the existing private `urbanomics` repo. Start with the most recent completed month from supplied CSV samples, support drag/drop multi-account intake, deduplicate into monthly snapshots, archive sources and revisions, and keep personal data local and ignored by Git.
 
 ## Evidence from the earlier conversation
 
@@ -56,11 +56,11 @@ The proposed interaction calls this a shared expense and linked repayment. The u
 
 After the sixth trial, the user said the flow and experience are in a good spot. They value the fun of dragging, dropping, and organizing alongside the ability to inspect and divide transactions into richer structures. They are comfortable deferring cleanup and animations until the full app is built. This settles the overall experience direction; it does not individually confirm every proposed accounting default.
 
-The assistant's proposed next milestone is one real month from CSV import through saved organization and repayments to a traceable spending breakdown. Begin with a chequing account and credit card so own-account payments are exercised, while designing account support for the user's full account set. Preserve original imports, handle repeat and overlapping imports without silent loss or double counting, retain edits across restarts, and support backup/restore. Bank-specific parsing requires representative export headers and redacted sample rows; formats have not been validated yet.
+The assistant's proposed next milestone is one real month from CSV import through saved organization and repayments to a traceable spending breakdown. Begin with a chequing account and credit card so own-account payments are exercised, while designing account support for the user's full account set. Preserve original imports, handle repeat and overlapping imports without silent loss or double counting, retain edits across restarts, and support backup/restore. The first desktop import milestone now validates PC, EQ and Simplii layouts against supplied exports; financial organization and reporting remain to be implemented.
 
 Before net spending by tag is implemented, settle how an expense-level repayment reduces tag portions. A proportional default with an explicit override is a proposal, not a confirmed user decision. Cash paid, personal share, repayments received, and outstanding amounts must remain distinguishable.
 
-Completion evidence for that milestone: import the month, organize a mixed-tag purchase, link a repayment, close and reopen with decisions intact, reimport without changing totals, and trace a category total back to source rows and allocations. The existing prototype only establishes interaction fit and synthetic calculation behavior, not real-data reliability. This milestone is a recommendation in response to the user's next-step question; implementation has not started.
+Completion evidence for that milestone: import the month, organize a mixed-tag purchase, link a repayment, close and reopen with decisions intact, reimport without changing totals, and trace a category total back to source rows and allocations. The existing prototype only establishes interaction fit and synthetic calculation behavior, not real-data reliability. The desktop importer now establishes the ingestion and persistence portion; the complete spending workflow remains the longer-term milestone.
 
 ### Sixth iteration, the current prototype
 
@@ -154,6 +154,10 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 The user has supplied manual CSV exports and asked for monthly copies excluding September. The January–August preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
 
-The user has accepted the overall sixth-trial experience. Move toward the proposed one-real-month milestone above, starting with representative bank export formats and a persistent transaction model. Keep detailed accounting defaults visible for validation during implementation. Actual file selection, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
+The user has accepted the overall sixth-trial experience and requested the first operational desktop import milestone. Electron + React and a SQLite-backed importer are implemented with three bank adapters, explicit account routing, cautious overlap review, source provenance, and immutable monthly revisions. Native Electron integration and synthetic recovery checks are now separate from prototype tests; see `docs/desktop-imports.md`. The latest completed month is loaded locally as a trial, with source-specific results kept private.
+
+“Clear the Dropbox” is implemented as clearing successful app-owned intake copies after archive publication. Downloads originals remain untouched. This is a local intake workflow, not a Dropbox cloud integration. Month boundaries use exported calendar dates pending statement comparison.
+
+Next: let the user try dropping their real exports and inspecting a month. Then implement the accepted tagging, category views and event organization against persistent transaction IDs, followed by transfer and repayment review. A complete real-month spending workflow and backup/restore remain open; the importer does not claim those stages are done.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.

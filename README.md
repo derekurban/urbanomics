@@ -2,7 +2,32 @@
 
 A fresh start on a personal finance app that makes money movements understandable and monthly upkeep manageable.
 
-The project is in discovery, with an interactive experience prototype using synthetic data. Bank imports, storage, and a production financial calculation engine are not implemented yet.
+The first working desktop milestone is implemented: Electron + React, real CSV imports, a local SQLite ledger, and immutable source and monthly snapshot archives. Tagging, repayment allocation, and spending reports still live in the experience prototype and are the next implementation stages.
+
+## Run the desktop app
+
+Requires Node.js 24 and npm. From this directory:
+
+```sh
+npm ci
+npm start
+```
+
+Drop CSV files or a folder onto the Import desk, or use the file/folder buttons. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
+
+The Accounts screen controls the completed-month range. Rows outside that range remain in the original archive. Re-drop the original after extending the range to import earlier or newly completed months. Successful imports leave the intake queue automatically; files in Downloads are never deleted.
+
+Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
+
+Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. None of this is bundled or committed. These local files are not encrypted by the app.
+
+```sh
+npm test                # Import, deduplication, date, and recovery checks
+npm run test:desktop    # Real Electron UI + persistence checks; build first
+npm run package:win     # Windows application in release/win-unpacked/
+```
+
+See [desktop architecture and import behavior](docs/desktop-imports.md) for archive layout, matching rules, limits, and recovery. For live development, run `npm run dev` and `npm run desktop:dev` in separate terminals.
 
 ## Starting direction
 
@@ -13,7 +38,7 @@ The project is in discovery, with an interactive experience prototype using synt
 - Make each reported amount traceable to its transactions and decisions.
 - Keep personal financial data local and outside Git.
 
-These are priorities recovered from an earlier conversation, pending confirmation for this restart. Its proposed architecture is not an implementation specification.
+The overall sixth-trial experience is accepted. Detailed accounting defaults remain subject to validation as those stages are implemented.
 
 ## Discovery notes
 

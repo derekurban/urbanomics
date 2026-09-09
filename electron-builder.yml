@@ -1,0 +1,12 @@
+appId: dev.urbanomics.desktop
+productName: Urbanomics
+directories:
+  output: release
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+asar: true
+win:
+  target: dir
+  signAndEditExecutable: false

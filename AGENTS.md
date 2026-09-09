@@ -4,7 +4,7 @@ Read `README.md` and `docs/direction.md` before implementation. Keep user statem
 
 ## Project boundaries
 
-- Build from scratch. Select a stack after the first useful workflow is agreed.
+- Build from scratch. The accepted first workflow now uses Electron + React (Vite) with SQLite owned by the main process. Read `docs/desktop-imports.md` before changing ingestion or persistence.
 - Start with a small, runnable experience using synthetic data, then extend it based on the user's reaction.
 - The user has accepted the sixth trial's overall flow and playful sorting experience as the implementation direction. Preserve it while building real import and persistence; visual cleanup and animation can follow. Individual accounting defaults still need validation.
 - Keep this file and discovery notes current when the user settles a decision.
