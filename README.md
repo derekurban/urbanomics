@@ -18,6 +18,7 @@ These are priorities recovered from an earlier conversation, pending confirmatio
 ## Discovery notes
 
 - [Direction and open questions](docs/direction.md)
+- [Monthly CSV preparation](docs/csv-preparation.md) — preserve manual exports and prepare monthly input files locally. This is separate from the prototype's simulated import.
 - [Current tags and category views experience](prototypes/insights-flow.html) — the sixth trial. Transactions carry several reusable tags with exact-cent portions; category views are editable insight lenses over chosen tags; events hold whole transactions; repayment review is unchanged. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
 - [Implementation brief for Fable 5.1](docs/fable-one-brief.md) — the product direction the sixth trial implements (the filename is historical).
 - [A small example to make the experience concrete](docs/first-trial.md)

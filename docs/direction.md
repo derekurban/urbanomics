@@ -152,6 +152,8 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Next action and review point
 
+The user has supplied manual CSV exports and asked for monthly copies excluding September. The January–August preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
+
 The user has accepted the overall sixth-trial experience. Move toward the proposed one-real-month milestone above, starting with representative bank export formats and a persistent transaction model. Keep detailed accounting defaults visible for validation during implementation. Actual file selection, durable import, and multi-account coverage remain future work; none has been validated by the prototypes.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.
