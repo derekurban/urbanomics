@@ -202,6 +202,7 @@ export function DataWorkspace({
   onOpenSnapshot,
   onRange,
   onResults,
+  onOrganize,
 }) {
   const [modal, setModal] = useState(null),
     [selected, setSelected] = useState(null),
@@ -515,6 +516,11 @@ export function DataWorkspace({
                 : "s"}
             </p>
             <div className="dr-archive-actions">
+              {data.months.length > 0 && (
+                <button onClick={onOrganize}>
+                  Organize transactions <span>→</span>
+                </button>
+              )}
               <button onClick={() => setModal("history")}>
                 View upload history <span>↗</span>
               </button>

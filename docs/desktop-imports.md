@@ -35,7 +35,7 @@ Every accepted transaction has a persistent random ID. Source observations link 
 - Different accounts never share transaction identities. A known original file routes to its previous account; do not reuse an account's established filename pattern for a different account.
 - Previously accepted rows are never removed by a partial export. Existing snapshots and transaction IDs survive later imports.
 
-Fingerprints include exported date, time, description, type, holder, signed amount, balance where available, and currency. Changed descriptions, dates or balances are not fuzzy-matched in this milestone. Correcting an account assignment after acceptance, merging transactions, mixed match/add counts within a single identical-row candidate, and transfer pairing need a future review workflow. Match decisions and receipts remain local.
+Fingerprints include exported date, time, description, type, holder, signed amount, balance where available, and currency. Changed descriptions, dates or balances are not fuzzy-matched in this milestone. Correcting an account assignment after acceptance, merging transactions, and mixed match/add counts within a single identical-row candidate need a future workflow. Explicit transfer pairing and persistent organization are available in [Review](desktop-review.md). Match decisions and receipts remain local.
 
 ## Account deletion
 

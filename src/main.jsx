@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { DataWorkspace } from "./DataWorkspace.jsx";
 import { AccountSettings } from "./AccountSettings.jsx";
+import { ReviewWorkspace } from "./ReviewWorkspace.jsx";
 import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
 
@@ -152,7 +153,8 @@ function App() {
   function onDrop(event) {
     event.preventDefault();
     setDragging(false);
-    if (!busy) intake(() => api.drop(Array.from(event.dataTransfer.files)));
+    if (!busy && event.dataTransfer.files.length)
+      intake(() => api.drop(Array.from(event.dataTransfer.files)));
   }
   if (!api)
     return (
@@ -183,6 +185,7 @@ function App() {
   };
   const tabs = [
     ["data", "▤", "Snapshots"],
+    ["review", "✓", "Review"],
     ["months", "▦", "Transactions"],
     ["accounts", "◎", "Accounts"],
   ];
@@ -218,6 +221,9 @@ function App() {
               {label}
               {id === "data" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
+              )}
+              {id === "review" && data.reviewPending > 0 && (
+                <b>{data.reviewPending}</b>
               )}
             </button>
           ))}
@@ -340,6 +346,7 @@ function App() {
                 )
               }
               onReview={openJob}
+              onOrganize={() => setPage("review")}
               onDismiss={(id) =>
                 run(
                   () => api.dismiss(id),
@@ -361,6 +368,20 @@ function App() {
               onRange={() => setPage("accounts")}
             />
           )}
+          {page === "review" && (
+            <ReviewWorkspace
+              data={data}
+              run={run}
+              busy={busy}
+              initialMonth={month}
+              onSource={(id) =>
+                api
+                  .detail(id)
+                  .then(setDetail)
+                  .catch((e) => setError(e.message))
+              }
+            />
+          )}
           {page === "months" && (
             <>
               <div className="page-heading split-heading">
@@ -369,6 +390,9 @@ function App() {
                   <h1>{monthName(month)}</h1>
                   <p>Your imported transactions, together in one place.</p>
                 </div>
+                <button className="primary" onClick={() => setPage("review")}>
+                  Review this month
+                </button>
                 <span className="pill">
                   {revision ? "Saved snapshot" : "Current snapshot"}
                 </span>
@@ -400,7 +424,7 @@ function App() {
               </div>
               <div className="table-caption">
                 <span>{shown.length} transactions</span>
-                <span>Bank-export dates · CAD · financial review pending</span>
+                <span>Bank-export dates · CAD · original cash movements</span>
               </div>
               <section className="transaction-table">
                 <table>

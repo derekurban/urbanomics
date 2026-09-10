@@ -1,0 +1,141 @@
+export const sum = (rows) => rows.reduce((s, r) => s + r.cents, 0);
+export const money = (cents) =>
+  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(
+    cents / 100,
+  );
+export function equal(ids, total) {
+  return ids.map((id, i) => ({
+    id,
+    cents: Math.floor(total / ids.length) + (i < total % ids.length ? 1 : 0),
+  }));
+}
+export function retag(previous, ids, total) {
+  if (!ids.length) return [];
+  const oldEqual = equal(
+    previous.map((p) => p.id),
+    total,
+  );
+  if (
+    !previous.length ||
+    previous.every((p, i) => p.cents === oldEqual[i].cents)
+  )
+    return equal(ids, total);
+  const kept = ids.map((id) => ({
+    id,
+    cents: previous.find((p) => p.id === id)?.cents || 0,
+  }));
+  const missing = total - sum(kept),
+    added = ids.filter((id) => !previous.some((p) => p.id === id));
+  const extra = equal(added.length ? added : ids, missing);
+  return kept.map((p) => ({
+    ...p,
+    cents: p.cents + (extra.find((e) => e.id === p.id)?.cents || 0),
+  }));
+}
+export function divider(rows, index, absolute, precision, capacities = {}) {
+  const next = rows.map((p) => ({ ...p })),
+    before = sum(rows.slice(0, index));
+  const a = next[index],
+    b = next[index + 1],
+    combined = a.cents + b.cents;
+  const min = Math.max(0, combined - (capacities[b.id] ?? combined)),
+    max = Math.min(combined, capacities[a.id] ?? combined);
+  a.cents = Math.max(
+    min,
+    Math.min(max, Math.round(absolute / precision) * precision - before),
+  );
+  b.cents = combined - a.cents;
+  return next;
+}
+export function capacity(expense, records, paymentId, personId) {
+  let paid = 0,
+    byPerson = 0;
+  for (const p of records.filter(
+    (t) => t.id !== paymentId && t.review.kind === "repayment",
+  )) {
+    const amount =
+      p.review.allocations.find((a) => a.id === expense.id)?.cents || 0;
+    paid += amount;
+    if (p.review.personId === personId) byPerson += amount;
+  }
+  return Math.max(
+    0,
+    Math.min(
+      Math.abs(expense.amountCents) - paid,
+      expense.review.shares
+        ? (expense.review.shares.find((p) => p.id === personId)?.cents || 0) -
+            byPerson
+        : Infinity,
+    ),
+  );
+}
+export function distribute(total, targets, capacities) {
+  const rows = targets.map((id) => ({ id, cents: 0 }));
+  let remaining = total;
+  let active = rows.filter((p) => capacities[p.id] > 0);
+  while (remaining && active.length) {
+    const allotment = equal(
+      active.map((p) => p.id),
+      remaining,
+    );
+    let used = 0;
+    active.forEach((p, i) => {
+      const amount = Math.min(allotment[i].cents, capacities[p.id] - p.cents);
+      p.cents += amount;
+      used += amount;
+    });
+    if (!used) break;
+    remaining -= used;
+    active = active.filter((p) => p.cents < capacities[p.id]);
+  }
+  return [...rows, { id: "remainder", cents: remaining }];
+}
+export function moveTag(previous, from, to, total) {
+  if (!from)
+    return retag(
+      previous,
+      [...new Set([...previous.map((p) => p.id), to])],
+      total,
+    );
+  if (from === to) return previous;
+  const amount = previous.find((p) => p.id === from)?.cents || 0;
+  const next = previous.filter((p) => p.id !== from).map((p) => ({ ...p }));
+  const target = next.find((p) => p.id === to);
+  if (target) target.cents += amount;
+  else next.push({ id: to, cents: amount });
+  return next;
+}
+export function flowSummary(records, tagIds) {
+  const selected = new Set(tagIds),
+    rows = [];
+  const totals = {
+    out: 0,
+    income: 0,
+    repayment: 0,
+    unassigned: 0,
+    unreviewedIn: 0,
+    unreviewedOut: 0,
+    transferIn: 0,
+    transferOut: 0,
+  };
+  for (const t of records) {
+    const included = t.review.tags.filter((p) => selected.has(p.id));
+    if (!included.length) continue;
+    const amount = sum(included);
+    let bucket;
+    if (!t.review.reviewed || t.review.kind === "unreviewed")
+      bucket = t.amountCents < 0 ? "unreviewedOut" : "unreviewedIn";
+    else if (t.review.kind === "transfer")
+      bucket = t.amountCents < 0 ? "transferOut" : "transferIn";
+    else if (t.review.kind === "expense") bucket = "out";
+    else if (t.review.kind === "income") bucket = "income";
+    else
+      bucket = t.review.allocations.some((p) => p.cents)
+        ? "repayment"
+        : "unassigned";
+    // Mixed repayments stay one separate gross bucket; no inferred attribution by tag.
+    totals[bucket] += amount;
+    rows.push({ ...t, portion: amount, bucket });
+  }
+  return { totals, rows };
+}

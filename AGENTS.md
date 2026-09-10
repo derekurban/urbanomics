@@ -12,6 +12,7 @@ Read `README.md` and `docs/direction.md` before implementation. Keep user statem
 - Keep this file and discovery notes current when the user settles a decision.
 - Upload history leads with the account and color; source files and receipt details expand below compact rows. Account deletion is recoverable: remove it from active views/routing, preserve local ledger/archive/history, and offer Restore. Pending uploads return to assignment; finalizing imports must finish recovery first. Never delete real accounts as part of UI verification.
 - Do not delegate to other agents unless the user explicitly requests it.
+- The Review workspace implements the accepted tag board, independent category views, whole-transaction groups, financial inbox, people/shares, explicit repayments and own-account transfer pairs. Read `docs/desktop-review.md` before changing it. Review records belong to stable ledger IDs in private SQLite; import snapshots remain immutable. Amendments preserve matched IDs/decisions and add pending rows. Categories report gross flows only; do not infer net tag deductions or sender identities. Never classify real rows for testing.
 
 ## Personal financial data
 

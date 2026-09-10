@@ -6,6 +6,12 @@ async function invoke(channel, ...args) {
 }
 contextBridge.exposeInMainWorld("urbanomics", {
   state: () => invoke("workspace:state"),
+  reviewState: () => invoke("review:state"),
+  saveEntity: (kind, values) => invoke("review:entity", kind, values),
+  removeEntity: (id) => invoke("review:entity-remove", id),
+  organize: (changes) => invoke("review:organize", changes),
+  saveFinancial: (id, version, values) =>
+    invoke("review:financial", id, version, values),
   scan: () => invoke("workspace:scan"),
   process: () => invoke("workspace:process"),
   onProgress: (callback) => {

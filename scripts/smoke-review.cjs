@@ -1,0 +1,352 @@
+// Synthetic financial workflow through the actual Electron renderer and IPC.
+const { _electron: electron } = require("playwright");
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const path = require("node:path");
+const { randomUUID } = require("node:crypto");
+const { ImportStore } = require("../electron/imports/store.cjs");
+const { csv } = require("../electron/imports/parsers.cjs");
+const repo = path.resolve(__dirname, ".."),
+  root = path.join(repo, "private", "validation", "review-" + randomUUID()),
+  dataDir = path.join(root, "workspace");
+fs.mkdirSync(root, { recursive: true });
+const store = new ImportStore(dataDir, {
+  now: () => new Date("2026-09-10T12:00:00Z"),
+});
+const account = store.addAccount("Synthetic spending", "pc", "chequing");
+const file = path.join(root, "synthetic_review.csv");
+fs.writeFileSync(
+  file,
+  csv([
+    ["Description", "Type", "Card Holder Name", "Date", "Time", "Amount"],
+    ...[
+      ["Walmart", "-240"],
+      ["Juniper dinner", "-120"],
+      ["Cabin", "-300"],
+      ["Alex e-transfer", "240"],
+      ["Salary", "2000"],
+      ["Transfer out", "-50"],
+      ["Zero record", "0"],
+    ].map(([name, amount], i) => [
+      name,
+      "SYNTHETIC",
+      "SAMPLE PERSON",
+      `08/${15 + i}/2026`,
+      "12:00 AM",
+      amount,
+    ]),
+  ]),
+);
+store.resolveAccount(store.enqueue([file]).ids[0], account, false);
+const savings = store.addAccount("Synthetic savings", "pc", "savings"),
+  second = path.join(root, "synthetic_savings.csv");
+fs.writeFileSync(
+  second,
+  csv([
+    ["Description", "Type", "Card Holder Name", "Date", "Time", "Amount"],
+    [
+      "Transfer in",
+      "SYNTHETIC",
+      "SAMPLE PERSON",
+      "08/20/2026",
+      "12:00 AM",
+      "50",
+    ],
+  ]),
+);
+store.resolveAccount(store.enqueue([second]).ids[0], savings, false);
+store.close();
+const env = { ...process.env, URBANOMICS_DATA_DIR: dataDir };
+delete env.ELECTRON_RUN_AS_NODE;
+let app, page;
+const errors = [];
+async function launch() {
+  app = await electron.launch({ args: [repo], cwd: repo, env });
+  page = await app.firstWindow();
+  page.setDefaultTimeout(10000);
+  page.on("pageerror", (e) => errors.push(e.message));
+  await page.getByRole("heading", { name: "Snapshots", exact: true }).waitFor();
+  await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+  await page.getByRole("heading", { name: "A little order." }).waitFor();
+}
+const state = () => page.evaluate(() => window.urbanomics.reviewState());
+const snap = (name) =>
+  page.screenshot({
+    path: path.join(root, name + ".png"),
+    fullPage: true,
+    animations: "disabled",
+  });
+async function create(kind, name, tags = []) {
+  await page
+    .getByRole("button", {
+      name: kind === "person" ? "+ Person" : `+ New ${kind}`,
+      exact: true,
+    })
+    .first()
+    .click();
+  const dialog = page.getByRole("dialog", { name: `New ${kind}`, exact: true });
+  await dialog.getByLabel("Name", { exact: true }).fill(name);
+  for (const tag of tags)
+    await dialog.getByRole("button", { name: tag, exact: true }).click();
+  await dialog
+    .getByRole("button", { name: `Save ${kind}`, exact: true })
+    .click();
+  await dialog.waitFor({ state: "hidden" });
+}
+const lane = (name) =>
+  page.locator(".rv-lane").filter({
+    has: page.locator(".rv-lane-heading button").filter({ hasText: name }),
+  });
+const card = (where, name) =>
+  where
+    .locator(".rv-card")
+    .filter({ has: page.getByText(name, { exact: true }) });
+async function stage(name) {
+  await page
+    .getByRole("navigation", { name: "Review stages" })
+    .getByRole("button", { name })
+    .click();
+}
+async function selectTask(name) {
+  await page
+    .locator(".rv-task-list")
+    .getByRole("button")
+    .filter({ has: page.getByText(name, { exact: true }) })
+    .click();
+}
+async function saveReview() {
+  await page.getByRole("button", { name: "Save review", exact: true }).click();
+  await page.waitForFunction(
+    () => !document.querySelector("footer")?.textContent.includes("Saving…"),
+  );
+}
+(async () => {
+  try {
+    await launch();
+    await create("tag", "Groceries");
+    await create("tag", "Home");
+    await create("tag", "Dining");
+    const queue = page.locator(".rv-inbox-lane");
+    await card(queue, "Walmart").dragTo(lane("Groceries"));
+    await page.waitForFunction(async () => {
+      const s = await window.urbanomics.reviewState();
+      return (
+        s.records.find((t) => t.description === "Walmart").review.tags
+          .length === 1
+      );
+    });
+    assert.equal(
+      await card(queue, "Walmart").count(),
+      0,
+      "assigned row leaves inbox",
+    );
+    await card(lane("Groceries"), "Walmart")
+      .getByRole("button", { name: "Tags · 1" })
+      .click();
+    let modal = page.getByRole("dialog", {
+      name: "Transaction tags",
+      exact: true,
+    });
+    await modal.getByRole("button", { name: "Home", exact: true }).click();
+    const slider = modal.getByRole("slider", {
+      name: "Divider after Groceries",
+      exact: true,
+    });
+    const track = await slider.boundingBox();
+    await page.mouse.move(
+      track.x + track.width / 2,
+      track.y + track.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(
+      track.x + track.width / 2 + 40,
+      track.y + track.height / 2,
+      { steps: 5 },
+    );
+    await page.mouse.up();
+    const moved = Number(await slider.inputValue());
+    assert.ok(moved > 12000, "dragging a divider moves its boundary");
+    await slider.focus();
+    await slider.press("ArrowRight");
+    assert.equal(Number(await slider.inputValue()), moved + 100);
+    await modal.getByRole("button", { name: "$0.01", exact: true }).click();
+    await modal
+      .getByRole("spinbutton", {
+        name: "Exact divider after Groceries",
+        exact: true,
+      })
+      .fill("140.01");
+    await snap("tag-split");
+    await modal.getByRole("button", { name: "Save tags", exact: true }).click();
+    await modal.waitFor({ state: "hidden" });
+    let s = await state();
+    assert.deepEqual(
+      s.records
+        .find((t) => t.description === "Walmart")
+        .review.tags.map((p) => p.cents),
+      [14001, 9999],
+    );
+    await queue
+      .getByRole("checkbox", { name: "Select Juniper dinner", exact: true })
+      .check();
+    await lane("Dining").locator(".rv-lane-heading button").first().click();
+    await card(lane("Dining"), "Juniper dinner").waitFor();
+    await snap("organize-board");
+    await stage("2 · Groups");
+    await create("group", "Mountain weekend");
+    for (const name of ["Juniper dinner", "Cabin", "Alex e-transfer"])
+      await queue
+        .getByRole("checkbox", { name: `Select ${name}`, exact: true })
+        .check();
+    await lane("Mountain weekend")
+      .locator(".rv-lane-heading button")
+      .first()
+      .click();
+    await card(lane("Mountain weekend"), "Cabin").waitFor();
+    await snap("groups");
+    await stage("3 · Review");
+    await create("person", "Alex");
+    await selectTask("Juniper dinner");
+    await page.getByRole("button", { name: "Expense", exact: true }).click();
+    await page
+      .locator(".rv-people")
+      .getByRole("button", { name: "Al Alex", exact: true })
+      .click();
+    await snap("expense-shares");
+    await saveReview();
+    await page
+      .locator(".rv-task-list")
+      .getByRole("button")
+      .filter({ hasText: "Juniper dinner" })
+      .waitFor({ state: "hidden" });
+    const beforeCabin = (await state()).records.find(
+      (t) => t.description === "Cabin",
+    );
+    await selectTask("Alex e-transfer");
+    await page.getByRole("button", { name: "Repayment", exact: true }).click();
+    await page
+      .locator(".rv-people")
+      .getByRole("button", { name: "Al Alex", exact: true })
+      .click();
+    await page
+      .getByRole("checkbox", {
+        name: "Mountain weekend Group · 2 expenses",
+        exact: true,
+      })
+      .check();
+    assert.equal(
+      await page.locator(".rv-targets input:checked").count(),
+      3,
+      "group and its two canonical expenses selected",
+    );
+    await page
+      .getByRole("spinbutton", {
+        name: "Exact divider after Juniper dinner",
+        exact: true,
+      })
+      .fill("210");
+    await page
+      .getByRole("spinbutton", {
+        name: "Exact divider after Cabin",
+        exact: true,
+      })
+      .fill("150");
+    await snap("repayment");
+    await saveReview();
+    await page
+      .locator(".rv-task-list")
+      .getByRole("button")
+      .filter({ hasText: "Alex e-transfer" })
+      .waitFor({ state: "hidden" });
+    s = await state();
+    const payment = s.records.find((t) => t.description === "Alex e-transfer");
+    assert.equal(payment.review.remainder, 3000);
+    assert.equal(payment.review.allocations.length, 2);
+    assert.deepEqual(
+      s.records.find((t) => t.description === "Cabin"),
+      beforeCabin,
+    );
+    await selectTask("Salary");
+    await page.getByRole("button", { name: "Income", exact: true }).click();
+    await saveReview();
+    await selectTask("Transfer out");
+    await page
+      .getByRole("button", { name: "Own-account transfer", exact: true })
+      .click();
+    await page.getByRole("radio").check();
+    await saveReview();
+    await selectTask("Zero record");
+    await page
+      .getByRole("button", { name: "No cash movement", exact: true })
+      .click();
+    await saveReview();
+    await page
+      .getByRole("checkbox", { name: "Show reviewed", exact: true })
+      .check();
+    await selectTask("Juniper dinner");
+    await page
+      .getByRole("button", { name: "Reopen review", exact: true })
+      .click();
+    await page
+      .locator(".rv-task-list")
+      .getByRole("button")
+      .filter({ hasText: "Juniper dinner" })
+      .waitFor({ state: "hidden" });
+    await stage("4 · Categories");
+    await create("category", "Food", ["Groceries", "Dining"]);
+    await create("category", "Essentials", ["Groceries"]);
+    await page.getByRole("button", { name: "Food", exact: true }).click();
+    await page.getByRole("button", { name: "Essentials", exact: true }).click();
+    assert.equal(await page.locator(".rv-insight-rows > button").count(), 2);
+    assert.match(
+      await page.locator(".rv-flow-summary").textContent(),
+      /260.01/,
+    );
+    await snap("category-views");
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(900, 700),
+    );
+    await stage("1 · Organize");
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+      true,
+      "no horizontal overflow at minimum width",
+    );
+    await snap("narrow-board");
+    await stage("3 · Review");
+    await page
+      .getByRole("checkbox", { name: "Show reviewed", exact: true })
+      .uncheck();
+    await selectTask("Juniper dinner");
+    await snap("narrow-review");
+    assert.equal(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= window.innerWidth,
+      ),
+      true,
+    );
+    const saved = await state();
+    await app.close();
+    app = null;
+    await launch();
+    const restored = await state();
+    assert.deepEqual(restored, saved);
+    assert.deepEqual(errors, []);
+    console.log(
+      JSON.stringify({
+        ok: true,
+        root,
+        records: restored.records.length,
+        entities: restored.entities.length,
+      }),
+    );
+  } finally {
+    if (app) await app.close();
+  }
+})().catch((e) => {
+  console.error(e);
+  console.error("Artifacts:", root);
+  process.exitCode = 1;
+});

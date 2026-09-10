@@ -2,7 +2,7 @@
 
 A fresh start on a personal finance app that makes money movements understandable and monthly upkeep manageable.
 
-The first working desktop milestone is implemented: Electron + React, real CSV imports, a local SQLite ledger, and immutable source and monthly snapshot archives. Tagging, repayment allocation, and spending reports still live in the experience prototype and are the next implementation stages.
+The desktop app combines real CSV imports, a local SQLite ledger, immutable source/monthly archives, and persistent transaction organization and review. The accepted prototypes now connect to imported transactions through a Review workspace.
 
 ## Run the desktop app
 
@@ -27,11 +27,18 @@ The Accounts screen also controls the completed-month range. Rows outside that r
 
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
+Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Create reusable tags and drag transactions into their lanes; assigned items leave Needs tags. Select several rows and click a lane heading for bulk assignment. Edit tags to divide mixed purchases using adjacent dividers with dollar/cent precision. Groups collect whole transactions separately from tags. Category views collect any chosen tags, with overlapping views counted once when combined.
+
+The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Tags, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
+
+Category views show gross tagged cash flows, with unreviewed amounts and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by tag, sender recognition, automatic tagging, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
+
 Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. None of this is bundled or committed. These local files are not encrypted by the app.
 
 ```sh
 npm test                # Import, deduplication, date, and recovery checks
 npm run test:desktop    # Real Electron UI + persistence checks; build first
+npm run test:review     # Synthetic tagging, grouping, financial review and restart checks
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 

@@ -67,6 +67,7 @@ else {
               processing &&
               ![
                 "workspace:state",
+                "review:state",
                 "workspace:transactions",
                 "workspace:detail",
                 "workspace:snapshot",
@@ -81,6 +82,15 @@ else {
           }
         });
       handle("workspace:state", () => store.state());
+      handle("review:state", () => store.review.state());
+      handle("review:entity", (kind, values) =>
+        store.review.entity(kind, values),
+      );
+      handle("review:entity-remove", (id) => store.review.removeEntity(id));
+      handle("review:organize", (changes) => store.review.organize(changes));
+      handle("review:financial", (id, version, values) =>
+        store.review.financial(id, version, values),
+      );
       handle("workspace:ingest", (files) =>
         store.enqueue(files, { stage: true, process: false }),
       );

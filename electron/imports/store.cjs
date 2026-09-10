@@ -3,6 +3,7 @@ const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
+const { ReviewStore } = require("../review/store.cjs");
 const {
   parseExport,
   hash,
@@ -45,7 +46,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 4) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 5) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -96,6 +97,11 @@ class ImportStore {
         throw error;
       }
     }
+    this.db
+      .exec(`BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS review_entities (id TEXT PRIMARY KEY,kind TEXT NOT NULL,name TEXT NOT NULL,color TEXT NOT NULL,tags TEXT NOT NULL);
+      CREATE TABLE IF NOT EXISTS review_items (transaction_id TEXT PRIMARY KEY REFERENCES transactions(id),payload TEXT NOT NULL,version INTEGER NOT NULL,updated TEXT NOT NULL);
+      PRAGMA user_version=5; COMMIT;`);
+    this.review = new ReviewStore(this);
     this.db
       .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")
       .run("startMonth", "2026-01");
@@ -918,6 +924,7 @@ class ImportStore {
       }));
     return {
       root: this.root,
+      reviewPending: this.review.pending(),
       scope,
       lastCompleteMonth: lastCompleteMonth(this.now()),
       lastProcessResult: JSON.parse(

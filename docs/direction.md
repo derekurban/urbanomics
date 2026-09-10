@@ -166,6 +166,6 @@ The user has accepted the overall sixth-trial experience and requested the first
 
 “Clear the Dropbox” is implemented as clearing successful app-owned intake copies after archive publication. Downloads originals remain untouched. This is a local intake workflow, not a Dropbox cloud integration. Month boundaries use exported calendar dates pending statement comparison.
 
-Next: let the user try dropping their real exports and inspecting a month. Then implement the accepted tagging, category views and event organization against persistent transaction IDs, followed by transfer and repayment review. A complete real-month spending workflow and backup/restore remain open; the importer does not claim those stages are done.
+The user has now requested integration of the accepted review prototypes with imported snapshots. The persistent Review workspace implements tags and split portions, independent category views, event groups, a financial task inbox, people and agreed shares, repayment allocation across months, and explicit transfer pairing. Matching amendments preserve decisions. See `docs/desktop-review.md` for implemented behavior and limits. Next: try organizing a real month and refine the workflow from that experience. Net personal spending by tag, sender recognition, automatic tagging, and backup/restore UI remain open.
 
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.
