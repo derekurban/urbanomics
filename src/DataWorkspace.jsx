@@ -93,10 +93,9 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
   return (
     <>
       <div className="dr-modal-intro">
-        <p>Original files and every saved snapshot, kept locally.</p>
+        <p>One snapshot per account, per month.</p>
         <button onClick={() => onReveal("archive")}>Open archive ↗</button>
       </div>
-      <h3>All saved months</h3>
       <div className="dr-archive-months">
         {[...new Set(data.snapshotIndex.map((s) => s.month))]
           .sort()
@@ -105,38 +104,35 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
             <div key={month}>
               <strong>{monthName(month)}</strong>
               {data.accounts.map((account) => {
-                const versions = data.snapshotIndex
+                const saved = data.snapshotIndex
                   .filter(
                     (s) => s.month === month && s.accountId === account.id,
                   )
-                  .sort((a, b) => b.revision - a.revision);
+                  .sort((a, b) => b.revision - a.revision)[0];
                 return (
-                  versions.length > 0 && (
-                    <details key={account.id}>
-                      <summary>
+                  saved && (
+                    <div className="dr-account-snapshot" key={account.id}>
+                      <span className="dr-snapshot-account">
                         <span
                           className="dr-account-dot"
                           style={{ background: account.color }}
                         />
-                        {account.name}{" "}
-                        <small>{versions[0].rowCount} transactions</small>
-                      </summary>
-                      {versions.map((saved) => (
-                        <div className="dr-saved-row" key={saved.id}>
-                          <span>
-                            {when(saved.created)} · {saved.rowCount} rows
-                          </span>
-                          <button onClick={() => onOpenSnapshot(saved)}>
-                            Inspect snapshot
-                          </button>
-                          <button
-                            onClick={() => onReveal("snapshot-file", saved.id)}
-                          >
-                            Show file ↗
-                          </button>
-                        </div>
-                      ))}
-                    </details>
+                        {account.name}
+                      </span>
+                      <small>{saved.rowCount} transactions</small>
+                      <button
+                        aria-label={`Inspect ${account.name}, ${monthName(month)}`}
+                        onClick={() => onOpenSnapshot(saved)}
+                      >
+                        Inspect
+                      </button>
+                      <button
+                        aria-label={`Show file for ${account.name}, ${monthName(month)}`}
+                        onClick={() => onReveal("snapshot-file", saved.id)}
+                      >
+                        Show file ↗
+                      </button>
+                    </div>
                   )
                 );
               })}
@@ -144,34 +140,35 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
           ))}
       </div>
       {!data.snapshotIndex.length && <p>No snapshots yet.</p>}
-      <div className="dr-section-line">
-        <h3>Original files</h3>
-        <span>{data.sources.length} unique files</span>
-      </div>
-      <input
-        className="dr-search"
-        aria-label="Search archive"
-        placeholder="Find an original file…"
-        value={query}
-        onChange={(e) => setQuery(e.target.value)}
-      />
-      {sources.map((source) => (
-        <div className="dr-original" key={source.hash}>
-          <div>
-            <strong>{source.filename}</strong>
-            <small>
-              {size(source.bytes)} · {source.uploads} upload
-              {source.uploads === 1 ? "" : "s"}
-            </small>
+      <details className="dr-originals">
+        <summary>
+          Original files <span>{data.sources.length}</span>
+        </summary>
+        <input
+          className="dr-search"
+          aria-label="Search archive"
+          placeholder="Find an original file…"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+        />
+        {sources.map((source) => (
+          <div className="dr-original" key={source.hash}>
+            <div>
+              <strong>{source.filename}</strong>
+              <small>
+                {size(source.bytes)} · {source.uploads} upload
+                {source.uploads === 1 ? "" : "s"}
+              </small>
+            </div>
+            <button onClick={() => onReveal("source", source.hash)}>
+              Show original ↗
+            </button>
           </div>
-          <button onClick={() => onReveal("source", source.hash)}>
-            Show original ↗
-          </button>
-        </div>
-      ))}
-      {!sources.length && (
-        <p className="dr-empty-copy">No original files found.</p>
-      )}
+        ))}
+        {!sources.length && (
+          <p className="dr-empty-copy">No original files found.</p>
+        )}
+      </details>
     </>
   );
 }
@@ -190,6 +187,7 @@ export function DataWorkspace({
   onReveal,
   onOpenSnapshot,
   onRange,
+  onResults,
 }) {
   const [modal, setModal] = useState(null),
     [selected, setSelected] = useState(null),
@@ -217,9 +215,7 @@ export function DataWorkspace({
     <div className="data-room">
       <header className="dr-heading">
         <div>
-          <div className="eyebrow">YOUR LOCAL DATA DESK</div>
-          <h1>A place for every file.</h1>
-          <p>Drop it in. Sort it out. Keep the history.</p>
+          <h1>Snapshots</h1>
         </div>
         <button className="dr-refresh" disabled={busy} onClick={onScan}>
           <span aria-hidden="true">↻</span> Refresh
@@ -324,7 +320,6 @@ export function DataWorkspace({
           <span>
             <i /> No snapshot
           </span>
-          <small>Activity does not confirm complete month coverage.</small>
         </div>
       </section>
 
@@ -332,7 +327,6 @@ export function DataWorkspace({
         <section className="dr-dropbox" aria-label="Dropbox">
           <div className="dr-section-line">
             <div>
-              <div className="eyebrow">01 / INTAKE</div>
               <h2>
                 Dropbox <span className="dr-count">{data.jobs.length}</span>
               </h2>
@@ -368,8 +362,7 @@ export function DataWorkspace({
                   <span>CSV</span>
                   <b>↓</b>
                 </div>
-                <h3>Fresh files, right here.</h3>
-                <p>Drop your bank CSVs or a folder anywhere on this page.</p>
+                <p>Drop bank CSVs or a folder here.</p>
                 <div className="dr-actions">
                   <button
                     className="primary"
@@ -458,7 +451,6 @@ export function DataWorkspace({
               <span aria-hidden="true">✓</span>
               <div>
                 <strong>Nothing waiting.</strong>
-                <small>Your next upload will land here.</small>
               </div>
             </div>
           )}
@@ -485,109 +477,40 @@ export function DataWorkspace({
               <button onClick={() => setConfirmClear(false)}>Cancel</button>
             </div>
           )}
-          <p className="dr-footnote">
-            PC Financial · EQ Bank · Simplii · CSV files stay local
-          </p>
         </section>
 
         <aside className="dr-desk-aside">
-          <section className="dr-results" aria-label="Processing results">
-            <div className="eyebrow">02 / THE WRAP-UP</div>
-            <h2>
-              {progress
-                ? "A little organizing…"
-                : result
-                  ? result.remaining
-                    ? "A few files need a look."
-                    : "Dropbox, sorted."
-                  : "Ready when you are."}
-            </h2>
-            {progress ? (
-              <p>
-                Archiving originals, matching repeat rows and saving monthly
-                snapshots.
-              </p>
-            ) : result ? (
-              <>
-                <p>
-                  {result.completed} of {result.attempted} files processed
-                  {result.remaining
-                    ? ` · ${result.remaining} left for attention at the end of this run`
-                    : ""}
-                  .
-                </p>
-                <div className="dr-result-numbers">
-                  <div>
-                    <strong>{result.added}</strong>
-                    <span>new rows</span>
-                  </div>
-                  <div>
-                    <strong>{result.matched}</strong>
-                    <span>matched</span>
-                  </div>
-                  <div>
-                    <strong>{result.excluded}</strong>
-                    <span>outside range</span>
-                  </div>
-                </div>
-                <div className="dr-result-months">
-                  {result.months.length ? (
-                    result.months.map((month) => (
-                      <span key={month}>✓ {monthName(month, true)}</span>
-                    ))
-                  ) : (
-                    <span>No monthly snapshots changed.</span>
-                  )}
-                </div>
-                <small className="dr-result-time">
-                  Latest run · {when(result.created)}
-                </small>
-                {result.files.some((file) => file.status !== "complete") && (
-                  <p className="dr-error-text">
-                    Some files need review or archive recovery. See Dropbox for
-                    their current status.
-                  </p>
-                )}
-              </>
-            ) : (
-              <>
-                <div className="dr-resting-dots" aria-hidden="true">
-                  <i />
-                  <i />
-                  <i />
-                </div>
-                <p>
-                  Process your Dropbox and the results land here: new rows,
-                  repeat matches and months saved.
-                </p>
-              </>
-            )}
-            <button className="dr-link" onClick={() => setModal("history")}>
-              View upload history ↗
-            </button>
-          </section>
           <section className="dr-archive-card">
-            <div className="eyebrow">03 / SAFELY FILED</div>
-            <h2>Your local archive</h2>
+            <div className="dr-archive-icon" aria-hidden="true">
+              ▤
+            </div>
+            <h2>Archive & history</h2>
             <p>
-              <strong>{data.sources.length}</strong> original file
+              {data.sources.length} original file
               {data.sources.length === 1 ? "" : "s"} ·{" "}
-              <strong>
-                {
-                  new Set(
-                    data.snapshotIndex.map((s) => `${s.accountId}/${s.month}`),
-                  ).size
-                }
-              </strong>{" "}
-              account-month snapshots
+              {
+                new Set(
+                  data.snapshotIndex.map((s) => `${s.accountId}/${s.month}`),
+                ).size
+              }{" "}
+              snapshot
+              {new Set(
+                data.snapshotIndex.map((s) => `${s.accountId}/${s.month}`),
+              ).size === 1
+                ? ""
+                : "s"}
             </p>
-            <p>Originals and saved history, always within reach.</p>
-            <div className="dr-actions">
-              <button disabled={busy} onClick={() => onReveal("archive")}>
-                Open archive ↗
+            <div className="dr-archive-actions">
+              <button onClick={() => setModal("history")}>
+                View upload history <span>↗</span>
               </button>
-              <button className="dr-link" onClick={() => setModal("archive")}>
-                Inspect files
+              {result && (
+                <button onClick={onResults}>
+                  Latest results <span>↗</span>
+                </button>
+              )}
+              <button disabled={busy} onClick={() => onReveal("archive")}>
+                Open archive folder <span>↗</span>
               </button>
             </div>
           </section>
@@ -633,19 +556,6 @@ export function DataWorkspace({
               >
                 Open month folder ↗
               </button>
-              <details className="dr-previous-saves">
-                <summary>Saved history ({selected.versions.length})</summary>
-                {selected.versions.map((saved) => (
-                  <div className="dr-saved-row" key={saved.id}>
-                    <span>
-                      {when(saved.created)} · {saved.rowCount} rows
-                    </span>
-                    <button onClick={() => inspect(saved)}>
-                      Inspect saved snapshot
-                    </button>
-                  </div>
-                ))}
-              </details>
             </>
           ) : (
             <p>No snapshot has been uploaded for this account and month.</p>

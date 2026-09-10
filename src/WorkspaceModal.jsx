@@ -40,7 +40,7 @@ export function WorkspaceModal({ title, onClose, children }) {
           ×
         </button>
       </header>
-      {children}
+      <div className="workspace-dialog-scroll">{children}</div>
     </dialog>
   );
 }

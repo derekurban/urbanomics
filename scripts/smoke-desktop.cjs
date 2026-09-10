@@ -52,9 +52,7 @@ async function launch() {
   app = await electron.launch({ args: [repo], cwd: repo, env, timeout: 30000 });
   const page = await app.firstWindow();
   page.setDefaultTimeout(10000);
-  await page
-    .getByRole("heading", { name: "A place for every file." })
-    .waitFor();
+  await page.getByRole("heading", { name: "Snapshots", exact: true }).waitFor();
   return page;
 }
 async function select(page) {
@@ -72,6 +70,26 @@ async function select(page) {
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
   await page.evaluate(() => window.urbanomics.setScope("2026-01", "2026-08"));
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  const beforeRefresh = await page.locator(".dr-library").boundingBox();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page
+    .getByRole("status")
+    .filter({ hasText: "Snapshots refreshed." })
+    .waitFor();
+  assert.equal(
+    await page
+      .locator(".snackbar")
+      .evaluate((e) => getComputedStyle(e).position),
+    "fixed",
+  );
+  assert.deepEqual(
+    await page.locator(".dr-library").boundingBox(),
+    beforeRefresh,
+  );
+  await page.screenshot({ path: path.join(root, "refresh-snackbar.png") });
+  await page.getByRole("button", { name: "Dismiss message" }).click();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await select(page);
   await page
     .getByRole("button", { name: "Choose account", exact: true })
@@ -124,6 +142,12 @@ async function select(page) {
     "none",
   );
   await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("dialog", { name: "Processing results" }).waitFor();
+  assert.equal(await page.locator(".dr-confetti i").count(), 24);
+  await page.screenshot({ path: path.join(root, "processing-results.png") });
+  await page
+    .getByRole("button", { name: "Lovely. Done.", exact: true })
+    .click();
   await page.getByText("Nothing waiting.", { exact: true }).waitFor();
   let state = await page.evaluate(() => window.urbanomics.state());
   assert.equal(state.months[0].count, 2);
@@ -170,10 +194,13 @@ async function select(page) {
   await page.getByRole("button", { name: "Close transaction" }).click();
   await page.getByRole("textbox", { name: "Search transactions" }).fill("");
   await page.screenshot({ path: path.join(root, "monthly-snapshot.png") });
-  await page.getByRole("button", { name: "Data", exact: false }).click();
+  await page.getByRole("button", { name: "Snapshots", exact: false }).click();
   await select(page);
   await page
     .getByRole("button", { name: "Process 1 queued file", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Lovely. Done.", exact: true })
     .click();
   await page.waitForFunction(
     async () => (await window.urbanomics.state()).history.length === 2,
@@ -204,6 +231,9 @@ async function select(page) {
   });
   await page
     .getByRole("button", { name: "Process 1 queued file", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Lovely. Done.", exact: true })
     .click();
   await page.waitForFunction(
     async () => (await window.urbanomics.state()).history.length === 3,
@@ -261,9 +291,44 @@ async function select(page) {
     .getByRole("button", { name: "Close Upload history", exact: true })
     .click();
   await page.getByRole("button", { name: /Browse archive/ }).click();
-  await page
-    .getByRole("heading", { name: "Original files", exact: true })
-    .waitFor();
+  assert.equal(await page.locator(".dr-account-snapshot").count(), 1);
+  assert.equal(await page.locator(".dr-archive-months details").count(), 0);
+  assert.equal(
+    await page.getByRole("textbox", { name: "Search archive" }).isVisible(),
+    false,
+  );
+  await page.locator(".dr-originals > summary").click();
+  await page.getByRole("textbox", { name: "Search archive" }).waitFor();
+  assert.equal(
+    await page
+      .getByRole("dialog", { name: "Archive", exact: true })
+      .evaluate((e) => getComputedStyle(e).overflow),
+    "hidden",
+  );
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(900, 640),
+  );
+  const dialogGeometry = await page
+    .getByRole("dialog", { name: "Archive", exact: true })
+    .evaluate((e) => {
+      const scroll = e.querySelector(".workspace-dialog-scroll"),
+        d = e.getBoundingClientRect(),
+        s = scroll.getBoundingClientRect();
+      return {
+        scrolls: scroll.scrollHeight > scroll.clientHeight,
+        inset: d.bottom - s.bottom,
+        headerAboveScroll:
+          e.querySelector("header").getBoundingClientRect().bottom <= s.top,
+      };
+    });
+  assert.equal(dialogGeometry.scrolls, true);
+  assert.ok(dialogGeometry.inset >= 20);
+  assert.equal(dialogGeometry.headerAboveScroll, true);
+  await page.locator(".dr-original").last().scrollIntoViewIfNeeded();
+  await page.screenshot({ path: path.join(root, "archive-scroll.png") });
+  await app.evaluate(({ BrowserWindow }) =>
+    BrowserWindow.getAllWindows()[0].setSize(1360, 900),
+  );
   await page.screenshot({ path: path.join(root, "archive.png") });
   await page
     .getByRole("button", { name: "Close Archive", exact: true })
@@ -300,7 +365,7 @@ async function select(page) {
   assert.equal(state.accounts[0].name, "Everyday card");
   assert.equal(state.accounts[0].color, "#9674B7");
   await page.screenshot({ path: path.join(root, "accounts.png") });
-  await page.getByRole("button", { name: "Data", exact: false }).click();
+  await page.getByRole("button", { name: "Snapshots", exact: false }).click();
   assert.equal(
     await page
       .locator(".dr-cell.filled span")
@@ -375,6 +440,55 @@ async function select(page) {
     .click();
   await page.getByRole("button", { name: "Clear 1 copy", exact: true }).click();
   await page.getByText("Nothing waiting.", { exact: true }).waitFor();
+  // A later partial import updates the one account-month entry while retaining audit files.
+  const topup = path.join(root, "synthetic-card-topup.csv");
+  fs.writeFileSync(
+    topup,
+    csv([
+      ["Description", "Type", "Card Holder Name", "Date", "Time", "Amount"],
+      [
+        "Synthetic top-up purchase",
+        "PURCHASE",
+        "SAMPLE PERSON",
+        "08/20/2026",
+        "12:00 AM",
+        "-25.00",
+      ],
+    ]),
+  );
+  await app.evaluate(({ dialog }, file) => {
+    dialog.showOpenDialog = async () => ({
+      canceled: false,
+      filePaths: [file],
+    });
+  }, topup);
+  await page.getByRole("button", { name: "Upload CSVs" }).click();
+  await page
+    .getByRole("button", { name: "Process 1 queued file", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Lovely. Done.", exact: true })
+    .click();
+  state = await page.evaluate(() => window.urbanomics.state());
+  assert.equal(state.snapshots.length, 2);
+  assert.equal(state.months[0].count, 3);
+  await page.getByRole("button", { name: /Browse archive/ }).click();
+  assert.equal(await page.locator(".dr-account-snapshot").count(), 1);
+  assert.ok(
+    (await page.locator(".dr-account-snapshot").innerText()).includes(
+      "3 transactions",
+    ),
+  );
+  await page
+    .getByRole("button", {
+      name: "Inspect Everyday card, August 2026",
+      exact: true,
+    })
+    .click();
+  await page
+    .getByRole("heading", { name: "August 2026", exact: true })
+    .waitFor();
+  assert.equal(await page.locator("tbody tr").count(), 3);
   await app.close();
   app = null;
   console.log(

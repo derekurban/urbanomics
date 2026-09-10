@@ -593,6 +593,31 @@
   background: #fafbf7;
   color: var(--ink);
   box-shadow: 0 24px 90px #1f34282b;
+  overflow: hidden;
+}
+.workspace-dialog[open] {
+  display: flex;
+  flex-direction: column;
+}
+.workspace-dialog > header {
+  flex: none;
+}
+.workspace-dialog-scroll {
+  overflow: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: 0 10px 2px 2px;
+}
+.workspace-dialog-scroll::-webkit-scrollbar {
+  width: 7px;
+}
+.workspace-dialog-scroll::-webkit-scrollbar-thumb {
+  background: #c4cebd;
+  border-radius: 8px;
+}
+.workspace-dialog-scroll::-webkit-scrollbar-track {
+  background: transparent;
 }
 .workspace-dialog::backdrop {
   background: #19302060;
@@ -883,5 +908,298 @@
   }
   .dr-file-flight i:nth-child(3) {
     left: 83px;
+  }
+}
+
+/* Snapshot desk: compact surfaces and brief, purposeful motion. */
+.dr-heading {
+  margin-bottom: 20px;
+}
+.dr-heading h1 {
+  margin: 0;
+  font-size: 30px;
+}
+.dr-library {
+  padding: 20px 22px 15px;
+  margin-bottom: 18px;
+}
+.dr-calendar {
+  margin: 15px 0 10px;
+}
+.dr-desk-columns {
+  gap: 18px;
+  grid-template-columns: minmax(0, 1.9fr) minmax(235px, 1fr);
+}
+.dr-dropbox,
+.dr-archive-card {
+  padding: 20px;
+}
+.dr-drop-pad {
+  margin-top: 16px;
+  padding: 15px 12px;
+}
+.dr-drop-pad p {
+  margin: 8px 0 13px;
+}
+.dr-drop-illustration {
+  height: 48px;
+}
+.dr-queue-empty {
+  padding-top: 13px;
+}
+.dr-intake-range {
+  padding: 8px 0;
+}
+.dr-archive-card {
+  background: #eff3e9;
+}
+.dr-archive-icon {
+  color: #8ba078;
+  font-size: 30px;
+  margin-bottom: 8px;
+}
+.dr-archive-actions {
+  display: grid;
+  margin-top: 18px;
+}
+.dr-archive-actions button {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 0;
+  border-top: 1px solid #dce4d3;
+  border-radius: 0;
+  background: transparent;
+  padding: 12px 0;
+  text-align: left;
+}
+.dr-archive-actions button span {
+  transition: transform 0.18s;
+}
+.dr-archive-actions button:hover span {
+  transform: translate(2px, -2px);
+}
+.dr-account-snapshot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 0;
+  border-top: 1px solid #e3e9dd;
+}
+.dr-snapshot-account {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.dr-account-snapshot small {
+  color: #7a8774;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.dr-account-snapshot button {
+  font-size: 11px;
+  min-height: 32px;
+  padding: 6px 9px;
+  flex: none;
+}
+.dr-originals {
+  border-top: 1px solid #dce4d5;
+}
+.dr-originals > summary {
+  padding: 16px 0;
+  font-weight: 550;
+}
+.dr-originals > summary span {
+  margin-left: 8px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  background: #e9eee3;
+  font-size: 11px;
+}
+.notice.snackbar {
+  position: fixed;
+  top: 18px;
+  left: calc(50% + 118px);
+  transform: translateX(-50%);
+  z-index: 45;
+  width: max-content;
+  max-width: calc(100vw - 310px);
+  margin: 0;
+  padding: 12px 16px;
+  border: 1px solid #cedbc3;
+  border-radius: 12px;
+  box-shadow: 0 8px 30px #243c2a22;
+  background: #edf4e7;
+  animation: snackbar-in 0.2s ease-out;
+}
+.dr-result-popup {
+  text-align: center;
+  position: relative;
+  overflow: hidden;
+  padding: 12px 22px 8px;
+}
+.dr-result-popup h3 {
+  font-size: 25px;
+  margin: 16px 0 10px;
+}
+.dr-result-emblem {
+  margin: 2px auto 0;
+  display: grid;
+  place-items: center;
+  width: 65px;
+  height: 65px;
+  border-radius: 22px;
+  color: #9b7746;
+  background: #f4ead8;
+  font-size: 32px;
+}
+.dr-result-emblem.complete {
+  color: #61864a;
+  background: #e8f1dc;
+  animation: result-pop 0.5s cubic-bezier(0.2, 1.5, 0.5, 1);
+}
+.dr-result-popup .dr-result-numbers {
+  margin: 20px 0 0;
+  padding: 20px;
+  background: #f0f4eb;
+  border-radius: 12px;
+}
+.dr-result-popup .dr-result-months {
+  border: 0;
+  justify-content: center;
+}
+.dr-result-popup .primary {
+  margin: 22px 0 8px;
+  min-width: 150px;
+}
+.dr-confetti {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.dr-confetti i {
+  position: absolute;
+  top: -15px;
+  left: var(--x);
+  width: 6px;
+  height: 11px;
+  border-radius: 2px;
+  background: var(--confetti-color);
+  opacity: 0;
+  animation: confetti-fall 1.6s var(--delay) ease-out both;
+}
+.dr-library,
+.dr-dropbox,
+.dr-archive-card {
+  animation: desk-arrive 0.28s ease-out backwards;
+}
+.dr-dropbox {
+  animation-delay: 0.04s;
+}
+.dr-archive-card {
+  animation-delay: 0.08s;
+}
+.dr-cell.filled span {
+  animation: cell-arrive 0.3s ease-out;
+}
+.dr-queue-item {
+  animation: desk-arrive 0.2s ease-out;
+}
+.dr-drop-illustration b {
+  animation: drop-bob 2.3s ease-in-out 2;
+}
+@keyframes snackbar-in {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes desk-arrive {
+  from {
+    opacity: 0;
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes cell-arrive {
+  from {
+    opacity: 0.4;
+    scale: 0.75;
+  }
+  to {
+    opacity: 1;
+    scale: 1;
+  }
+}
+@keyframes result-pop {
+  from {
+    scale: 0.7;
+    rotate: -12deg;
+  }
+  to {
+    scale: 1;
+    rotate: 0deg;
+  }
+}
+@keyframes confetti-fall {
+  0% {
+    opacity: 0;
+    transform: translateY(0) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  70% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(310px) rotate(var(--turn));
+  }
+}
+@keyframes drop-bob {
+  50% {
+    transform: translateY(3px);
+  }
+}
+@media (max-width: 1100px) {
+  .notice.snackbar {
+    left: calc(50% + 102px);
+    max-width: calc(100vw - 250px);
+  }
+}
+@media (max-width: 1000px) {
+  .dr-desk-columns {
+    grid-template-columns: minmax(0, 1.5fr) minmax(210px, 1fr);
+  }
+  .dr-dropbox,
+  .dr-archive-card {
+    padding: 16px;
+  }
+  .dr-desk-aside {
+    display: block;
+  }
+  .dr-account-snapshot {
+    gap: 8px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .data-room *,
+  .workspace-dialog *,
+  .notice.snackbar {
+    animation: none !important;
+    transition: none !important;
+  }
+  .dr-confetti {
+    display: none;
   }
 }

@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { DataWorkspace } from "./DataWorkspace.jsx";
 import { AccountSettings } from "./AccountSettings.jsx";
+import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
 
 const api = window.urbanomics;
@@ -34,10 +35,16 @@ function App() {
     [busy, setBusy] = useState(false);
   const running = useRef(false);
   const [progress, setProgress] = useState(null);
+  const [processResult, setProcessResult] = useState(null);
   useEffect(() => api?.onProgress(setProgress), []);
   const [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
     [dragging, setDragging] = useState(false);
+  useEffect(() => {
+    if (!notice) return;
+    const timer = setTimeout(() => setNotice(""), 5000);
+    return () => clearTimeout(timer);
+  }, [notice]);
   const [month, setMonth] = useState(""),
     [rows, setRows] = useState([]),
     [search, setSearch] = useState(""),
@@ -116,6 +123,7 @@ function App() {
     running.current = true;
     setBusy(true);
     setError("");
+    setNotice("");
     try {
       const result = await fn();
       await refresh();
@@ -168,14 +176,13 @@ function App() {
       (!accountFilter || r.accountId === accountFilter) &&
       `${r.description} ${r.type}`.toLowerCase().includes(search.toLowerCase()),
   );
-  const snapshots = data.snapshots.filter((s) => s.month === month);
   const imports = data.history;
   const openJob = (job) => {
     setSelectedJob(job.id);
     setChoices({});
   };
   const tabs = [
-    ["data", "▤", "Data"],
+    ["data", "▤", "Snapshots"],
     ["months", "▦", "Transactions"],
     ["accounts", "◎", "Accounts"],
   ];
@@ -269,7 +276,7 @@ function App() {
             </div>
           )}
           {notice && (
-            <div className="notice" role="status">
+            <div className="notice snackbar" role="status" aria-live="polite">
               {notice}
               <button
                 aria-label="Dismiss message"
@@ -279,11 +286,23 @@ function App() {
               </button>
             </div>
           )}
+          {processResult && (
+            <ProcessingResults
+              {...processResult}
+              onClose={() => setProcessResult(null)}
+            />
+          )}
           {page === "data" && (
             <DataWorkspace
               data={data}
               busy={busy}
               progress={progress}
+              onResults={() =>
+                setProcessResult({
+                  result: data.lastProcessResult,
+                  celebrate: false,
+                })
+              }
               onUpload={() => intake(() => api.choose(false))}
               onChooseFolder={() => intake(() => api.choose(true))}
               onScan={() =>
@@ -292,33 +311,26 @@ function App() {
                   (r) =>
                     r.skipped
                       ? "Dropbox refreshed. Non-CSV, oversized items and subfolders were left in place."
-                      : "Dropbox refreshed.",
+                      : "Snapshots refreshed.",
                 )
               }
-              onProcess={() =>
-                run(
-                  async () => {
-                    setProgress({
-                      done: 0,
-                      total: data.jobs.filter((j) => j.status === "queued")
-                        .length,
-                      filename: null,
-                    });
-                    try {
-                      return await api.process();
-                    } finally {
-                      setProgress(null);
-                    }
-                  },
-                  (r) =>
-                    r.attempted
-                      ? r.completed +
-                        " of " +
-                        r.attempted +
-                        " ready uploads processed. Any remaining items need attention."
-                      : "No ready uploads. Assign accounts or review waiting files.",
-                )
-              }
+              onProcess={async () => {
+                const result = await run(async () => {
+                  setProgress({
+                    done: 0,
+                    total: data.jobs.filter((j) => j.status === "queued")
+                      .length,
+                    filename: null,
+                  });
+                  try {
+                    return await api.process();
+                  } finally {
+                    setProgress(null);
+                  }
+                });
+                if (result !== false)
+                  setProcessResult({ result, celebrate: true });
+              }}
               onClear={() =>
                 run(
                   () => api.clear(),
@@ -358,9 +370,7 @@ function App() {
                   <p>Your imported transactions, together in one place.</p>
                 </div>
                 <span className="pill">
-                  {revision
-                    ? `Archived revision ${revision.revision}`
-                    : `Latest snapshot · r${snapshots[0]?.revision || 0}`}
+                  {revision ? "Saved snapshot" : "Current snapshot"}
                 </span>
               </div>
               <div className="month-toolbar">
@@ -464,31 +474,11 @@ function App() {
                 review. Bank exports may show different dates from your local
                 banking screen.
               </p>
-              <div className="section-heading">
-                <h2>Snapshot history</h2>
-                {revision && (
-                  <button onClick={() => setRevision(null)}>
-                    Back to latest
-                  </button>
-                )}
-              </div>
-              <div className="revision-list">
-                {snapshots.map((s) => (
-                  <button
-                    key={s.id}
-                    className={revision?.id === s.id ? "selected" : ""}
-                    onClick={() =>
-                      api
-                        .snapshot(s.id)
-                        .then(setRevision)
-                        .catch((e) => setError(e.message))
-                    }
-                  >
-                    Revision {s.revision}
-                    <small>{new Date(s.created).toLocaleString()}</small>
-                  </button>
-                ))}
-              </div>
+              {revision && (
+                <button onClick={() => setRevision(null)}>
+                  Back to current transactions
+                </button>
+              )}
             </>
           )}
           {page === "accounts" && (
