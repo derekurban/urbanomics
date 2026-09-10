@@ -10,6 +10,7 @@ Read `README.md` and `docs/direction.md` before implementation. Keep user statem
 - The accepted Data layout unifies Dropbox intake, upload history, archived originals and an account-by-month snapshot map. Uploads stage before explicit processing. Account version counts must exclude saves that changed only another account. Keep real folder actions and cleanup confined to app-owned intake copies.
 - The Snapshots page (formerly Data) stays compact with Refresh in an overlay snackbar, a calendar of the last 12 completed months and processing results in a playful modal. Show only one current snapshot per account/month; older immutable saves remain audit files. Archive account rows stay expanded and original uploads are collapsed. Dialogs scroll inside an inset frame. Account-colored squares show snapshot presence without revision labels; history and archive inspection use modals. Accounts have editable names, colors and tested filename-prefix regex rules. Conflicting matches require review.
 - Keep this file and discovery notes current when the user settles a decision.
+- Upload history leads with the account and color; source files and receipt details expand below compact rows. Account deletion is recoverable: remove it from active views/routing, preserve local ledger/archive/history, and offer Restore. Pending uploads return to assignment; finalizing imports must finish recovery first. Never delete real accounts as part of UI verification.
 - Do not delegate to other agents unless the user explicitly requests it.
 
 ## Personal financial data

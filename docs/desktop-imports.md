@@ -37,6 +37,12 @@ Every accepted transaction has a persistent random ID. Source observations link 
 
 Fingerprints include exported date, time, description, type, holder, signed amount, balance where available, and currency. Changed descriptions, dates or balances are not fuzzy-matched in this milestone. Correcting an account assignment after acceptance, merging transactions, mixed match/add counts within a single identical-row candidate, and transfer pairing need a future review workflow. Match decisions and receipts remain local.
 
+## Account deletion
+
+Schema version 4 adds a nullable deletion timestamp. Deleting an account is an atomic, recoverable removal from active account lists, current transaction queries, monthly navigation and filename routing. Ledger rows, source observations, import receipts and immutable snapshots remain unchanged. Archive inspection includes deleted accounts with a label, and upload history keeps their name/color. Account cards offer Restore under Deleted accounts. Restoring revives the original identity, ledger rows and routing rules; it does not reimport or duplicate transactions.
+
+Waiting uploads are unassigned in the same transaction as deletion and need review. A known original from a deleted account does not fall through to another account’s prefix rule. A finalizing import prevents deletion until archive recovery finishes. No source or snapshot files are deleted, and this feature does not promise permanent erasure.
+
 ## Storage and recovery
 
 ```text

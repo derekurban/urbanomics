@@ -286,6 +286,36 @@ async function select(page) {
   await page
     .getByRole("heading", { name: "Upload history", exact: true })
     .waitFor();
+  const historySearch = page.getByRole("textbox", {
+    name: "Search upload history",
+  });
+  await historySearch.fill("Synthetic Mastercard");
+  await historySearch.focus();
+  assert.equal(await page.locator(".dr-history-entry").count(), 3);
+  assert.equal(
+    await page.locator(".dr-history-entry summary strong").first().innerText(),
+    "Synthetic Mastercard",
+  );
+  assert.equal(
+    await page.locator(".dr-upload-filename").first().isVisible(),
+    false,
+  );
+  const focusRoom = await historySearch.evaluate((input) => {
+    const scroller = input.closest(".workspace-dialog-scroll"),
+      r = input.getBoundingClientRect(),
+      s = scroller.getBoundingClientRect();
+    const style = getComputedStyle(input),
+      ring = parseFloat(style.outlineWidth) + parseFloat(style.outlineOffset);
+    return { left: r.left - s.left, top: r.top - s.top, ring };
+  });
+  assert.ok(focusRoom.left >= focusRoom.ring);
+  assert.ok(focusRoom.top >= focusRoom.ring);
+  await page.screenshot({ path: path.join(root, "history-focused.png") });
+  await page.locator(".dr-history-entry summary").first().click();
+  await page.locator(".dr-upload-filename").first().waitFor();
+  await historySearch.fill("missing account");
+  await page.getByText("No uploads found.", { exact: true }).waitFor();
+  await historySearch.fill("");
   await page.screenshot({ path: path.join(root, "upload-history.png") });
   await page
     .getByRole("button", { name: "Close Upload history", exact: true })
@@ -489,6 +519,55 @@ async function select(page) {
     .getByRole("heading", { name: "August 2026", exact: true })
     .waitFor();
   assert.equal(await page.locator("tbody tr").count(), 3);
+  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Delete Everyday card", exact: true })
+    .click();
+  await page
+    .getByRole("dialog", { name: "Delete account", exact: true })
+    .waitFor();
+  await page.getByRole("button", { name: "Keep account", exact: true }).click();
+  assert.equal(
+    (await page.evaluate(() => window.urbanomics.state())).accounts.length,
+    1,
+  );
+  await page
+    .getByRole("button", { name: "Delete Everyday card", exact: true })
+    .click();
+  await page.screenshot({ path: path.join(root, "delete-account.png") });
+  await page
+    .getByRole("button", { name: "Delete account", exact: true })
+    .click();
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  state = await page.evaluate(() => window.urbanomics.state());
+  assert.equal(state.accounts.length, 0);
+  assert.equal(state.months.length, 0);
+  assert.equal(state.deletedAccounts.length, 1);
+  await page.getByRole("button", { name: "Snapshots", exact: true }).click();
+  assert.equal(await page.locator(".dr-cell").count(), 0);
+  await page.getByRole("button", { name: /Browse archive/ }).click();
+  assert.ok(
+    (await page.locator(".dr-account-snapshot").innerText()).includes(
+      "Everyday card (deleted)",
+    ),
+  );
+  await page
+    .getByRole("button", { name: "Close Archive", exact: true })
+    .click();
+  await app.close();
+  page = await launch();
+  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  await page.locator(".deleted-accounts > summary").click();
+  await page
+    .getByRole("button", { name: "Restore Everyday card", exact: true })
+    .click();
+  await page
+    .getByRole("button", { name: "Edit Everyday card", exact: true })
+    .waitFor();
+  state = await page.evaluate(() => window.urbanomics.state());
+  assert.equal(state.accounts.length, 1);
+  assert.equal(state.months[0].count, 3);
+  assert.equal(state.snapshots.length, 2);
   await app.close();
   app = null;
   console.log(

@@ -123,6 +123,8 @@ else {
       handle("workspace:account-update", (id, values) =>
         store.updateAccount(id, values),
       );
+      handle("workspace:account-delete", (id) => store.deleteAccount(id));
+      handle("workspace:account-restore", (id) => store.restoreAccount(id));
       handle("workspace:prefix-test", (pattern, filename) =>
         store.testPrefix(pattern, filename),
       );

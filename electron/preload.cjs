@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld("urbanomics", {
   addAccount: (name, schema, kind, options) =>
     invoke("workspace:account", name, schema, kind, options),
   updateAccount: (id, values) => invoke("workspace:account-update", id, values),
+  deleteAccount: (id) => invoke("workspace:account-delete", id),
+  restoreAccount: (id) => invoke("workspace:account-restore", id),
   testPrefix: (pattern, filename) =>
     invoke("workspace:prefix-test", pattern, filename),
   route: (id, account, remember) =>

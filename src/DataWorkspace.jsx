@@ -41,43 +41,54 @@ function recentMonths(end) {
 function History({ data, onReveal }) {
   const [query, setQuery] = useState("");
   const entries = data.activity.filter((item) =>
-    `${item.filename} ${item.account || ""} ${statusName[item.status]}`
+    `${item.account || "Unassigned"} ${item.filename} ${statusName[item.status]} ${item.accountDeleted ? "deleted account" : ""}`
       .toLowerCase()
       .includes(query.toLowerCase()),
   );
   return (
     <>
-      <p>Every upload, including repeats and removed intake copies.</p>
       <input
         className="dr-search"
         aria-label="Search upload history"
-        placeholder="Search files, accounts or status…"
+        placeholder="Search accounts, files or status…"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div className="dr-history-list">
+      <div className="dr-compact-history">
         {entries.map((item) => (
-          <article className="dr-history-item" key={item.id}>
-            <div>
-              <strong>{item.filename}</strong>
-              <small>
-                {item.account || "Unassigned"} · {when(item.created)}
-              </small>
+          <details className="dr-history-entry" key={item.id}>
+            <summary>
+              <span className="dr-history-account">
+                <i
+                  style={{ background: item.accountColor || "#9CA797" }}
+                  aria-hidden="true"
+                />
+                <span>
+                  <strong>{item.account || "Unassigned"}</strong>
+                  {item.accountDeleted && <small>Deleted account</small>}
+                </span>
+              </span>
+              <time dateTime={item.created}>{when(item.created)}</time>
+              <span className={`dr-status ${item.status}`}>
+                {statusName[item.status]}
+              </span>
+            </summary>
+            <div className="dr-upload-details">
+              <div>
+                <span className="dr-upload-filename">{item.filename}</span>
+                {item.result && (
+                  <p>
+                    {item.result.added} added · {item.result.matched} matched ·{" "}
+                    {item.result.excluded} outside range
+                  </p>
+                )}
+                {item.error && <p className="dr-error-text">{item.error}</p>}
+              </div>
+              <button onClick={() => onReveal("source", item.source_hash)}>
+                Show original ↗
+              </button>
             </div>
-            <span className={`dr-status ${item.status}`}>
-              {statusName[item.status]}
-            </span>
-            {item.result && (
-              <p>
-                {item.result.added} added · {item.result.matched} matched ·{" "}
-                {item.result.excluded} outside range
-              </p>
-            )}
-            {item.error && <p className="dr-error-text">{item.error}</p>}
-            <button onClick={() => onReveal("source", item.source_hash)}>
-              Show original ↗
-            </button>
-          </article>
+          </details>
         ))}
       </div>
       {!entries.length && <p className="dr-empty-copy">No uploads found.</p>}
@@ -103,39 +114,42 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
           .map((month) => (
             <div key={month}>
               <strong>{monthName(month)}</strong>
-              {data.accounts.map((account) => {
-                const saved = data.snapshotIndex
-                  .filter(
-                    (s) => s.month === month && s.accountId === account.id,
-                  )
-                  .sort((a, b) => b.revision - a.revision)[0];
-                return (
-                  saved && (
-                    <div className="dr-account-snapshot" key={account.id}>
-                      <span className="dr-snapshot-account">
-                        <span
-                          className="dr-account-dot"
-                          style={{ background: account.color }}
-                        />
-                        {account.name}
-                      </span>
-                      <small>{saved.rowCount} transactions</small>
-                      <button
-                        aria-label={`Inspect ${account.name}, ${monthName(month)}`}
-                        onClick={() => onOpenSnapshot(saved)}
-                      >
-                        Inspect
-                      </button>
-                      <button
-                        aria-label={`Show file for ${account.name}, ${monthName(month)}`}
-                        onClick={() => onReveal("snapshot-file", saved.id)}
-                      >
-                        Show file ↗
-                      </button>
-                    </div>
-                  )
-                );
-              })}
+              {[...data.accounts, ...(data.deletedAccounts || [])].map(
+                (account) => {
+                  const saved = data.snapshotIndex
+                    .filter(
+                      (s) => s.month === month && s.accountId === account.id,
+                    )
+                    .sort((a, b) => b.revision - a.revision)[0];
+                  return (
+                    saved && (
+                      <div className="dr-account-snapshot" key={account.id}>
+                        <span className="dr-snapshot-account">
+                          <span
+                            className="dr-account-dot"
+                            style={{ background: account.color }}
+                          />
+                          {account.name}
+                          {account.deletedAt ? " (deleted)" : ""}
+                        </span>
+                        <small>{saved.rowCount} transactions</small>
+                        <button
+                          aria-label={`Inspect ${account.name}, ${monthName(month)}`}
+                          onClick={() => onOpenSnapshot(saved)}
+                        >
+                          Inspect
+                        </button>
+                        <button
+                          aria-label={`Show file for ${account.name}, ${monthName(month)}`}
+                          onClick={() => onReveal("snapshot-file", saved.id)}
+                        >
+                          Show file ↗
+                        </button>
+                      </div>
+                    )
+                  );
+                },
+              )}
             </div>
           ))}
       </div>

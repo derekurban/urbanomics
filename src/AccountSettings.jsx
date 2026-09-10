@@ -216,6 +216,8 @@ function AccountEditor({ account, busy, run, onClose }) {
 
 export function AccountSettings({ data, busy, run }) {
   const [editing, setEditing] = useState(null);
+  const [deleting, setDeleting] = useState(null),
+    [deleteError, setDeleteError] = useState("");
   return (
     <>
       <div className="account-section-heading">
@@ -255,6 +257,17 @@ export function AccountSettings({ data, busy, run }) {
             >
               Edit account
             </button>
+            <button
+              className="account-delete-link"
+              disabled={busy}
+              aria-label={`Delete ${account.name}`}
+              onClick={() => {
+                setDeleteError("");
+                setDeleting(account);
+              }}
+            >
+              Delete
+            </button>
           </article>
         ))}
       </div>
@@ -262,6 +275,83 @@ export function AccountSettings({ data, busy, run }) {
         <p className="empty-text">
           Add your accounts now, or assign them when you upload an export.
         </p>
+      )}
+      {!!data.deletedAccounts?.length && (
+        <details className="deleted-accounts">
+          <summary>Deleted accounts ({data.deletedAccounts.length})</summary>
+          {data.deletedAccounts.map((account) => (
+            <div key={account.id}>
+              <span>
+                <i
+                  className="dr-account-dot"
+                  style={{ background: account.color }}
+                />
+                {account.name}
+              </span>
+              <button
+                disabled={busy}
+                aria-label={`Restore ${account.name}`}
+                onClick={() =>
+                  run(
+                    () => api.restoreAccount(account.id),
+                    "Account restored with its imported transactions and rules.",
+                  )
+                }
+              >
+                Restore
+              </button>
+            </div>
+          ))}
+        </details>
+      )}
+      {deleting && (
+        <WorkspaceModal
+          title="Delete account"
+          onClose={() => setDeleting(null)}
+        >
+          <div className="account-delete-confirm">
+            <h3>{deleting.name}</h3>
+            <p>
+              This removes the account and its {deleting.transactionCount}{" "}
+              imported transaction{deleting.transactionCount === 1 ? "" : "s"}{" "}
+              from active views and stops matching new uploads to it.
+            </p>
+            <p>
+              Original files, snapshots and upload history stay in your local
+              archive. You can restore the account from Deleted accounts.
+            </p>
+            {data.jobs.some((job) => job.accountId === deleting.id) && (
+              <p>Waiting uploads will need an account selected again.</p>
+            )}
+            {deleteError && (
+              <p role="alert" className="dr-error-text">
+                {deleteError}
+              </p>
+            )}
+            <footer>
+              <button disabled={busy} onClick={() => setDeleting(null)}>
+                Keep account
+              </button>
+              <button
+                className="danger"
+                disabled={busy}
+                onClick={async () => {
+                  const result = await run(async () => {
+                    try {
+                      return await api.deleteAccount(deleting.id);
+                    } catch (error) {
+                      setDeleteError(error.message);
+                      throw error;
+                    }
+                  }, "Account deleted. You can restore it from Deleted accounts.");
+                  if (result !== false) setDeleting(null);
+                }}
+              >
+                Delete account
+              </button>
+            </footer>
+          </div>
+        </WorkspaceModal>
       )}
       {editing && (
         <AccountEditor

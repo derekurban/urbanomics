@@ -125,12 +125,12 @@ test("version 2 accounts migrate without changing the ledger or immutable snapsh
   const before = ctx.store.db.prepare("SELECT * FROM snapshots").all();
   const ids = ctx.store.transactions("2026-08").map((tx) => tx.id);
   ctx.store.db.exec(
-    "ALTER TABLE accounts DROP COLUMN prefixRegex; ALTER TABLE accounts DROP COLUMN color; PRAGMA user_version=2",
+    "ALTER TABLE accounts DROP COLUMN prefixRegex; ALTER TABLE accounts DROP COLUMN color; ALTER TABLE accounts DROP COLUMN deletedAt; PRAGMA user_version=2",
   );
   ctx.reopen();
   assert.equal(
     ctx.store.db.prepare("PRAGMA user_version").get().user_version,
-    3,
+    4,
   );
   assert.deepEqual(
     ctx.store.db.prepare("SELECT * FROM snapshots").all(),
@@ -230,6 +230,90 @@ function setup(t) {
     },
   };
 }
+
+test("deleting an account hides active rows, stops routing and preserves audit data across restart and restore", (t) => {
+  const ctx = setup(t),
+    { store, account, file, ingest } = ctx;
+  store.updateAccount(account, {
+    name: "My card",
+    prefixRegex: "card",
+    color: "#427A64",
+  });
+  const original = file("card_august", [row()]);
+  ingest(original, account, true);
+  const ledger = store.db.prepare("SELECT * FROM transactions").all();
+  const snapshots = store.db.prepare("SELECT * FROM snapshots").all();
+  const pending = store.enqueue([file("card_next", [row("Next purchase")])], {
+    stage: true,
+    process: false,
+  }).ids[0];
+  assert.equal(store.job(pending).status, "queued");
+  store.deleteAccount(account);
+  assert.equal(store.state().accounts.length, 0);
+  assert.equal(store.state().deletedAccounts[0].id, account);
+  assert.equal(store.state().months.length, 0);
+  assert.equal(store.transactions("2026-08").length, 0);
+  assert.equal(store.state().rules.length, 0);
+  assert.equal(store.job(pending).status, "routing");
+  assert.equal(store.job(pending).account_id, null);
+  assert.deepEqual(
+    store.db.prepare("SELECT * FROM transactions").all(),
+    ledger,
+  );
+  assert.deepEqual(
+    store.db.prepare("SELECT * FROM snapshots").all(),
+    snapshots,
+  );
+  assert.equal(store.state().history[0].account, "My card");
+  assert.ok(
+    store.state().activity.find((j) => j.status === "complete").accountDeleted,
+  );
+  assert.throws(
+    () => store.resolveAccount(pending, account),
+    /Choose an account/,
+  );
+  // A known original from a deleted account cannot fall through to another prefix.
+  const other = store.addAccount("Other card", "pc", "credit", {
+    prefixRegex: "card",
+    color: "#9674B7",
+  });
+  const repeated = store.enqueue([original], { stage: true, process: false })
+    .ids[0];
+  assert.equal(store.job(repeated).status, "routing");
+  ctx.reopen();
+  assert.equal(ctx.store.state().deletedAccounts.length, 1);
+  ctx.store.deleteAccount(other);
+  ctx.store.restoreAccount(account);
+  assert.equal(ctx.store.transactions("2026-08")[0].id, ledger[0].id);
+  assert.equal(ctx.store.state().months[0].count, 1);
+  assert.equal(ctx.store.job(repeated).account_id, account);
+  ctx.store.process(repeated);
+  assert.equal(JSON.parse(ctx.store.job(repeated).result).matched, 1);
+  assert.deepEqual(
+    ctx.store.db.prepare("SELECT * FROM snapshots").all(),
+    snapshots,
+  );
+});
+
+test("an empty account can be deleted and restored, and finalizing imports protect deletion", (t) => {
+  const { store, account, file, ingest } = setup(t);
+  store.deleteAccount(account);
+  assert.equal(store.state().accounts.length, 0);
+  store.restoreAccount(account);
+  assert.equal(store.state().accounts.length, 1);
+  const materialize = store.materialize;
+  store.materialize = () => {
+    throw new Error("Synthetic disk failure");
+  };
+  const id = ingest(file("unfinished", [row()]));
+  assert.equal(store.job(id).status, "finalizing");
+  assert.throws(() => store.deleteAccount(account), /Finish archive recovery/);
+  assert.equal(store.state().accounts.length, 1);
+  store.materialize = materialize;
+  store.recover();
+  store.deleteAccount(account);
+  assert.equal(store.state().accounts.length, 0);
+});
 test("all supported layouts preserve exact cents and exported calendar dates", () => {
   assert.equal(cents("-$1,234.56"), -123456);
   assert.equal(cents("0.01"), 1);

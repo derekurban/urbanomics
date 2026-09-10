@@ -4,6 +4,8 @@ Updated: 2026-09-10
 
 ## Current request
 
+Upload history now emphasizes the destination account, with color, timestamp and status in a compact row. Filenames and receipt details expand underneath. Modal scroll padding leaves room for visible input focus outlines. Accounts now support deletion with an impact confirmation and Restore: active views and routing exclude deleted accounts while local financial history and immutable archives remain preserved. Tests use synthetic accounts for deletion and restoration.
+
 The latest refinement renames Data to Snapshots, compacts the layout and removes redundant labels and the permanent results card. Refresh feedback uses an overlay snackbar. Processing results open in a playful modal with a brief success celebration. The archive presents one current snapshot per account/month in a single row, with original files collapsed; older immutable files remain available on disk. Inset modal scrolling preserves rounded corners. Entrance, hover and processing motion respect reduced-motion preferences.
 
 The user requested editable account names, filename-prefix regex rules and account colors. Data now stays on one page: a refresh action, a compact rolling calendar of the last 12 completed months, the Dropbox queue, animated processing feedback and a persistent latest-run summary. Colored rounded squares indicate account-month snapshot presence, with minimal hover/focus details and no revision labels. Upload history and full archive inspection open in modals. Earlier archived months remain available there. Prefix rules are optional, bank-specific and case-insensitive; ambiguous matches require review. These are implemented decisions, not changes to the accounting model.

@@ -45,7 +45,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 3) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 4) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -80,6 +80,17 @@ class ImportStore {
               .run(colors[i % colors.length], account.id);
           });
         this.db.exec("PRAGMA user_version=3; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 4) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        this.db.exec(
+          "ALTER TABLE accounts ADD COLUMN deletedAt TEXT; PRAGMA user_version=4; COMMIT",
+        );
       } catch (error) {
         this.db.exec("ROLLBACK");
         throw error;
@@ -156,7 +167,11 @@ class ImportStore {
     return id;
   }
   updateAccount(id, values) {
-    if (!this.db.prepare("SELECT id FROM accounts WHERE id=?").get(id))
+    if (
+      !this.db
+        .prepare("SELECT id FROM accounts WHERE id=? AND deletedAt IS NULL")
+        .get(id)
+    )
       throw new Error("Account not found.");
     const style = appearance(values?.name, values?.prefixRegex, values?.color);
     this.db
@@ -175,19 +190,65 @@ class ImportStore {
       );
     return { matches: prefixPattern(pattern)?.test(filename) ?? false };
   }
+  deleteAccount(id) {
+    if (
+      !this.db
+        .prepare("SELECT id FROM accounts WHERE id=? AND deletedAt IS NULL")
+        .get(id)
+    )
+      throw new Error("Account not found.");
+    if (
+      this.db
+        .prepare(
+          "SELECT id FROM jobs WHERE account_id=? AND status='finalizing'",
+        )
+        .get(id)
+    )
+      throw new Error(
+        "Finish archive recovery for this account before deleting it. Use Refresh on Snapshots to retry.",
+      );
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      this.db
+        .prepare("UPDATE accounts SET deletedAt=? WHERE id=?")
+        .run(this.now().toISOString(), id);
+      this.db
+        .prepare(
+          "UPDATE jobs SET account_id=NULL,status=CASE WHEN status='error' THEN 'error' ELSE 'routing' END WHERE account_id=? AND status IN ('queued','routing','overlap','error')",
+        )
+        .run(id);
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
+  }
+  restoreAccount(id) {
+    if (
+      !this.db
+        .prepare("SELECT id FROM accounts WHERE id=? AND deletedAt IS NOT NULL")
+        .get(id)
+    )
+      throw new Error("Deleted account not found.");
+    this.db.prepare("UPDATE accounts SET deletedAt=NULL WHERE id=?").run(id);
+    this.rerouteWaiting();
+  }
   routingChoices(sourceHash, filename, schema) {
     const known = this.db
       .prepare(
-        "SELECT DISTINCT account_id AS id FROM imports WHERE source_hash=?",
+        "SELECT DISTINCT account_id AS id,a.deletedAt FROM imports i JOIN accounts a ON a.id=i.account_id WHERE source_hash=?",
       )
       .all(sourceHash);
-    if (known.length) return known;
+    if (known.length)
+      return known.filter((a) => !a.deletedAt).map((a) => ({ id: a.id }));
     const remembered = this.db
-      .prepare("SELECT account_id AS id FROM rules WHERE key=? AND schema=?")
+      .prepare(
+        "SELECT account_id AS id FROM rules r JOIN accounts a ON a.id=r.account_id WHERE key=? AND r.schema=? AND a.deletedAt IS NULL",
+      )
       .all(routingKey(filename), schema);
     const patterns = this.db
       .prepare(
-        "SELECT id,prefixRegex FROM accounts WHERE schema=? AND prefixRegex<>''",
+        "SELECT id,prefixRegex FROM accounts WHERE schema=? AND prefixRegex<>'' AND deletedAt IS NULL",
       )
       .all(schema)
       .filter((a) => prefixPattern(a.prefixRegex).test(filename));
@@ -222,7 +283,7 @@ class ImportStore {
     const account = this.db
       .prepare("SELECT * FROM accounts WHERE id=?")
       .get(accountId);
-    if (!account || account.schema !== source.schema)
+    if (!account || account.deletedAt || account.schema !== source.schema)
       throw new Error("Choose an account at the same bank as this CSV.");
     this.db
       .prepare("UPDATE jobs SET account_id=?,status=?,error=NULL WHERE id=?")
@@ -649,7 +710,7 @@ class ImportStore {
   transactions(month) {
     return this.db
       .prepare(
-        "SELECT t.*,a.name AS account,a.kind FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE month=? ORDER BY date DESC,t.rowid",
+        "SELECT t.*,a.name AS account,a.kind FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE month=? AND a.deletedAt IS NULL ORDER BY date DESC,t.rowid",
       )
       .all(month)
       .map((t) => ({
@@ -846,7 +907,7 @@ class ImportStore {
       });
     const months = this.db
       .prepare(
-        "SELECT month,COUNT(*) AS count FROM transactions WHERE month>=? AND month<=? GROUP BY month ORDER BY month DESC",
+        "SELECT month,COUNT(*) AS count FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE month>=? AND month<=? AND a.deletedAt IS NULL GROUP BY month ORDER BY month DESC",
       )
       .all(scope.startMonth, scope.throughMonth)
       .map((m) => ({
@@ -864,17 +925,26 @@ class ImportStore {
           .prepare("SELECT value FROM settings WHERE key='lastProcessResult'")
           .get()?.value ?? "null",
       ),
-      accounts: this.db.prepare("SELECT * FROM accounts ORDER BY rowid").all(),
+      accounts: this.db
+        .prepare(
+          "SELECT a.*,(SELECT COUNT(*) FROM transactions t WHERE t.account_id=a.id) AS transactionCount FROM accounts a WHERE deletedAt IS NULL ORDER BY a.rowid",
+        )
+        .all(),
+      deletedAccounts: this.db
+        .prepare(
+          "SELECT * FROM accounts WHERE deletedAt IS NOT NULL ORDER BY deletedAt DESC",
+        )
+        .all(),
       rules: this.db
         .prepare(
-          "SELECT r.*,a.name AS account FROM rules r JOIN accounts a ON a.id=r.account_id",
+          "SELECT r.*,a.name AS account FROM rules r JOIN accounts a ON a.id=r.account_id WHERE a.deletedAt IS NULL",
         )
         .all(),
       jobs,
       months,
       activity: this.db
         .prepare(
-          "SELECT j.*,a.name AS account FROM jobs j LEFT JOIN accounts a ON a.id=j.account_id ORDER BY j.created DESC,j.rowid DESC",
+          "SELECT j.*,a.name AS account,a.color AS accountColor,a.deletedAt AS accountDeleted FROM jobs j LEFT JOIN accounts a ON a.id=j.account_id ORDER BY j.created DESC,j.rowid DESC",
         )
         .all()
         .map((j) => ({ ...j, result: j.result ? JSON.parse(j.result) : null })),
