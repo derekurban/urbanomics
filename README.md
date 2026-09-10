@@ -17,7 +17,7 @@ The Snapshots section brings Dropbox intake, upload history and archives togethe
 
 Snapshots is one page with a compact calendar of the last 12 completed months. Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
-**Organize** replaces the Accounts sidebar page. Its Tags, Categories, Events, Accounts and People sections manage the shared records used throughout Review. Create, rename, recolor and delete items through their editors; categories select their member tags. Lists show transaction usage, including references in deleted accounts, and support searching by name. The existing deletion safeguards still apply to used tags and people.
+**Organize** manages Categories, Events, Accounts and People through searchable lists with transaction usage counts. Create, rename, recolor and delete shared items through their editors. Categories and people already used by transactions are protected from deletion.
 
 Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors stay private and local.
 
@@ -29,20 +29,20 @@ Organize → Accounts also controls the completed-month range and remembered fil
 
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
-Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Tags and Events open a card stack with surrounding targets. Drop a card or click targets to select them, adjust tag splits using dollar/cent dividers, then Save & next. Chevrons browse transactions while retaining drafts within Review. Saved progress advances only after saving. Events collect whole transactions; choose No event for everyday items. Larger target lists offer search and six-target pages. Manage tags/events opens their editors, and Board remains available for inspecting contents and bulk assignment. Category views come after financial review and collect chosen tags, with overlapping views counted once when combined.
+Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Categories and Events use a card stack with surrounding targets. Drop a card onto a category to save its full amount and advance, or click the card to open Transaction settings. Search and select multiple categories, adjust their dollar/cent split, then Save to advance. Cancel or Escape leaves the transaction and current card unchanged. Chevrons browse saved and pending cards. Events collect whole transactions and retain Save & next, including No event for everyday items. Larger target lists offer search and six-target pages. Category totals appear in Overview after financial review.
 
-The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Tags, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
+The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Categories, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
 
-Category views show gross tagged cash flows, with unreviewed amounts and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by tag, sender recognition, automatic tagging, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
+Overview shows gross categorized cash flows, with unreviewed amounts and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by category, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
 
 Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. None of this is bundled or committed. These local files are not encrypted by the app.
 
 ```sh
 npm test                # Import, deduplication, date, and recovery checks
 npm run test:desktop    # Real Electron UI + persistence checks; build first
-npm run test:review     # Synthetic tagging, grouping, financial review and restart checks
-npm run test:orbit      # Card dragging, drafts, tag splits, event decisions and responsive layout
-npm run test:organize   # Shared management, category membership, deletion safeguards and persistence
+npm run test:review     # Synthetic categorization, grouping, financial review and restart checks
+npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
+npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 
@@ -63,7 +63,7 @@ The overall sixth-trial experience is accepted. Detailed accounting defaults rem
 
 - [Direction and open questions](docs/direction.md)
 - [Monthly CSV preparation](docs/csv-preparation.md) — preserve manual exports and prepare monthly input files locally. This is separate from the prototype's simulated import.
-- [Current tags and category views experience](prototypes/insights-flow.html) — the sixth trial. Transactions carry several reusable tags with exact-cent portions; category views are editable insight lenses over chosen tags; events hold whole transactions; repayment review is unchanged. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
+- [Historical tags and category views trial](prototypes/insights-flow.html) — the sixth trial. Transactions carry several reusable tags with exact-cent portions; category views are editable insight lenses over chosen tags; events hold whole transactions; repayment review is unchanged. An HTML fragment shown in Codex; no dependencies, persistence, or real file ingestion.
 - [Implementation brief for Fable 5.1](docs/fable-one-brief.md) — the product direction the sixth trial implements (the filename is historical).
 - [A small example to make the experience concrete](docs/first-trial.md)
 - [Previous organization board](prototypes/board-flow.html) — preserved as the fifth design trial, with fixed category ownership of tags.

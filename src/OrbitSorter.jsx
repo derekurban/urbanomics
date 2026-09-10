@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { SplitEditor } from "./SplitEditor.jsx";
+import { TransactionSettings } from "./TransactionSettings.jsx";
 import { money, retag } from "./review-model.js";
 import "./orbit-sorter.css";
 
@@ -31,10 +31,12 @@ export function OrbitSorter({
     [page, setPage] = useState(0),
     [query, setQuery] = useState(""),
     [message, setMessage] = useState(""),
-    [hover, setHover] = useState("");
+    [hover, setHover] = useState(""),
+    [editing, setEditing] = useState(null);
   const root = useRef(null),
     gesture = useRef(null),
-    saving = useRef(false);
+    saving = useRef(false),
+    suppressClick = useRef(false);
   const field = events ? "groups" : "tags";
   const row =
     rows.find((t) => t.id === active) ||
@@ -72,7 +74,11 @@ export function OrbitSorter({
     setMessage("");
   };
   function choose(id, toggle = true) {
-    if (busy || !row) return;
+    if (busy || !row || saving.current) return;
+    if (!events) {
+      save([{ id, cents: Math.abs(row.amountCents) }]);
+      return;
+    }
     if (!toggle && selected(id)) {
       setMessage("Already selected.");
       return;
@@ -93,22 +99,32 @@ export function OrbitSorter({
     setActive(rows[next].id);
     setMessage("");
   }
-  async function save() {
+  function advance(savedRow) {
+    const origin = rows.findIndex((t) => t.id === savedRow.id);
+    const next = Array.from(
+      { length: rows.length - 1 },
+      (_, n) => rows[(origin + n + 1) % rows.length],
+    ).find((t) => !complete(t, events));
+    setActive(next?.id || savedRow.id);
+    setMessage(`${savedRow.description} saved.`);
+  }
+  async function save(nextValues = values) {
     if (
       !row ||
       busy ||
       saving.current ||
       stale ||
-      (!events && !values.length) ||
+      (!events && !nextValues.length) ||
       (events && !decided)
     )
       return;
     saving.current = true;
+    setActive(row.id);
     try {
       const change = {
         id: row.id,
         version: draft?.version ?? row.version,
-        [field]: values,
+        [field]: nextValues,
         ...(events ? { groupsReviewed: true } : {}),
       };
       const result = await onSave([change]);
@@ -118,16 +134,7 @@ export function OrbitSorter({
         delete next[row.id];
         return next;
       });
-      let next;
-      for (let n = 1; n < rows.length; n++) {
-        const t = rows[(index + n) % rows.length];
-        if (!complete(t, events)) {
-          next = t;
-          break;
-        }
-      }
-      setActive(next?.id || row.id);
-      setMessage(`${row.description} saved.`);
+      advance(row);
     } finally {
       saving.current = false;
     }
@@ -138,7 +145,9 @@ export function OrbitSorter({
       return x >= r.left && x <= r.right && y >= r.top && y <= r.bottom;
     });
   function start(e) {
-    if (busy || e.button !== 0) return;
+    if (busy || saving.current || e.button !== 0) return;
+    suppressClick.current = false;
+    setActive(row.id);
     gesture.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
@@ -157,6 +166,7 @@ export function OrbitSorter({
     if (!g) return;
     const target =
       !cancel && g.moved ? hit(e.clientX, e.clientY)?.dataset.orbitTarget : "";
+    suppressClick.current = !!g.moved || cancel;
     gesture.current = null;
     e.currentTarget.style.transform = "";
     setHover("");
@@ -173,9 +183,9 @@ export function OrbitSorter({
     );
   return (
     <section
-      className="os-sorter"
+      className={`os-sorter ${events ? "" : "os-categories"}`}
       ref={root}
-      aria-label={events ? "Event card sorter" : "Tag card sorter"}
+      aria-label={events ? "Event card sorter" : "Category card sorter"}
     >
       <div className="os-top">
         <div>
@@ -183,7 +193,7 @@ export function OrbitSorter({
           <p>
             {events
               ? "Events hold whole transactions. Select a container, or choose No event."
-              : "Drop onto tags, adjust the amounts, then save."}
+              : "Drop onto a category to save. Click the card to split or edit."}
           </p>
         </div>
         <span>
@@ -193,8 +203,8 @@ export function OrbitSorter({
       {entities.length > 6 && (
         <div className="os-target-pages">
           <input
-            aria-label={events ? "Search events" : "Search tags"}
-            placeholder={events ? "Find an event…" : "Find a tag…"}
+            aria-label={events ? "Search events" : "Search categories"}
+            placeholder={events ? "Find an event…" : "Find a category…"}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
@@ -228,6 +238,29 @@ export function OrbitSorter({
             <div className="os-ring" aria-hidden="true" />
             <div className="os-stack">
               <article
+                role={events ? undefined : "button"}
+                tabIndex={events ? undefined : 0}
+                aria-haspopup={events ? undefined : "dialog"}
+                aria-disabled={busy}
+                onClick={() => {
+                  if (
+                    !events &&
+                    !busy &&
+                    !saving.current &&
+                    !suppressClick.current
+                  ) {
+                    setActive(row.id);
+                    setEditing(row);
+                  }
+                  suppressClick.current = false;
+                }}
+                onKeyDown={(e) => {
+                  if (!events && !busy && ["Enter", " "].includes(e.key)) {
+                    e.preventDefault();
+                    setActive(row.id);
+                    setEditing(row);
+                  }
+                }}
                 className="os-transaction"
                 aria-label={`Transaction ${row.description}`}
                 onPointerDown={start}
@@ -257,7 +290,7 @@ export function OrbitSorter({
                       ? "✓ Saved"
                       : events
                         ? "Choose an event"
-                        : "Choose a tag"}
+                        : "Click to edit · drag to sort"}
                 </span>
               </article>
             </div>
@@ -273,7 +306,7 @@ export function OrbitSorter({
                     "--y": positions[i][1] + "%",
                     "--target-color": entity.color,
                   }}
-                  aria-label={`${events ? "Event" : "Tag"} ${entity.name}`}
+                  aria-label={`${events ? "Event" : "Category"} ${entity.name}`}
                   title={entity.name}
                   aria-pressed={selected(entity.id)}
                   disabled={busy}
@@ -291,7 +324,7 @@ export function OrbitSorter({
                         : "Add to event"
                       : part
                         ? `${money(part.cents)} · ${row.amountCents ? Math.round((part.cents / Math.abs(row.amountCents)) * 100) : 100}%`
-                        : "Select tag"}
+                        : "Assign & next"}
                   </small>
                 </button>
               );
@@ -301,7 +334,7 @@ export function OrbitSorter({
             <p className="os-empty-targets">
               {entities.length
                 ? "No matches. Try another search."
-                : `Create your first ${events ? "event" : "tag"} using the button above.`}
+                : `Create your first ${events ? "event" : "category"} using the button above.`}
             </p>
           )}
         </div>
@@ -313,12 +346,18 @@ export function OrbitSorter({
                 <button
                   key={id}
                   disabled={busy}
-                  aria-label={`Remove ${names[id] || "missing assignment"}`}
-                  onClick={() => choose(id)}
+                  aria-label={
+                    events
+                      ? `Remove ${names[id] || "missing assignment"}`
+                      : `Edit ${names[id] || "category"} allocation`
+                  }
+                  onClick={() => (events ? choose(id) : setEditing(row))}
                 >
                   <i style={{ background: colors[id] }} />
                   {names[id] || "Removed item"}{" "}
-                  <span aria-hidden="true">×</span>
+                  <span aria-hidden="true">
+                    {events ? "×" : money(p.cents)}
+                  </span>
                 </button>
               );
             })}
@@ -335,19 +374,9 @@ export function OrbitSorter({
           {events && !!values.length && (
             <p className="os-event-note">
               The full transaction belongs to{" "}
-              {values.length === 1 ? "this event" : "each selected event"}. Tags
-              and repayment allocations stay unchanged.
+              {values.length === 1 ? "this event" : "each selected event"}.
+              Categories and repayment allocations stay unchanged.
             </p>
-          )}
-          {!events && values.length > 1 && (
-            <fieldset disabled={busy} className="os-split">
-              <SplitEditor
-                values={values}
-                onChange={setValues}
-                labels={names}
-                colors={colors}
-              />
-            </fieldset>
           )}
           {stale && (
             <p role="alert" className="dr-error-text">
@@ -355,25 +384,27 @@ export function OrbitSorter({
               draft to load its saved version.
             </p>
           )}
-          <div className="os-actions">
-            {dirty && (
-              <button disabled={busy} onClick={discard}>
-                Discard draft
+          {events && (
+            <div className="os-actions">
+              {dirty && (
+                <button disabled={busy} onClick={discard}>
+                  Discard draft
+                </button>
+              )}
+              <button
+                className="primary"
+                disabled={
+                  busy ||
+                  !!stale ||
+                  (!events && !values.length) ||
+                  (events && !decided)
+                }
+                onClick={() => save()}
+              >
+                Save & next
               </button>
-            )}
-            <button
-              className="primary"
-              disabled={
-                busy ||
-                !!stale ||
-                (!events && !values.length) ||
-                (events && !decided)
-              }
-              onClick={save}
-            >
-              Save & next
-            </button>
-          </div>
+            </div>
+          )}
           <div className="os-navigation">
             <button
               disabled={busy || index === 0}
@@ -386,14 +417,14 @@ export function OrbitSorter({
               <div className="os-progress-label">
                 <span>
                   {count} of {rows.length}{" "}
-                  {events ? "event decisions saved" : "tagged"}
+                  {events ? "event decisions saved" : "categorized"}
                 </span>
                 <span>{percent}%</span>
               </div>
               <div
                 className="os-progress"
                 role="progressbar"
-                aria-label={events ? "Event progress" : "Tagging progress"}
+                aria-label={events ? "Event progress" : "Category progress"}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={percent}
@@ -413,7 +444,9 @@ export function OrbitSorter({
             {message ||
               (dirty
                 ? "Draft stays with this card while you browse Review."
-                : "Drag the card or select the surrounding buttons.")}
+                : events
+                  ? "Drag the card or select the surrounding buttons."
+                  : "Drop to save instantly. Click the card for multiple categories.")}
           </div>
           {count === rows.length && (
             <button className="os-continue" onClick={onContinue}>
@@ -424,7 +457,7 @@ export function OrbitSorter({
       </div>
       {!!entities.length && (
         <details className="os-manage">
-          <summary>Manage {events ? "events" : "tags"}</summary>
+          <summary>Manage {events ? "events" : "categories"}</summary>
           <div>
             {entities.map((e) => (
               <button key={e.id} onClick={() => onEdit(e)}>
@@ -435,6 +468,15 @@ export function OrbitSorter({
             ))}
           </div>
         </details>
+      )}
+      {editing && (
+        <TransactionSettings
+          row={editing}
+          categories={entities}
+          onSave={onSave}
+          onClose={() => setEditing(null)}
+          onSaved={() => advance(editing)}
+        />
       )}
     </section>
   );

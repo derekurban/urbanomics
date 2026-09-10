@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { TransactionSettings } from "./TransactionSettings.jsx";
 import { SplitEditor } from "./SplitEditor.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { OrbitSorter } from "./OrbitSorter.jsx";
 import {
   money,
   sum,
-  equal,
   retag,
-  moveTag,
   capacity,
   distribute,
   flowSummary,
@@ -26,82 +24,6 @@ const byId = (list) => Object.fromEntries(list.map((e) => [e.id, e.name]));
 const colored = (list) => Object.fromEntries(list.map((e) => [e.id, e.color]));
 const toggle = (list, id) =>
   list.includes(id) ? list.filter((v) => v !== id) : [...list, id];
-
-function TagEditor({ row, tags, act, onClose, error }) {
-  const [parts, setParts] = useState(row.review.tags);
-  return (
-    <WorkspaceModal title="Transaction tags" onClose={onClose}>
-      <div className="rv-editor-title">
-        <h3>{title(row)}</h3>
-        <strong>{money(Math.abs(row.amountCents))}</strong>
-      </div>
-      <p>
-        {row.account} · {row.date}
-      </p>
-      <div className="rv-tag-choices">
-        {tags.map((tag) => (
-          <button
-            key={tag.id}
-            aria-pressed={parts.some((p) => p.id === tag.id)}
-            onClick={() =>
-              setParts(
-                retag(
-                  parts,
-                  toggle(
-                    parts.map((p) => p.id),
-                    tag.id,
-                  ),
-                  Math.abs(row.amountCents),
-                ),
-              )
-            }
-          >
-            <i style={{ background: tag.color }} />
-            {tag.name}
-          </button>
-        ))}
-      </div>
-      {!tags.length && <p>Add a tag in Organize to start sorting.</p>}
-      {!!parts.length && (
-        <>
-          <SplitEditor
-            values={parts}
-            onChange={setParts}
-            labels={byId(tags)}
-            colors={colored(tags)}
-          />
-          <p className="rv-help">
-            New selections start equal. Adjusted portions are preserved when
-            adding tags; use Split evenly to reset.
-          </p>
-        </>
-      )}
-      {error && (
-        <p role="alert" className="dr-error-text">
-          {error}
-        </p>
-      )}
-      <div className="rv-modal-actions">
-        <button onClick={() => setParts([])}>Clear tags</button>
-        <button
-          className="primary"
-          onClick={async () => {
-            if (
-              (await act(() =>
-                api.organize([
-                  { id: row.id, version: row.version, tags: parts },
-                ]),
-              )) !== false
-            )
-              onClose();
-          }}
-        >
-          Save tags
-        </button>
-      </div>
-    </WorkspaceModal>
-  );
-}
 
 function FinanceEditor({
   row,
@@ -198,7 +120,7 @@ function FinanceEditor({
         <strong>{money(row.amountCents)}</strong>
       </div>
       <div className="rv-editor-tools">
-        <button onClick={() => onTags(row)}>Edit tags</button>
+        <button onClick={() => onTags(row)}>Edit categories</button>
         <button onClick={() => onSource(row.id)}>View source</button>
       </div>
       <h3>What is this money for?</h3>
@@ -502,19 +424,16 @@ function FinanceEditor({
 }
 
 export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
-  const [sortMode, setSortMode] = useState("cards");
   const [tagDrafts, setTagDrafts] = useState({}),
     [eventDrafts, setEventDrafts] = useState({});
   const [state, setState] = useState(null),
     [stage, setStage] = useState("organize"),
     [month, setMonth] = useState(initialMonth || ""),
     [search, setSearch] = useState("");
-  const [selected, setSelected] = useState([]),
-    [editor, setEditor] = useState(null),
+  const [editor, setEditor] = useState(null),
     [tagRow, setTagRow] = useState(null),
     [error, setError] = useState("");
-  const [showAll, setShowAll] = useState(false),
-    [reviewed, setReviewed] = useState(false),
+  const [reviewed, setReviewed] = useState(false),
     [direction, setDirection] = useState("all"),
     [active, setActive] = useState(""),
     [views, setViews] = useState([]);
@@ -546,7 +465,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
   }
   if (!state) return <p>{error || "Opening your review workspace…"}</p>;
   const { records, entities } = state,
-    tags = entities.filter((e) => e.kind === "tag"),
+    tags = entities.filter((e) => e.kind === "category"),
     groups = entities.filter((e) => e.kind === "group"),
     people = entities.filter((e) => e.kind === "person"),
     categories = entities.filter((e) => e.kind === "category");
@@ -555,7 +474,6 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
     visible = scoped.filter((t) =>
       `${title(t)} ${t.account}`.toLowerCase().includes(search.toLowerCase()),
     );
-  const chosen = visible.filter((t) => selected.includes(t.id));
   const editEntity = (entity) => {
     setError("");
     const palette = [
@@ -576,9 +494,9 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
   };
   const editTags = (t) => {
     setError("");
-    setTagRow(t.id);
+    setTagRow(t);
   };
-  const selectedRow = records.find((t) => t.id === tagRow);
+  const selectedRow = tagRow;
   const inbox = visible.filter(
     (t) =>
       t.review.reviewed === reviewed &&
@@ -586,101 +504,12 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
         (direction === "in" ? t.amountCents > 0 : t.amountCents < 0)),
   );
   const focus = inbox.find((t) => t.id === active) || inbox[0];
-  const clearSelection = () => setSelected([]);
-  const assign = async (target, payload) => {
-    const rows = payload ? visible.filter((t) => t.id === payload.id) : chosen;
-    if (!rows.length) return;
-    const changes = rows.map((t) => ({
-      id: t.id,
-      version: t.version,
-      ...(stage === "groups"
-        ? {
-            groups: !target
-              ? []
-              : [
-                  ...new Set([
-                    ...t.review.groups.filter((id) => id !== payload?.from),
-                    target,
-                  ]),
-                ],
-          }
-        : {
-            tags: !target
-              ? []
-              : moveTag(
-                  t.review.tags,
-                  payload?.from,
-                  target,
-                  Math.abs(t.amountCents),
-                ),
-          }),
-    }));
-    if ((await act(() => api.organize(changes))) !== false) clearSelection();
-  };
-  const drop = (event, target) => {
-    if (
-      !event.dataTransfer.types.includes("application/x-urbanomics-transaction")
-    )
-      return;
-    event.preventDefault();
-    event.stopPropagation();
-    try {
-      const payload = JSON.parse(
-        event.dataTransfer.getData("application/x-urbanomics-transaction"),
-      );
-      if (payload.id) assign(target, payload);
-    } catch {}
-  };
-  const card = (t, portion, from) => (
-    <article
-      className="rv-card"
-      key={t.id}
-      draggable={!busy}
-      onDragStart={(e) => {
-        e.dataTransfer.setData(
-          "application/x-urbanomics-transaction",
-          JSON.stringify({ id: t.id, from }),
-        );
-        e.dataTransfer.effectAllowed = "move";
-      }}
-    >
-      <label className="rv-card-select">
-        <input
-          type="checkbox"
-          aria-label={`Select ${title(t)}`}
-          checked={selected.includes(t.id)}
-          onChange={() => setSelected(toggle(selected, t.id))}
-        />
-        <span>
-          <strong>{title(t)}</strong>
-          <small>
-            {t.account} · {t.date}
-          </small>
-        </span>
-      </label>
-      <div className="rv-card-footer">
-        <span>
-          {money(portion ?? t.amountCents)}
-          {portion !== undefined && portion !== Math.abs(t.amountCents)
-            ? ` of ${money(Math.abs(t.amountCents))}`
-            : ""}
-        </span>
-        <button onClick={() => editTags(t)}>
-          Tags{t.review.tags.length ? ` · ${t.review.tags.length}` : ""}
-        </button>
-      </div>
-    </article>
-  );
   const selectedViews = views.filter((id) =>
     categories.some((c) => c.id === id),
   );
   const selectedTags = selectedViews.length
-    ? [
-        ...new Set(
-          categories.filter((c) => views.includes(c.id)).flatMap((c) => c.tags),
-        ),
-      ]
-    : tags.map((t) => t.id);
+    ? selectedViews
+    : categories.map((c) => c.id);
   const flows = flowSummary(visible, selectedTags);
   return (
     <div className="review-workspace">
@@ -696,7 +525,6 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             value={month}
             onChange={(e) => {
               setMonth(e.target.value);
-              clearSelection();
             }}
           >
             <option value="">All imported months</option>
@@ -713,10 +541,10 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       </header>
       <nav className="rv-stages" aria-label="Review stages">
         {[
-          ["organize", "1 · Tags"],
+          ["organize", "1 · Categories"],
           ["groups", "2 · Events"],
           ["review", "3 · Review"],
-          ["categories", "4 · Categories"],
+          ["categories", "4 · Overview"],
         ].map(([id, label]) => (
           <button
             key={id}
@@ -724,7 +552,6 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             onClick={() => {
               setStage(id);
               setError("");
-              clearSelection();
             }}
           >
             {label}
@@ -738,12 +565,11 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
-            clearSelection();
           }}
         />
         <span>
           {scoped.filter((t) => !t.review.reviewed).length} to review ·{" "}
-          {scoped.filter((t) => !t.review.tags.length).length} need tags
+          {scoped.filter((t) => !t.review.tags.length).length} need categories
         </span>
       </div>
       {error && !editor && !tagRow && stage !== "review" && (
@@ -754,153 +580,31 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       {["organize", "groups"].includes(stage) && (
         <>
           <div className="rv-sort-controls">
-            <div className="rv-toggle" aria-label="Sorting view">
-              {["cards", "board"].map((mode) => (
-                <button
-                  key={mode}
-                  aria-pressed={sortMode === mode}
-                  onClick={() => setSortMode(mode)}
-                >
-                  {mode === "cards" ? "Cards" : "Board"}
-                </button>
-              ))}
-            </div>
             <button
               disabled={busy}
               onClick={() =>
-                editEntity({ kind: stage === "organize" ? "tag" : "group" })
+                editEntity({
+                  kind: stage === "organize" ? "category" : "group",
+                })
               }
             >
-              + New {stage === "organize" ? "tag" : "event"}
+              + New {stage === "organize" ? "category" : "event"}
             </button>
           </div>
-          {sortMode === "cards" && (
-            <OrbitSorter
-              key={stage}
-              rows={visible}
-              entities={stage === "organize" ? tags : groups}
-              events={stage === "groups"}
-              drafts={stage === "organize" ? tagDrafts : eventDrafts}
-              setDrafts={stage === "organize" ? setTagDrafts : setEventDrafts}
-              busy={busy}
-              onSave={(changes) => act(() => api.organize(changes))}
-              onEdit={editEntity}
-              onContinue={() =>
-                setStage(stage === "organize" ? "groups" : "review")
-              }
-            />
-          )}
-          {sortMode === "board" && (
-            <div className="rv-board">
-              <section
-                className="rv-inbox-lane"
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => drop(e, "")}
-              >
-                <div className="rv-lane-heading">
-                  <button
-                    disabled={!chosen.length || busy}
-                    onClick={() => assign("")}
-                  >
-                    {stage === "organize" ? "Needs tags" : "No event yet"}
-                  </button>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={showAll}
-                      onChange={(e) => setShowAll(e.target.checked)}
-                    />
-                    Show all
-                  </label>
-                </div>
-                {visible
-                  .filter(
-                    (t) =>
-                      showAll ||
-                      !(stage === "organize"
-                        ? t.review.tags.length
-                        : t.review.groupsReviewed || t.review.groups.length),
-                  )
-                  .map((t) => card(t))}
-                {!visible.some(
-                  (t) =>
-                    showAll ||
-                    !(stage === "organize"
-                      ? t.review.tags.length
-                      : t.review.groupsReviewed || t.review.groups.length),
-                ) && (
-                  <p className="rv-empty">
-                    All sorted here. Turn on Show all to edit assigned items.
-                  </p>
-                )}
-              </section>
-              <div className="rv-lanes">
-                {(stage === "organize" ? tags : groups).map((entity) => {
-                  const members = visible.filter((t) =>
-                    stage === "organize"
-                      ? t.review.tags.some((p) => p.id === entity.id)
-                      : t.review.groups.includes(entity.id),
-                  );
-                  return (
-                    <section
-                      className="rv-lane"
-                      style={{ "--lane-color": entity.color }}
-                      key={entity.id}
-                      onDragOver={(e) => e.preventDefault()}
-                      onDrop={(e) => drop(e, entity.id)}
-                    >
-                      <div className="rv-lane-heading">
-                        <button
-                          disabled={busy}
-                          onClick={() => assign(entity.id)}
-                        >
-                          {entity.name}
-                          <small>{members.length}</small>
-                        </button>
-                        <button
-                          aria-label={`Edit ${entity.kind} ${entity.name}`}
-                          onClick={() => editEntity(entity)}
-                        >
-                          •••
-                        </button>
-                      </div>
-                      {members.map((t) =>
-                        card(
-                          t,
-                          stage === "organize"
-                            ? t.review.tags.find((p) => p.id === entity.id)
-                                .cents
-                            : undefined,
-                          entity.id,
-                        ),
-                      )}
-                      {!members.length && (
-                        <p className="rv-empty">
-                          {chosen.length
-                            ? `Click the heading to assign ${chosen.length} selected.`
-                            : "Drop transactions here."}
-                        </p>
-                      )}
-                    </section>
-                  );
-                })}
-                {!(stage === "organize" ? tags : groups).length && (
-                  <div className="rv-empty-panel">
-                    <h2>
-                      {stage === "organize"
-                        ? "Start with a few tags."
-                        : "Bring related transactions together."}
-                    </h2>
-                    <p>
-                      {stage === "organize"
-                        ? "Groceries, dining, home… use names that make sense to you. Mixed purchases can be split across several tags."
-                        : "A group can hold expenses and incoming payments. Grouping does not assign a repayment or change any tags."}
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
+          <OrbitSorter
+            key={stage}
+            rows={visible}
+            entities={stage === "organize" ? tags : groups}
+            events={stage === "groups"}
+            drafts={stage === "organize" ? tagDrafts : eventDrafts}
+            setDrafts={stage === "organize" ? setTagDrafts : setEventDrafts}
+            busy={busy}
+            onSave={(changes) => act(() => api.organize(changes))}
+            onEdit={editEntity}
+            onContinue={() =>
+              setStage(stage === "organize" ? "groups" : "review")
+            }
+          />
         </>
       )}
       {stage === "review" && (
@@ -1000,10 +704,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       {stage === "categories" && (
         <>
           <div className="rv-section-title">
-            <p>
-              Category views collect tags. Combining views counts each tag
-              portion once.
-            </p>
+            <p>Explore the amounts assigned to your categories.</p>
             <button onClick={() => editEntity({ kind: "category" })}>
               + New category
             </button>
@@ -1013,7 +714,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
               aria-pressed={!selectedViews.length}
               onClick={() => setViews([])}
             >
-              All tags
+              All categories
             </button>
             {categories.map((c) => (
               <div key={c.id}>
@@ -1033,9 +734,9 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             ))}
           </div>
           <p className="rv-help">
-            Gross tagged cash flow, before personal shares and repayments.{" "}
-            {visible.filter((t) => !t.review.tags.length).length} untagged
-            transactions are outside these views.
+            Gross categorized cash flow, before personal shares and repayments.{" "}
+            {visible.filter((t) => !t.review.tags.length).length} uncategorized
+            transactions are outside these totals.
           </p>
           <div className="rv-flow-summary">
             {[
@@ -1096,11 +797,11 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
         />
       )}
       {selectedRow && (
-        <TagEditor
+        <TransactionSettings
           key={selectedRow.id}
           row={selectedRow}
-          tags={tags}
-          act={act}
+          categories={categories}
+          onSave={(changes) => act(() => api.organize(changes))}
           onClose={() => {
             setTagRow(null);
             setError("");

@@ -46,7 +46,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 5) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 6) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -97,10 +97,46 @@ class ImportStore {
         throw error;
       }
     }
-    this.db
-      .exec(`BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS review_entities (id TEXT PRIMARY KEY,kind TEXT NOT NULL,name TEXT NOT NULL,color TEXT NOT NULL,tags TEXT NOT NULL);
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 5)
+      this.db
+        .exec(`BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS review_entities (id TEXT PRIMARY KEY,kind TEXT NOT NULL,name TEXT NOT NULL,color TEXT NOT NULL,tags TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS review_items (transaction_id TEXT PRIMARY KEY REFERENCES transactions(id),payload TEXT NOT NULL,version INTEGER NOT NULL,updated TEXT NOT NULL);
       PRAGMA user_version=5; COMMIT;`);
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 6) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        // Preserve old category-view definitions for local history. Their names
+        // remain usable categories, but never duplicate their former tags' money.
+        this.db.exec(
+          "CREATE TABLE IF NOT EXISTS review_entity_history AS SELECT * FROM review_entities",
+        );
+        const entities = this.db
+          .prepare("SELECT * FROM review_entities ORDER BY rowid")
+          .all();
+        const names = new Set(
+          entities
+            .filter((e) => e.kind === "category")
+            .map((e) => e.name.toLowerCase()),
+        );
+        for (const entity of entities.filter((e) => e.kind === "tag")) {
+          let name = entity.name,
+            n = 1;
+          while (names.has(name.toLowerCase()))
+            name = `${entity.name.slice(0, 64)} (converted ${n++})`;
+          names.add(name.toLowerCase());
+          this.db
+            .prepare(
+              "UPDATE review_entities SET kind='category',name=? WHERE id=?",
+            )
+            .run(name, entity.id);
+        }
+        // Stable IDs and review payloads (including exact-cent portions) stay intact.
+        this.db.exec("PRAGMA user_version=6; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
     this.review = new ReviewStore(this);
     this.db
       .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")

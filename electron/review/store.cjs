@@ -93,7 +93,7 @@ class ReviewStore {
       .get().n;
   }
   entity(kind, values) {
-    if (!["tag", "category", "group", "person"].includes(kind))
+    if (!["category", "group", "person"].includes(kind))
       throw new Error("Unknown organization type.");
     const name = typeof values?.name === "string" ? values.name.trim() : "";
     if (
@@ -117,20 +117,12 @@ class ReviewStore {
         .get(kind, name, values.id || "")
     )
       throw new Error("That name already exists.");
-    const tags = kind === "category" ? ids(values.tags || [], "tags") : [];
-    const tagIds = new Set(
-      this.entities()
-        .filter((e) => e.kind === "tag")
-        .map((e) => e.id),
-    );
-    if (tags.some((id) => !tagIds.has(id)))
-      throw new Error("A selected tag no longer exists.");
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
         "INSERT INTO review_entities VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags",
       )
-      .run(id, kind, name, values.color, JSON.stringify(tags));
+      .run(id, kind, name, values.color, existing?.tags || "[]");
     return id;
   }
   removeEntity(id) {
@@ -138,11 +130,11 @@ class ReviewStore {
     if (!entity) throw new Error("Item not found.");
     const records = this.records();
     if (
-      entity.kind === "tag" &&
+      entity.kind === "category" &&
       records.some((t) => t.review.tags.some((p) => p.id === id))
     )
       throw new Error(
-        "Remove this tag from its transactions first, including archived accounts.",
+        "Remove this category from its transactions first, including archived accounts.",
       );
     if (
       entity.kind === "person" &&
@@ -164,13 +156,6 @@ class ReviewStore {
             },
             t.version,
           );
-      if (entity.kind === "tag")
-        for (const view of this.entities().filter(
-          (e) => e.kind === "category" && e.tags.includes(id),
-        ))
-          this.db
-            .prepare("UPDATE review_entities SET tags=? WHERE id=?")
-            .run(JSON.stringify(view.tags.filter((t) => t !== id)), view.id);
       this.db.prepare("DELETE FROM review_entities WHERE id=?").run(id);
     });
   }
@@ -204,7 +189,9 @@ class ReviewStore {
       500,
     );
     const entities = this.entities(),
-      tags = new Set(entities.filter((e) => e.kind === "tag").map((e) => e.id)),
+      tags = new Set(
+        entities.filter((e) => e.kind === "category").map((e) => e.id),
+      ),
       groups = new Set(
         entities.filter((e) => e.kind === "group").map((e) => e.id),
       );
@@ -213,14 +200,14 @@ class ReviewStore {
         const row = this.current(change.id, change.version),
           review = { ...row.review };
         if (change.tags !== undefined) {
-          review.tags = portions(change.tags, "tag portions");
+          review.tags = portions(change.tags, "category portions");
           if (
             review.tags.some((p) => !tags.has(p.id)) ||
             (review.tags.length &&
               sum(review.tags) !== Math.abs(row.amountCents))
           )
             throw new Error(
-              "Tag portions must total the transaction amount and use existing tags.",
+              "Category portions must total the transaction amount and use existing categories.",
             );
         }
         if (change.groups !== undefined) {

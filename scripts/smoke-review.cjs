@@ -97,14 +97,6 @@ async function create(kind, name, tags = []) {
     .click();
   await dialog.waitFor({ state: "hidden" });
 }
-const lane = (name) =>
-  page.locator(".rv-lane").filter({
-    has: page.locator(".rv-lane-heading button").filter({ hasText: name }),
-  });
-const card = (where, name) =>
-  where
-    .locator(".rv-card")
-    .filter({ has: page.getByText(name, { exact: true }) });
 async function stage(name) {
   await page
     .getByRole("navigation", { name: "Review stages" })
@@ -127,32 +119,21 @@ async function saveReview() {
 (async () => {
   try {
     await launch();
-    await create("tag", "Groceries");
-    await create("tag", "Home");
-    await create("tag", "Dining");
-    await page.getByRole("button", { name: "Board", exact: true }).click();
-    const queue = page.locator(".rv-inbox-lane");
-    await card(queue, "Walmart").dragTo(lane("Groceries"));
-    await page.waitForFunction(async () => {
-      const s = await window.urbanomics.reviewState();
-      return (
-        s.records.find((t) => t.description === "Walmart").review.tags
-          .length === 1
-      );
-    });
-    assert.equal(
-      await card(queue, "Walmart").count(),
-      0,
-      "assigned row leaves inbox",
-    );
-    await card(lane("Groceries"), "Walmart")
-      .getByRole("button", { name: "Tags · 1" })
-      .click();
+    await create("category", "Groceries");
+    await create("category", "Home");
+    await create("category", "Dining");
+    await page
+      .getByRole("textbox", { name: "Search review transactions" })
+      .fill("Walmart");
+    await page.locator(".os-transaction").click();
     let modal = page.getByRole("dialog", {
-      name: "Transaction tags",
+      name: "Transaction settings",
       exact: true,
     });
-    await modal.getByRole("button", { name: "Home", exact: true }).click();
+    await modal
+      .getByRole("checkbox", { name: "Groceries", exact: true })
+      .check();
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
     const slider = modal.getByRole("slider", {
       name: "Divider after Groceries",
       exact: true,
@@ -182,7 +163,7 @@ async function saveReview() {
       })
       .fill("140.01");
     await snap("tag-split");
-    await modal.getByRole("button", { name: "Save tags", exact: true }).click();
+    await modal.getByRole("button", { name: "Save", exact: true }).click();
     await modal.waitFor({ state: "hidden" });
     let s = await state();
     assert.deepEqual(
@@ -191,23 +172,32 @@ async function saveReview() {
         .review.tags.map((p) => p.cents),
       [14001, 9999],
     );
-    await queue
-      .getByRole("checkbox", { name: "Select Juniper dinner", exact: true })
-      .check();
-    await lane("Dining").locator(".rv-lane-heading button").first().click();
-    await card(lane("Dining"), "Juniper dinner").waitFor();
-    await snap("organize-board");
+    await page
+      .getByRole("textbox", { name: "Search review transactions" })
+      .fill("Juniper dinner");
+    await page
+      .getByRole("button", { name: "Category Dining", exact: true })
+      .click();
+    await page.getByText("1 of 1 categorized", { exact: true }).waitFor();
     await stage("2 · Events");
     await create("group", "Mountain weekend");
-    for (const name of ["Juniper dinner", "Cabin", "Alex e-transfer"])
-      await queue
-        .getByRole("checkbox", { name: `Select ${name}`, exact: true })
-        .check();
-    await lane("Mountain weekend")
-      .locator(".rv-lane-heading button")
-      .first()
-      .click();
-    await card(lane("Mountain weekend"), "Cabin").waitFor();
+    for (const name of ["Juniper dinner", "Cabin", "Alex e-transfer"]) {
+      await page
+        .getByRole("textbox", { name: "Search review transactions" })
+        .fill(name);
+      await page
+        .getByRole("button", { name: "Event Mountain weekend", exact: true })
+        .click();
+      await page
+        .getByRole("button", { name: "Save & next", exact: true })
+        .click();
+      await page
+        .getByText("1 of 1 event decisions saved", { exact: true })
+        .waitFor();
+    }
+    await page
+      .getByRole("textbox", { name: "Search review transactions" })
+      .fill("");
     await snap("groups");
     await stage("3 · Review");
     await create("person", "Alex");
@@ -297,11 +287,9 @@ async function saveReview() {
       .getByRole("button")
       .filter({ hasText: "Juniper dinner" })
       .waitFor({ state: "hidden" });
-    await stage("4 · Categories");
-    await create("category", "Food", ["Groceries", "Dining"]);
-    await create("category", "Essentials", ["Groceries"]);
-    await page.getByRole("button", { name: "Food", exact: true }).click();
-    await page.getByRole("button", { name: "Essentials", exact: true }).click();
+    await stage("4 · Overview");
+    await page.getByRole("button", { name: "Groceries", exact: true }).click();
+    await page.getByRole("button", { name: "Dining", exact: true }).click();
     assert.equal(await page.locator(".rv-insight-rows > button").count(), 2);
     assert.match(
       await page.locator(".rv-flow-summary").textContent(),
@@ -311,7 +299,7 @@ async function saveReview() {
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 700),
     );
-    await stage("1 · Tags");
+    await stage("1 · Categories");
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -319,7 +307,7 @@ async function saveReview() {
       true,
       "no horizontal overflow at minimum width",
     );
-    await snap("narrow-board");
+    await snap("narrow-cards");
     await stage("3 · Review");
     await page
       .getByRole("checkbox", { name: "Show reviewed", exact: true })

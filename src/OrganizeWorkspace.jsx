@@ -4,21 +4,19 @@ import "./organize-workspace.css";
 
 const api = window.urbanomics;
 const sections = [
-  ["tag", "Tags"],
   ["category", "Categories"],
   ["group", "Events"],
   ["accounts", "Accounts"],
   ["person", "People"],
 ];
 const singular = {
-  tag: "tag",
   category: "category",
   group: "event",
   person: "person",
 };
 const descriptions = {
-  tag: "Reusable labels for where money goes. Transactions can share several tags.",
-  category: "Views over your tags. A tag can belong to more than one category.",
+  category:
+    "Where your money goes. Split a transaction across several categories when needed.",
   group: "Trips, occasions, and other collections of whole transactions.",
   person: "People you share expenses with or receive repayments from.",
 };
@@ -31,7 +29,7 @@ const colors = [
   "#CA8D86",
 ];
 function uses(row, entity) {
-  if (entity.kind === "tag")
+  if (entity.kind === "category")
     return row.review.tags.some((p) => p.id === entity.id);
   if (entity.kind === "group") return row.review.groups.includes(entity.id);
   if (entity.kind === "person")
@@ -69,7 +67,6 @@ export function OrganizeWorkspace({
     };
   }, [data]);
   const entities = state?.entities || [],
-    tags = entities.filter((e) => e.kind === "tag"),
     list = entities.filter((e) => e.kind === section);
   const shown = list.filter((e) =>
     e.name.toLowerCase().includes(query.toLowerCase()),
@@ -179,7 +176,6 @@ export function OrganizeWorkspace({
                 const linked = state.records.filter((t) => uses(t, entity)),
                   active = linked.filter((t) => !t.deleted).length,
                   archived = linked.length - active;
-                const members = tags.filter((t) => entity.tags.includes(t.id));
                 return (
                   <article className="og-item" key={entity.id}>
                     <span
@@ -197,28 +193,10 @@ export function OrganizeWorkspace({
                     </span>
                     <div className="og-item-body">
                       <h3>{entity.name}</h3>
-                      {section === "category" ? (
-                        <>
-                          <small>
-                            {members.length}{" "}
-                            {members.length === 1 ? "tag" : "tags"}
-                          </small>
-                          <div className="og-chips">
-                            {members.map((t) => (
-                              <span key={t.id}>
-                                <i style={{ background: t.color }} />
-                                {t.name}
-                              </span>
-                            ))}
-                          </div>
-                        </>
-                      ) : (
-                        <small>
-                          {active}{" "}
-                          {active === 1 ? "transaction" : "transactions"}
-                          {archived ? ` · ${archived} in deleted accounts` : ""}
-                        </small>
-                      )}
+                      <small>
+                        {active} {active === 1 ? "transaction" : "transactions"}
+                        {archived ? ` · ${archived} in deleted accounts` : ""}
+                      </small>
                     </div>
                     <button
                       disabled={busy}
@@ -238,7 +216,6 @@ export function OrganizeWorkspace({
         <EntityEditor
           key={editing.id || editing.kind}
           entity={editing}
-          tags={tags}
           act={act}
           error={error}
           onClose={() => {

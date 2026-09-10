@@ -4,6 +4,9 @@ Updated: 2026-09-10
 
 ## Current request
 
+The latest accepted refinement replaces tags plus category views with direct categories and removes the board. Category cards save and advance immediately when dropped onto a category. Clicking a card opens a searchable multi-category settings modal with split controls; Save advances after persistence, while Cancel leaves the card and data unchanged. The user's mention of “multiple tags” in this request is interpreted as multiple categories, consistent with removing tags. Organize now contains Categories, Events, Accounts and People. Events retain whole-transaction membership and their explicit Save & next flow. Earlier tag/view and board descriptions below are historical.
+
+
 Upload history now emphasizes the destination account, with color, timestamp and status in a compact row. Filenames and receipt details expand underneath. Modal scroll padding leaves room for visible input focus outlines. Accounts now support deletion with an impact confirmation and Restore: active views and routing exclude deleted accounts while local financial history and immutable archives remain preserved. Tests use synthetic accounts for deletion and restoration.
 
 The latest refinement renames Data to Snapshots, compacts the layout and removes redundant labels and the permanent results card. Refresh feedback uses an overlay snackbar. Processing results open in a playful modal with a brief success celebration. The archive presents one current snapshot per account/month in a single row, with original files collapsed; older immutable files remain available on disk. Inset modal scrolling preserves rounded corners. Entrance, hover and processing motion respect reduced-motion preferences.

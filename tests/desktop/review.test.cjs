@@ -70,10 +70,10 @@ function setup(t) {
     },
   };
 }
-test("tags conserve cents, bulk changes roll back and stale versions cannot overwrite a review", (t) => {
+test("categories conserve cents, bulk changes roll back and stale versions cannot overwrite a review", (t) => {
   const c = setup(t),
-    food = c.entity("tag", "Food"),
-    home = c.entity("tag", "Home"),
+    food = c.entity("category", "Food"),
+    home = c.entity("category", "Home"),
     dinner = c.row("Dinner"),
     cabin = c.row("Cabin");
   c.store.review.organize([
@@ -124,6 +124,91 @@ test("tags conserve cents, bulk changes roll back and stale versions cannot over
   assert.deepEqual(c.row("Dinner").review.groups, []);
   assert.deepEqual(c.row("Dinner").review.tags, before.review.tags);
 });
+test("version 5 tags become direct categories without rewriting reviews or archived imports", (t) => {
+  const c = setup(t),
+    food = c.entity("category", "Food"),
+    home = c.entity("category", "Home"),
+    person = c.entity("person", "Alex"),
+    event = c.entity("group", "Weekend");
+  const row = c.row("Dinner");
+  c.store.review.organize([
+    {
+      id: row.id,
+      version: row.version,
+      tags: [
+        { id: food, cents: 7001 },
+        { id: home, cents: 4999 },
+      ],
+      groups: [event],
+    },
+  ]);
+  c.save("Dinner", { kind: "expense", reviewed: true });
+  c.save("Alex payment", {
+    kind: "repayment",
+    reviewed: true,
+    personId: person,
+    allocations: [{ id: row.id, cents: 6000 }],
+    remainder: 18000,
+  });
+  const db = c.store.db;
+  db.prepare("UPDATE review_entities SET kind='tag' WHERE id IN (?,?)").run(
+    food,
+    home,
+  );
+  const view = c.entity("category", "Food");
+  db.prepare("UPDATE review_entities SET tags=? WHERE id=?").run(
+    JSON.stringify([food, home]),
+    view,
+  );
+  db.exec("DROP TABLE review_entity_history; PRAGMA user_version=5");
+  c.store.deleteAccount(c.account);
+  const records = c.store.review.records();
+  const entities = c.store.review.entities();
+  const originalTables = [
+    "transactions",
+    "review_items",
+    "snapshots",
+    "sources",
+    "observations",
+  ];
+  const before = originalTables.map((table) =>
+    db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+  );
+  c.reopen();
+  assert.deepEqual(c.store.review.records(), records);
+  assert.equal(c.store.db.prepare("PRAGMA user_version").get().user_version, 6);
+  assert.equal(
+    c.store.review.entities().filter((e) => e.kind === "tag").length,
+    0,
+  );
+  assert.equal(
+    c.store.review.entities().find((e) => e.id === food).name,
+    "Food (converted 1)",
+  );
+  assert.equal(
+    c.store.review.entities().find((e) => e.id === home).name,
+    "Home",
+  );
+  assert.deepEqual(
+    c.store.db
+      .prepare("SELECT * FROM review_entity_history ORDER BY rowid")
+      .all()
+      .map((e) => ({ ...e, tags: JSON.parse(e.tags) })),
+    entities,
+  );
+  assert.throws(() => c.store.review.removeEntity(food), /transactions/);
+  assert.throws(() => c.entity("tag", "New tag"), /Unknown/);
+  const migrated = c.store.review.state();
+  c.reopen();
+  assert.deepEqual(c.store.review.state(), migrated);
+  assert.deepEqual(
+    originalTables.map((table) =>
+      c.store.db.prepare(`SELECT * FROM ${table} ORDER BY rowid`).all(),
+    ),
+    before,
+  );
+});
+
 test("repayments span months, preserve expense review, respect agreed shares and retain excess income", (t) => {
   const c = setup(t),
     alex = c.entity("person", "Alex");
@@ -263,7 +348,7 @@ test("transfers pair both accounts atomically, exclude used expenses, and unlink
 });
 test("restart, repeat and amendment imports retain review IDs; new rows enter the inbox; account restore recovers decisions", (t) => {
   const c = setup(t),
-    tag = c.entity("tag", "Dining"),
+    tag = c.entity("category", "Dining"),
     dinner = c.row("Dinner");
   c.store.review.organize([
     { id: dinner.id, version: 0, tags: [{ id: tag, cents: 12000 }] },
@@ -292,9 +377,9 @@ test("restart, repeat and amendment imports retain review IDs; new rows enter th
   assert.deepEqual(c.row("Dinner"), before);
   assert.equal(c.store.review.pending(), 6);
 });
-test("explicit no-event decisions persist independently of tags and financial review", (t) => {
+test("explicit no-event decisions persist independently of categories and financial review", (t) => {
   const c = setup(t),
-    tag = c.entity("tag", "Dining"),
+    tag = c.entity("category", "Dining"),
     event = c.entity("group", "Weekend");
   let row = c.row("Dinner");
   c.store.review.organize([

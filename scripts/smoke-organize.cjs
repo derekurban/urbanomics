@@ -73,27 +73,29 @@ async function create(kind, name, selected = []) {
       await page.locator(".nav-item").filter({ hasText: "Accounts" }).count(),
       0,
     );
-    await create("tag", "Dining");
-    await create("tag", "Home");
+    await create("category", "Dining");
+    await create("category", "Home");
     await page
-      .getByRole("button", { name: "Edit tag Dining", exact: true })
+      .getByRole("button", { name: "Edit category Dining", exact: true })
       .click();
-    let d = page.getByRole("dialog", { name: "Edit tag", exact: true });
+    let d = page.getByRole("dialog", { name: "Edit category", exact: true });
     await d.getByLabel("Name", { exact: true }).fill("Food");
     await d.getByLabel("Color", { exact: true }).fill("#6883c5");
-    await d.getByRole("button", { name: "Save tag", exact: true }).click();
+    await d.getByRole("button", { name: "Save category", exact: true }).click();
     await d.waitFor({ state: "hidden" });
     await page
-      .getByRole("textbox", { name: "Search tags", exact: true })
+      .getByRole("textbox", { name: "Search categories", exact: true })
       .fill("food");
     assert.equal(await page.locator(".og-item").count(), 1);
     await snapshot("tags");
-    await section("Categories");
-    await create("category", "Everyday", ["Food", "Home"]);
+    await page
+      .getByRole("textbox", { name: "Search categories", exact: true })
+      .fill("");
+    await create("category", "Everyday");
     await page
       .getByRole("heading", { name: "Everyday", exact: true })
       .waitFor();
-    assert.match(await page.locator(".og-item").textContent(), /2 tags/);
+    assert.equal(await page.locator(".og-item").count(), 3);
     await snapshot("categories");
     await section("Events");
     await create("event", "Mountain weekend");
@@ -126,7 +128,9 @@ async function create(kind, name, selected = []) {
       });
     });
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-    await page.getByRole("button", { name: "Tag Food", exact: true }).waitFor();
+    await page
+      .getByRole("button", { name: "Category Food", exact: true })
+      .waitFor();
     await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
     await section("People");
     await page.getByText("1 transaction", { exact: true }).waitFor();
@@ -181,7 +185,7 @@ async function create(kind, name, selected = []) {
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 760),
     );
-    await section("Tags");
+    await section("Categories");
     await snapshot("narrow-organize");
     assert.equal(
       await page.evaluate(
@@ -190,9 +194,9 @@ async function create(kind, name, selected = []) {
       true,
     );
     await page
-      .getByRole("button", { name: "Edit tag Food", exact: true })
+      .getByRole("button", { name: "Edit category Food", exact: true })
       .click();
-    d = page.getByRole("dialog", { name: "Edit tag", exact: true });
+    d = page.getByRole("dialog", { name: "Edit category", exact: true });
     await d.getByLabel("Name", { exact: true }).focus();
     await snapshot("focused-editor");
     await d.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -207,7 +211,7 @@ async function create(kind, name, selected = []) {
         ok: true,
         root,
         checks:
-          "five sections, CRUD, linked-tag views, shared Review entities, protected deletion, narrow/focused layout, persistence",
+          "four sections, CRUD, direct categories, shared Review entities, protected deletion, narrow/focused layout, persistence",
       }),
     );
   } finally {

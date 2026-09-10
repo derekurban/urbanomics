@@ -33,8 +33,8 @@ fs.writeFileSync(
   ]),
 );
 store.resolveAccount(store.enqueue([file]).ids[0], account, false);
-for (const kind of ["tag", "group"])
-  for (const [i, name] of (kind === "tag"
+for (const kind of ["category", "group"])
+  for (const [i, name] of (kind === "category"
     ? [
         "Groceries",
         "Home",
@@ -72,7 +72,7 @@ async function launch() {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.getByRole("heading", { name: "Snapshots", exact: true }).waitFor();
   await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-  await page.getByRole("region", { name: "Tag card sorter" }).waitFor();
+  await page.getByRole("region", { name: "Category card sorter" }).waitFor();
 }
 const state = () => page.evaluate(() => window.urbanomics.reviewState());
 const stage = (name) =>
@@ -100,59 +100,66 @@ async function drag(target) {
   try {
     await launch();
     const initial = await state();
-    await drag("Tag Groceries");
     assert.equal(
-      await page
-        .getByRole("button", { name: "Tag Groceries", exact: true })
-        .getAttribute("aria-pressed"),
-      "true",
-    );
-    assert.equal(
-      (await state()).records.find((t) => t.description === "Walmart").review
-        .tags.length,
+      await page.getByRole("button", { name: "Board", exact: true }).count(),
       0,
-      "drop is a draft",
     );
-    await page.getByRole("button", { name: "Tag Home", exact: true }).click();
+    await drag("Category Groceries");
+    await page.getByText("1 of 3 categorized", { exact: true }).waitFor();
+    assert.equal(
+      await page.getByRole("dialog").count(),
+      0,
+      "drag never opens settings",
+    );
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    let s = await state();
+    assert.deepEqual(
+      s.records
+        .find((t) => t.description === "Walmart")
+        .review.tags.map((p) => p.cents),
+      [24000],
+    );
+    assert.equal(
+      s.records.find((t) => t.description === "Walmart").version,
+      1,
+      "drop saves exactly once",
+    );
+    // Cancel and Escape retain the card and saved state.
+    await page.locator(".os-transaction").click();
+    let modal = page.getByRole("dialog", { name: "Transaction settings" });
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
+    await modal.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    assert.deepEqual(await state(), s);
+    await page.locator(".os-transaction").press("Enter");
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
+    await page.keyboard.press("Escape");
+    assert.deepEqual(await state(), s);
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
     await page
+      .getByRole("button", { name: "Previous transaction", exact: true })
+      .click();
+    await page.locator(".os-transaction").click();
+    await modal
+      .getByRole("searchbox", { name: "Categories", exact: true })
+      .fill("home");
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
+    assert.equal(
+      await modal.locator(".ts-selected button").count(),
+      2,
+      "search retains selected categories",
+    );
+    await modal
       .getByRole("spinbutton", {
         name: "Exact divider after Groceries",
         exact: true,
       })
       .fill("140.01");
-    await page
-      .getByRole("button", { name: "Next transaction", exact: true })
-      .click();
-    await page
-      .getByRole("button", { name: "Previous transaction", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("spinbutton", {
-          name: "Exact divider after Groceries",
-          exact: true,
-        })
-        .inputValue(),
-      "140.01",
-    );
-    await stage("2 · Events");
-    await stage("1 · Tags");
-    assert.equal(
-      await page
-        .getByRole("spinbutton", {
-          name: "Exact divider after Groceries",
-          exact: true,
-        })
-        .inputValue(),
-      "140.01",
-      "draft survives stage switch",
-    );
-    await shot("tags-orbit");
-    await page
-      .getByRole("button", { name: "Save & next", exact: true })
-      .click();
-    await page.getByText("1 of 3 tagged", { exact: true }).waitFor();
-    let s = await state();
+    await shot("category-settings");
+    await modal.getByRole("button", { name: "Save", exact: true }).click();
+    await modal.waitFor({ state: "hidden" });
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    s = await state();
     assert.deepEqual(
       s.records
         .find((t) => t.description === "Walmart")
@@ -163,16 +170,10 @@ async function drag(target) {
     await page
       .getByRole("button", { name: "Next targets", exact: true })
       .click();
-    await page.getByRole("button", { name: "Tag Other", exact: true }).click();
     await page
-      .getByRole("button", { name: "Discard draft", exact: true })
-      .click();
-    assert.equal(
-      await page
-        .getByRole("button", { name: "Tag Other", exact: true })
-        .getAttribute("aria-pressed"),
-      "false",
-    );
+      .getByRole("button", { name: "Category Other", exact: true })
+      .waitFor();
+    await shot("categories-orbit");
     await stage("2 · Events");
     await drag("Event Mountain weekend");
     await page
@@ -241,7 +242,7 @@ async function drag(target) {
       ),
       true,
     );
-    await stage("1 · Tags");
+    await stage("1 · Categories");
     await page
       .getByRole("button", { name: "Previous transaction", exact: true })
       .click();
@@ -252,24 +253,23 @@ async function drag(target) {
       ),
       true,
     );
-    // A concurrent edit must never be overwritten by a card's older draft.
-    await page
-      .getByRole("button", { name: "Tag Groceries", exact: true })
-      .click();
-    await page.evaluate(async () => {
+    // A concurrent edit cannot be overwritten, nor may a failed Save advance.
+    const shown = await page.locator(".os-transaction h3").textContent();
+    await page.locator(".os-transaction").click();
+    await modal.getByRole("checkbox", { name: "Dining", exact: true }).check();
+    await page.evaluate(async (name) => {
       const s = await window.urbanomics.reviewState(),
-        t = s.records.find((t) => t.description === "Walmart");
+        t = s.records.find((t) => t.description === name);
       await window.urbanomics.organize([
         { id: t.id, version: t.version, groups: t.review.groups },
       ]);
-    });
-    await page
-      .getByRole("button", { name: "Save & next", exact: true })
-      .click();
-    await page.getByText(/This transaction changed since/).waitFor();
-    await page
-      .getByRole("button", { name: "Discard draft", exact: true })
-      .click();
+    }, shown);
+    const concurrent = await state();
+    await modal.getByRole("button", { name: "Save", exact: true }).click();
+    await modal.getByRole("alert").waitFor();
+    assert.deepEqual(await state(), concurrent);
+    await modal.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal(await page.locator(".os-transaction h3").textContent(), shown);
     const saved = await state();
     await app.close();
     app = null;
@@ -285,7 +285,7 @@ async function drag(target) {
         ok: true,
         root,
         checks:
-          "tag and event drag, drafts, split cents, paging, no-event, stale saves, narrow layout, restart",
+          "category quick save, cancel, modal splits, event drafts, split cents, paging, no-event, stale saves, narrow layout, restart",
       }),
     );
   } finally {

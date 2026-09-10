@@ -1,6 +1,6 @@
 import React, { useEffect, useId, useRef } from "react";
 
-export function WorkspaceModal({ title, onClose, children }) {
+export function WorkspaceModal({ title, onClose, children, footer }) {
   const ref = useRef(null),
     titleId = useId();
   useEffect(() => {
@@ -41,6 +41,7 @@ export function WorkspaceModal({ title, onClose, children }) {
         </button>
       </header>
       <div className="workspace-dialog-scroll">{children}</div>
+      {footer && <div className="workspace-dialog-footer">{footer}</div>}
     </dialog>
   );
 }

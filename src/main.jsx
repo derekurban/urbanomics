@@ -32,7 +32,7 @@ const initials = (name) =>
     .join("");
 
 function App() {
-  const [organizeSection, setOrganizeSection] = useState("tag");
+  const [organizeSection, setOrganizeSection] = useState("category");
   const [data, setData] = useState(null),
     [page, setPage] = useState("data"),
     [busy, setBusy] = useState(false);
@@ -499,7 +499,7 @@ function App() {
                 )}
               </section>
               <p className="footnote">
-                These are cash movements, before tags, repayments, and transfer
+                These are cash movements, before categories, repayments, and transfer
                 review. Bank exports may show different dates from your local
                 banking screen.
               </p>

@@ -288,6 +288,75 @@
 .os-controls {
   min-width: 0;
 }
+.os-categories .os-body {
+  display: block;
+  max-width: 680px;
+  margin: auto;
+}
+.os-categories .os-controls {
+  max-width: 510px;
+  margin: auto;
+}
+.os-transaction:focus-visible {
+  outline: 3px solid var(--green);
+  outline-offset: 5px;
+}
+.ts-fields {
+  border: 0;
+  padding: 0;
+  margin: 22px 0 0;
+  min-width: 0;
+}
+.ts-search {
+  display: grid;
+  gap: 8px;
+  font-weight: 600;
+}
+.ts-search input {
+  width: 100%;
+}
+.ts-selected {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0;
+}
+.ts-selected button {
+  border-radius: 24px;
+  font-size: 12px;
+}
+.ts-options {
+  max-height: 190px;
+  overflow: auto;
+  padding: 5px;
+  margin: 0 0 20px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+}
+.ts-options label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.ts-options label:has(:checked) {
+  background: #edf3e7;
+}
+.ts-options input {
+  width: 16px;
+  height: 16px;
+}
+.ts-options i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.ts-options p {
+  padding: 0 10px;
+}
 @container (min-width: 850px) {
   .os-body {
     display: grid;
