@@ -363,7 +363,11 @@ async function select(page) {
   await page
     .getByRole("button", { name: "Close Archive", exact: true })
     .click();
-  await page.getByRole("button", { name: /Accounts/ }).click();
+  await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+  await page
+    .getByRole("navigation", { name: "Organize sections" })
+    .getByRole("button", { name: "Accounts", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Edit Synthetic Mastercard", exact: true })
     .click();
@@ -519,7 +523,11 @@ async function select(page) {
     .getByRole("heading", { name: "August 2026", exact: true })
     .waitFor();
   assert.equal(await page.locator("tbody tr").count(), 3);
-  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+  await page
+    .getByRole("navigation", { name: "Organize sections" })
+    .getByRole("button", { name: "Accounts", exact: true })
+    .click();
   await page
     .getByRole("button", { name: "Delete Everyday card", exact: true })
     .click();
@@ -556,7 +564,11 @@ async function select(page) {
     .click();
   await app.close();
   page = await launch();
-  await page.getByRole("button", { name: "Accounts", exact: true }).click();
+  await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+  await page
+    .getByRole("navigation", { name: "Organize sections" })
+    .getByRole("button", { name: "Accounts", exact: true })
+    .click();
   await page.locator(".deleted-accounts > summary").click();
   await page
     .getByRole("button", { name: "Restore Everyday card", exact: true })

@@ -1,0 +1,134 @@
+.og-sections {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 6px;
+  border-radius: 14px;
+  background: #e9eee5;
+  margin-bottom: 28px;
+}
+.og-sections button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  gap: 12px;
+  border: 0;
+  background: transparent;
+  min-width: 100px;
+}
+.og-sections button[aria-pressed="true"] {
+  background: white;
+  box-shadow: 0 2px 5px #243d2e0c;
+}
+.og-sections small {
+  font-size: 11px;
+  background: #e8eee2;
+  color: #526d48;
+  padding: 2px 6px;
+  border-radius: 5px;
+}
+.og-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: start;
+  gap: 18px;
+  margin-bottom: 20px;
+}
+.og-heading h2 {
+  margin-bottom: 7px;
+}
+.og-heading p {
+  margin: 0;
+}
+.og-heading > button {
+  flex-shrink: 0;
+}
+.og-search {
+  width: min(100%, 380px);
+  margin-bottom: 20px;
+}
+.og-list {
+  display: grid;
+  gap: 10px;
+}
+.og-item {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  padding: 18px;
+  background: white;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+}
+.og-symbol {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 5px;
+  background: var(--item-color);
+}
+.og-avatar {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  color: #203023;
+  font-size: 12px;
+  background: color-mix(in srgb, var(--item-color) 35%, white);
+}
+.og-item-body {
+  min-width: 0;
+  flex: 1;
+}
+.og-item h3 {
+  margin: 0 0 5px;
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+.og-item > button {
+  flex-shrink: 0;
+}
+.og-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 9px;
+}
+.og-chips:empty {
+  display: none;
+}
+.og-chips span {
+  font-size: 12px;
+  padding: 4px 9px;
+  background: #f2f5ee;
+  border-radius: 16px;
+  overflow-wrap: anywhere;
+  max-width: 100%;
+}
+.og-chips i {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 6px;
+}
+.og-empty {
+  border: 1px dashed #c4d0be;
+  padding: 30px;
+  border-radius: 14px;
+  background: #edf2e9;
+}
+.og-empty p {
+  margin: 0;
+}
+@media (max-width: 1000px) {
+  .og-heading {
+    flex-wrap: wrap;
+  }
+  .og-item {
+    padding: 14px;
+    gap: 12px;
+  }
+}

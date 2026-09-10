@@ -14,6 +14,7 @@
     "test:desktop": "node scripts/smoke-desktop.cjs",
     "test:review": "node scripts/smoke-review.cjs",
     "test:orbit": "node scripts/smoke-orbit.cjs",
+    "test:organize": "node scripts/smoke-organize.cjs",
     "package:win": "npm run build && electron-builder --win dir"
   },
   "dependencies": {

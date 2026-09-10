@@ -4,6 +4,7 @@ import "./styles.css";
 import { DataWorkspace } from "./DataWorkspace.jsx";
 import { AccountSettings } from "./AccountSettings.jsx";
 import { ReviewWorkspace } from "./ReviewWorkspace.jsx";
+import { OrganizeWorkspace } from "./OrganizeWorkspace.jsx";
 import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
 
@@ -31,6 +32,7 @@ const initials = (name) =>
     .join("");
 
 function App() {
+  const [organizeSection, setOrganizeSection] = useState("tag");
   const [data, setData] = useState(null),
     [page, setPage] = useState("data"),
     [busy, setBusy] = useState(false);
@@ -187,7 +189,7 @@ function App() {
     ["data", "▤", "Snapshots"],
     ["review", "✓", "Review"],
     ["months", "▦", "Transactions"],
-    ["accounts", "◎", "Accounts"],
+    ["organize", "◎", "Organize"],
   ];
   return (
     <div
@@ -365,7 +367,10 @@ function App() {
                   setError(e.message);
                 }
               }}
-              onRange={() => setPage("accounts")}
+              onRange={() => {
+                setOrganizeSection("accounts");
+                setPage("organize");
+              }}
             />
           )}
           {page === "review" && (
@@ -505,8 +510,15 @@ function App() {
               )}
             </>
           )}
-          {page === "accounts" && (
-            <Accounts data={data} run={run} busy={busy} />
+          {page === "organize" && (
+            <OrganizeWorkspace
+              data={data}
+              run={run}
+              busy={busy}
+              section={organizeSection}
+              onSection={setOrganizeSection}
+              accounts={<Accounts data={data} run={run} busy={busy} />}
+            />
           )}
         </main>
         <footer>
@@ -787,11 +799,6 @@ function Accounts({ data, run, busy }) {
     [through, setThrough] = useState(data.scope.throughMonth);
   return (
     <>
-      <div className="page-heading">
-        <div className="eyebrow">A PLACE FOR EACH ACCOUNT</div>
-        <h1>Your accounts, your rules.</h1>
-        <p>Recognize repeat exports without guessing where they belong.</p>
-      </div>
       <AccountSettings data={data} busy={busy} run={run} />
       <section className="section settings-card">
         <h2>Monthly import range</h2>

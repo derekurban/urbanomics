@@ -160,7 +160,7 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Next action and review point
 
-The circular card trial is now accepted for implementation in Tags and Events. Each stage uses explicit Save & next, retained drafts while browsing Review, and saved completion progress. Events reuse existing group identities and support No event. Board remains available for bulk work and inspection. The proposal for a separate app-wide Organize area covering tags, categories, accounts and people remains an open design direction; this change integrates the card workflow into Review.
+The circular card trial is now accepted for implementation in Tags and Events. Each stage uses explicit Save & next, retained drafts while browsing Review, and saved completion progress. Events reuse existing group identities and support No event. Board remains available for bulk work and inspection. The user subsequently requested and accepted the app-wide Organize area: it replaces Accounts in the sidebar and manages tags, categories, events, accounts and people. Account settings and import controls live in its Accounts subsection. Review and Organize use the same records and editors.
 
 The user has supplied manual CSV exports and asked for monthly copies excluding September. The January–August preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
 

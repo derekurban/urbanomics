@@ -4,6 +4,8 @@ The accepted model now runs against the imported ledger in Electron. Review open
 
 ## Sorting
 
+Organize in the sidebar manages Tags, Categories, Events, Accounts and People. It replaces the old Accounts page; its Accounts subsection preserves routing/prefix configuration, account deletion/restoration, import range and remembered filenames. Other sections provide searchable lists, usage counts and the same entity editor used from Review. Category rows expose the tags in that view. Creating/editing/deleting an organization item updates the shared private records, so the change is reflected in Review without copying configuration. Used tag/person deletion remains guarded, and deleting a category never changes transaction tagging.
+
 The user accepted the circular card trial and requested it for tags and events. Both stages now default to Cards: drag the central transaction onto surrounding targets or click the targets. Selections remain drafts until Save & next writes through the existing organization API and advances to the next unfinished row. Chevrons browse all visible rows, including saved rows. Drafts survive card, stage, search, and board changes within Review; they are memory-only and do not survive leaving Review or closing the app. Saved decisions persist. Stale drafts require discarding before they can overwrite newer changes.
 
 Progress counts saved decisions in the current month/search result. Tags are complete when saved portions exist. Events are complete when a membership exists or the user explicitly saves No event. Optional `groupsReviewed` in the existing review payload records that decision; older payloads read with a false default without being rewritten. Clearing memberships through the board makes an empty event decision pending again. Removing the last event also makes affected transactions pending for event sorting. Tag and financial decisions remain independent.
@@ -39,6 +41,8 @@ Repeated/matched imports retain existing decisions. Newly added transactions sta
 Review records live only in the private SQLite workspace, excluded from Git and packaging. To preserve them, back up the complete private workspace while the app is closed. Immutable import snapshots alone do not include later review decisions. There is no review audit history or backup/restore UI yet; completed decisions can be reopened and edited.
 
 ## Verification
+
+`npm run test:organize` exercises all five sections in Electron with synthetic imports, including shared entity creation/renaming, category membership, deletion guards, Review propagation, narrow/focused layouts and restart persistence. The desktop import smoke retains the account deletion/restore and routing checks through the new Organize navigation.
 
 `npm run test:orbit` runs the new card workflow in real Electron with isolated synthetic imports. It covers pointer dragging, exact tag splits, drafts across card/stage navigation, target paging/search, whole-transaction multi-event selection, explicit No event, stale-write rejection, responsive screenshots, and restart persistence. All source and review data in the live workspace are checked against a private backup when installing an update.
 

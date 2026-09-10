@@ -17,13 +17,15 @@ The Snapshots section brings Dropbox intake, upload history and archives togethe
 
 Snapshots is one page with a compact calendar of the last 12 completed months. Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
-Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors stay private and local.
+**Organize** replaces the Accounts sidebar page. Its Tags, Categories, Events, Accounts and People sections manage the shared records used throughout Review. Create, rename, recolor and delete items through their editors; categories select their member tags. Lists show transaction usage, including references in deleted accounts, and support searching by name. The existing deletion safeguards still apply to used tags and people.
+
+Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors stay private and local.
 
 Upload history uses compact account-first rows with the account color, upload time and status. Expand a row to see the source filename and import counts. Search supports account names, filenames and status.
 
 Delete on an account card removes it and its transactions from active views and stops its filename rules. The confirmation describes the impact; local records, original files and snapshots are retained. Restore it from Deleted accounts to recover its transactions and rules. Pending uploads return to account selection. This is recoverable deletion, not permanent erasure of financial files.
 
-The Accounts screen also controls the completed-month range. Rows outside that range remain in the original archive. Re-drop the original after extending the range to import earlier or newly completed months. Successful imports leave the intake queue automatically; files in Downloads are never deleted.
+Organize → Accounts also controls the completed-month range and remembered filenames. The snapshot range shortcut opens this section directly. Rows outside that range remain in the original archive. Re-drop the original after extending the range to import earlier or newly completed months. Successful imports leave the intake queue automatically; files in Downloads are never deleted.
 
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
@@ -40,6 +42,7 @@ npm test                # Import, deduplication, date, and recovery checks
 npm run test:desktop    # Real Electron UI + persistence checks; build first
 npm run test:review     # Synthetic tagging, grouping, financial review and restart checks
 npm run test:orbit      # Card dragging, drafts, tag splits, event decisions and responsive layout
+npm run test:organize   # Shared management, category membership, deletion safeguards and persistence
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 
