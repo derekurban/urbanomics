@@ -8,6 +8,7 @@ Read `README.md` and `docs/direction.md` before implementation. Keep user statem
 - Start with a small, runnable experience using synthetic data, then extend it based on the user's reaction.
 - The user has accepted the sixth trial's overall flow and playful sorting experience as the implementation direction. Preserve it while building real import and persistence; visual cleanup and animation can follow. Individual accounting defaults still need validation.
 - The accepted Data layout unifies Dropbox intake, upload history, archived originals and an account-by-month snapshot map. Uploads stage before explicit processing. Account version counts must exclude saves that changed only another account. Keep real folder actions and cleanup confined to app-owned intake copies.
+- Data stays on one page with Refresh, a calendar of the last 12 completed months, processing feedback and latest-run results. Account-colored squares show snapshot presence without revision labels; history and archive inspection use modals. Accounts have editable names, colors and tested filename-prefix regex rules. Conflicting matches require review.
 - Keep this file and discovery notes current when the user settles a decision.
 - Do not delegate to other agents unless the user explicitly requests it.
 

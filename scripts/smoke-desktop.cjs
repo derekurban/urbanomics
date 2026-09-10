@@ -87,14 +87,66 @@ async function select(page) {
   assert.equal(staged.months.length, 0);
   assert.equal(staged.jobs[0].status, "queued");
   assert.equal(fs.readdirSync(path.join(dataDir, "dropbox")).length, 1);
+  await page.evaluate(() => {
+    window.processingEvents = [];
+    window.urbanomics.onProgress((p) => window.processingEvents.push(p));
+  });
+  // Pause only this synthetic test run to inspect the renderer's in-flight state.
+  await app.evaluate(async (_electron, repo) => {
+    const { ImportStore } = process.mainModule.require(
+      repo + "/electron/imports/store.cjs",
+    );
+    const original = ImportStore.prototype.processReadyWithProgress;
+    ImportStore.prototype.processReadyWithProgress = async function (...args) {
+      ImportStore.prototype.processReadyWithProgress = original;
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return original.apply(this, args);
+    };
+  }, repo);
   await page
     .getByRole("button", { name: "Process 1 queued file", exact: true })
     .click();
+  await page.getByRole("progressbar", { name: "Files processed" }).waitFor();
+  assert.equal(
+    await page
+      .locator(".dr-file-flight i")
+      .first()
+      .evaluate((e) => getComputedStyle(e).animationName),
+    "dr-file-flight",
+  );
+  await page.screenshot({ path: path.join(root, "processing.png") });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  assert.equal(
+    await page
+      .locator(".dr-file-flight i")
+      .first()
+      .evaluate((e) => getComputedStyle(e).animationName),
+    "none",
+  );
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   await page.getByText("Nothing waiting.", { exact: true }).waitFor();
   let state = await page.evaluate(() => window.urbanomics.state());
   assert.equal(state.months[0].count, 2);
   assert.equal(state.history[0].result.excluded, 1);
   assert.equal(state.jobs.length, 0);
+  assert.equal(state.lastProcessResult.added, 2);
+  assert.equal(state.lastProcessResult.excluded, 1);
+  assert.deepEqual(
+    await page.evaluate(() => window.processingEvents.map((p) => p.done)),
+    [0, 1],
+  );
+  assert.equal(await page.locator(".dr-cell").count(), 12);
+  assert.equal(await page.getByRole("tab").count(), 0);
+  await page
+    .getByRole("button", { name: /Synthetic Mastercard, August 2026/ })
+    .hover();
+  await page
+    .locator(".dr-tooltip")
+    .filter({ hasText: "2 transactions" })
+    .waitFor({ state: "visible" });
+  await page.screenshot({ path: path.join(root, "calendar-tooltip.png") });
+  await page.locator(".dr-heading").hover();
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: path.join(root, "import-desk.png") });
   await page
     .getByRole("button", { name: /Synthetic Mastercard, August 2026/ })
@@ -185,7 +237,7 @@ async function select(page) {
     path.join(dataDir, "dropbox/notes.txt"),
     "Preserve this non-CSV",
   );
-  await page.getByRole("button", { name: "Scan folder", exact: true }).click();
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
   await page
     .getByRole("button", { name: "Review error", exact: true })
     .waitFor();
@@ -200,17 +252,90 @@ async function select(page) {
   assert.equal(state.activity[0].status, "dismissed");
   assert.equal(state.sources.length, 2);
   assert.equal(state.snapshots.length, 1);
-  await page.getByRole("tab", { name: /Upload history/ }).click();
+  await page.getByRole("button", { name: /View upload history/ }).click();
   await page
     .getByRole("heading", { name: "Upload history", exact: true })
     .waitFor();
   await page.screenshot({ path: path.join(root, "upload-history.png") });
-  await page.getByRole("tab", { name: "Archive", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Close Upload history", exact: true })
+    .click();
+  await page.getByRole("button", { name: /Browse archive/ }).click();
   await page
     .getByRole("heading", { name: "Original files", exact: true })
     .waitFor();
   await page.screenshot({ path: path.join(root, "archive.png") });
-  await page.getByRole("tab", { name: /Overview/ }).click();
+  await page
+    .getByRole("button", { name: "Close Archive", exact: true })
+    .click();
+  await page.getByRole("button", { name: /Accounts/ }).click();
+  await page
+    .getByRole("button", { name: "Edit Synthetic Mastercard", exact: true })
+    .click();
+  await page
+    .getByRole("textbox", { name: "Account name", exact: true })
+    .fill("Everyday card");
+  await page.getByRole("textbox", { name: "Filename prefix regex" }).fill("[");
+  await page.getByText(/Invalid prefix regex/).waitFor();
+  assert.equal(
+    await page
+      .getByRole("button", { name: "Save account", exact: true })
+      .isDisabled(),
+    true,
+  );
+  await page
+    .getByRole("textbox", { name: "Filename prefix regex" })
+    .fill("synthetic[_-]card");
+  await page
+    .getByRole("textbox", { name: "Try a filename" })
+    .fill("SYNTHETIC_CARD_new.csv");
+  await page.getByText("Matches this prefix.", { exact: true }).waitFor();
+  await page
+    .getByRole("button", { name: "Color #9674B7", exact: true })
+    .click();
+  await page.screenshot({ path: path.join(root, "account-editor.png") });
+  await page.getByRole("button", { name: "Save account", exact: true }).click();
+  await page.getByRole("dialog").waitFor({ state: "hidden" });
+  state = await page.evaluate(() => window.urbanomics.state());
+  assert.equal(state.accounts[0].name, "Everyday card");
+  assert.equal(state.accounts[0].color, "#9674B7");
+  await page.screenshot({ path: path.join(root, "accounts.png") });
+  await page.getByRole("button", { name: "Data", exact: false }).click();
+  assert.equal(
+    await page
+      .locator(".dr-cell.filled span")
+      .evaluate((e) => getComputedStyle(e).backgroundColor),
+    "rgb(150, 116, 183)",
+  );
+  // New bytes route using the configured prefix, independently of a known source.
+  const prefixed = path.join(dataDir, "dropbox", "synthetic-card-new.csv");
+  fs.writeFileSync(
+    prefixed,
+    fs
+      .readFileSync(file, "utf8")
+      .replace("Synthetic cafe", "New synthetic merchant"),
+  );
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Process 1 queued file", exact: true })
+    .waitFor();
+  state = await page.evaluate(() => window.urbanomics.state());
+  assert.equal(state.jobs[0].accountId, state.accounts[0].id);
+  await page
+    .getByRole("button", {
+      name: "Remove synthetic-card-new.csv from intake",
+      exact: true,
+    })
+    .click();
+  await page.getByText("Nothing waiting.", { exact: true }).waitFor();
+  await page.getByRole("button", { name: /View upload history/ }).click();
+  await page.keyboard.press("Escape");
+  assert.equal(
+    await page
+      .getByRole("button", { name: /View upload history/ })
+      .evaluate((e) => document.activeElement === e),
+    true,
+  );
   await app.evaluate(({ BrowserWindow }) =>
     BrowserWindow.getAllWindows()[0].setSize(900, 700),
   );
@@ -241,6 +366,10 @@ async function select(page) {
   assert.equal(state.history.length, 3);
   assert.equal(state.jobs.length, 1);
   assert.equal(state.jobs[0].status, "queued");
+  assert.equal(state.accounts[0].name, "Everyday card");
+  assert.equal(state.accounts[0].prefixRegex, "synthetic[_-]card");
+  assert.equal(state.accounts[0].color, "#9674B7");
+  assert.equal(state.lastProcessResult.matched, 2);
   await page
     .getByRole("button", { name: "Clear intake copies", exact: true })
     .click();

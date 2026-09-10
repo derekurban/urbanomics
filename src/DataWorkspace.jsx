@@ -1,180 +1,185 @@
 import React, { useState } from "react";
+import { WorkspaceModal } from "./WorkspaceModal.jsx";
 
-/*
-  DataWorkspace
-  -------------
-  The "Data" page of the Urbanomics workspace: Dropbox intake queue, recent
-  receipts, upload history, and the archive of monthly snapshots by account.
-
-  Everything rendered here derives from the `data` prop. All side effects go
-  through the callbacks supplied by the parent shell.
-*/
-
-const MONTHS_SHORT = [
-  "Jan",
-  "Feb",
-  "Mar",
-  "Apr",
-  "May",
-  "Jun",
-  "Jul",
-  "Aug",
-  "Sep",
-  "Oct",
-  "Nov",
-  "Dec",
-];
-const MONTHS_LONG = [
-  "January",
-  "February",
-  "March",
-  "April",
-  "May",
-  "June",
-  "July",
-  "August",
-  "September",
-  "October",
-  "November",
-  "December",
-];
-
-const HISTORY_PAGE_SIZE = 15;
-const RECENT_LIMIT = 4;
-
-const TABS = [
-  { id: "overview", label: "Overview" },
-  { id: "history", label: "Upload history" },
-  { id: "archive", label: "Archive" },
-];
-
-const SCHEMA_LABELS = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
-const KIND_LABELS = {
-  credit: "Credit card",
-  chequing: "Chequing",
-  savings: "Savings",
-};
-
-const JOB_STATUS = {
-  queued: { label: "Ready", tone: "ok" },
-  routing: { label: "Needs account", tone: "warm", action: "Choose account" },
-  overlap: { label: "Overlap", tone: "warm", action: "Review overlap" },
-  error: { label: "Error", tone: "error", action: "Review error" },
-  finalizing: { label: "Finalizing", tone: "warm", action: "Retry" },
-};
-
-/* ---------- small helpers ---------- */
-
-const list = (value) => (Array.isArray(value) ? value : []);
-const pad2 = (n) => String(n).padStart(2, "0");
-const isMonthKey = (value) => /^\d{4}-\d{2}$/.test(String(value || ""));
-const yearOf = (key) => Number(String(key).slice(0, 4));
-const monthOf = (key) => Number(String(key).slice(5, 7));
-const cellKey = (accountId, month) => `${String(accountId)}|${month}`;
-const call = (fn, ...args) =>
-  typeof fn === "function" ? fn(...args) : undefined;
-
-function plural(count, one, many = `${one}s`) {
-  const n = Number(count) || 0;
-  return `${n} ${n === 1 ? one : many}`;
-}
-
-function monthLabel(key, style = "short") {
-  if (!isMonthKey(key)) return String(key || "");
-  const names = style === "long" ? MONTHS_LONG : MONTHS_SHORT;
-  return `${names[monthOf(key) - 1] || key} ${yearOf(key)}`;
-}
-
-function rangeLabel(start, through) {
-  if (!isMonthKey(start) || !isMonthKey(through)) return "";
-  if (start === through) return monthLabel(start);
-  if (yearOf(start) === yearOf(through)) {
-    return `${MONTHS_SHORT[monthOf(start) - 1]}–${MONTHS_SHORT[monthOf(through) - 1]} ${yearOf(start)}`;
-  }
-  return `${monthLabel(start)} – ${monthLabel(through)}`;
-}
-
-function toDate(value) {
-  if (value == null || value === "") return null;
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function formatDate(value, { year = true } = {}) {
-  const date = toDate(value);
-  if (!date) return value ? String(value) : "";
-  return date.toLocaleDateString(
-    undefined,
-    year
-      ? { year: "numeric", month: "short", day: "numeric" }
-      : { month: "short", day: "numeric" },
-  );
-}
-
-function formatDateTime(value) {
-  const date = toDate(value);
-  if (!date) return value ? String(value) : "";
-  return date.toLocaleString(undefined, {
+const monthName = (value, short = false) =>
+  new Date(`${value}-15T12:00:00`).toLocaleDateString("en-CA", {
+    month: short ? "short" : "long",
     year: "numeric",
+  });
+const when = (value) =>
+  new Date(value).toLocaleString("en-CA", {
     month: "short",
     day: "numeric",
+    year: "numeric",
     hour: "numeric",
     minute: "2-digit",
   });
+const statusName = {
+  queued: "Ready",
+  routing: "Choose account",
+  overlap: "Review overlap",
+  error: "Review error",
+  finalizing: "Finishing archive",
+  complete: "Processed",
+  dismissed: "Intake removed",
+};
+const size = (bytes) =>
+  bytes < 1024
+    ? `${bytes} B`
+    : bytes < 1024 * 1024
+      ? `${(bytes / 1024).toFixed(1)} KB`
+      : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
+
+function recentMonths(end) {
+  const [year, month] = end.split("-").map(Number);
+  return Array.from({ length: 12 }, (_, i) => {
+    const date = new Date(year, month - 12 + i, 15);
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  });
 }
 
-function isoDate(value) {
-  const date = toDate(value);
-  return date ? date.toISOString() : undefined;
+function History({ data, onReveal }) {
+  const [query, setQuery] = useState("");
+  const entries = data.activity.filter((item) =>
+    `${item.filename} ${item.account || ""} ${statusName[item.status]}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
+  );
+  return (
+    <>
+      <p>Every upload, including repeats and removed intake copies.</p>
+      <input
+        className="dr-search"
+        aria-label="Search upload history"
+        placeholder="Search files, accounts or status…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      <div className="dr-history-list">
+        {entries.map((item) => (
+          <article className="dr-history-item" key={item.id}>
+            <div>
+              <strong>{item.filename}</strong>
+              <small>
+                {item.account || "Unassigned"} · {when(item.created)}
+              </small>
+            </div>
+            <span className={`dr-status ${item.status}`}>
+              {statusName[item.status]}
+            </span>
+            {item.result && (
+              <p>
+                {item.result.added} added · {item.result.matched} matched ·{" "}
+                {item.result.excluded} outside range
+              </p>
+            )}
+            {item.error && <p className="dr-error-text">{item.error}</p>}
+            <button onClick={() => onReveal("source", item.source_hash)}>
+              Show original ↗
+            </button>
+          </article>
+        ))}
+      </div>
+      {!entries.length && <p className="dr-empty-copy">No uploads found.</p>}
+    </>
+  );
 }
 
-function formatBytes(bytes) {
-  const n = Number(bytes);
-  if (!Number.isFinite(n) || n < 0) return "—";
-  if (n < 1024) return `${n} B`;
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(n < 10 * 1024 ? 1 : 0)} KB`;
-  return `${(n / (1024 * 1024)).toFixed(1)} MB`;
+function Archive({ data, onReveal, onOpenSnapshot }) {
+  const [query, setQuery] = useState("");
+  const sources = data.sources.filter((source) =>
+    source.filename.toLowerCase().includes(query.toLowerCase()),
+  );
+  return (
+    <>
+      <div className="dr-modal-intro">
+        <p>Original files and every saved snapshot, kept locally.</p>
+        <button onClick={() => onReveal("archive")}>Open archive ↗</button>
+      </div>
+      <h3>All saved months</h3>
+      <div className="dr-archive-months">
+        {[...new Set(data.snapshotIndex.map((s) => s.month))]
+          .sort()
+          .reverse()
+          .map((month) => (
+            <div key={month}>
+              <strong>{monthName(month)}</strong>
+              {data.accounts.map((account) => {
+                const versions = data.snapshotIndex
+                  .filter(
+                    (s) => s.month === month && s.accountId === account.id,
+                  )
+                  .sort((a, b) => b.revision - a.revision);
+                return (
+                  versions.length > 0 && (
+                    <details key={account.id}>
+                      <summary>
+                        <span
+                          className="dr-account-dot"
+                          style={{ background: account.color }}
+                        />
+                        {account.name}{" "}
+                        <small>{versions[0].rowCount} transactions</small>
+                      </summary>
+                      {versions.map((saved) => (
+                        <div className="dr-saved-row" key={saved.id}>
+                          <span>
+                            {when(saved.created)} · {saved.rowCount} rows
+                          </span>
+                          <button onClick={() => onOpenSnapshot(saved)}>
+                            Inspect snapshot
+                          </button>
+                          <button
+                            onClick={() => onReveal("snapshot-file", saved.id)}
+                          >
+                            Show file ↗
+                          </button>
+                        </div>
+                      ))}
+                    </details>
+                  )
+                );
+              })}
+            </div>
+          ))}
+      </div>
+      {!data.snapshotIndex.length && <p>No snapshots yet.</p>}
+      <div className="dr-section-line">
+        <h3>Original files</h3>
+        <span>{data.sources.length} unique files</span>
+      </div>
+      <input
+        className="dr-search"
+        aria-label="Search archive"
+        placeholder="Find an original file…"
+        value={query}
+        onChange={(e) => setQuery(e.target.value)}
+      />
+      {sources.map((source) => (
+        <div className="dr-original" key={source.hash}>
+          <div>
+            <strong>{source.filename}</strong>
+            <small>
+              {size(source.bytes)} · {source.uploads} upload
+              {source.uploads === 1 ? "" : "s"}
+            </small>
+          </div>
+          <button onClick={() => onReveal("source", source.hash)}>
+            Show original ↗
+          </button>
+        </div>
+      ))}
+      {!sources.length && (
+        <p className="dr-empty-copy">No original files found.</p>
+      )}
+    </>
+  );
 }
-
-const schemaLabel = (schema) =>
-  SCHEMA_LABELS[schema] || (schema ? String(schema) : "Unknown format");
-const kindLabel = (kind) => KIND_LABELS[kind] || (kind ? String(kind) : "");
-
-function activityStatus(item) {
-  const status = String(item.status || "").toLowerCase();
-  if (JOB_STATUS[status]) return JOB_STATUS[status];
-  if (["complete", "completed", "done", "filed", "processed"].includes(status))
-    return { label: "Filed", tone: "ok" };
-  if (["error", "failed"].includes(status))
-    return { label: "Error", tone: "error" };
-  if (["dismissed", "removed", "cleared"].includes(status))
-    return { label: "Removed", tone: "muted" };
-  if (!status)
-    return item.result
-      ? { label: "Filed", tone: "ok" }
-      : { label: "Unknown", tone: "muted" };
-  return {
-    label: status.charAt(0).toUpperCase() + status.slice(1),
-    tone: "muted",
-  };
-}
-
-function resultSummary(result) {
-  if (!result) return "";
-  const parts = [
-    `+${Number(result.added) || 0} new`,
-    `${Number(result.matched) || 0} matched`,
-  ];
-  if (Number(result.excluded) > 0)
-    parts.push(`${Number(result.excluded)} outside range`);
-  return parts.join(" · ");
-}
-
-/* ---------- component ---------- */
 
 export function DataWorkspace({
   data,
-  busy = false,
+  busy,
+  progress,
   onUpload,
   onChooseFolder,
   onScan,
@@ -186,684 +191,117 @@ export function DataWorkspace({
   onOpenSnapshot,
   onRange,
 }) {
-  const d = data || {};
-  const scope = d.scope || {};
-  const accounts = list(d.accounts).filter((a) => a && a.id != null);
-  const jobs = list(d.jobs).filter(Boolean);
-  const history = list(d.history).filter(Boolean);
-  const activity = list(d.activity).filter(Boolean);
-  const sources = list(d.sources).filter(Boolean);
-  const snapshots = list(d.snapshots).filter(Boolean);
-  const snapshotIndex = list(d.snapshotIndex).filter(
-    (e) => e && isMonthKey(e.month) && e.accountId != null,
+  const [modal, setModal] = useState(null),
+    [selected, setSelected] = useState(null),
+    [confirmClear, setConfirmClear] = useState(false);
+  const months = recentMonths(data.lastCompleteMonth);
+  const queued = data.jobs.filter((job) => job.status === "queued");
+  const attention = data.jobs.filter((job) => job.status !== "queued");
+  const result = data.lastProcessResult;
+  const accountById = Object.fromEntries(
+    data.accounts.map((account) => [account.id, account]),
   );
-
-  const [tab, setTab] = useState("overview");
-  const [pick, setPick] = useState(null);
-  const [yearPick, setYearPick] = useState(null);
-  const [confirmClear, setConfirmClear] = useState(false);
-  const [historyPage, setHistoryPage] = useState(0);
-
-  /* lookups */
-  const accountById = new Map(accounts.map((a) => [String(a.id), a]));
-  const sourceByHash = new Map(sources.map((s) => [s.hash, s]));
-  const accountName = (id) =>
-    id == null ? null : (accountById.get(String(id))?.name ?? null);
-
-  const cells = new Map();
-  snapshotIndex.forEach((entry) => {
-    const key = cellKey(entry.accountId, entry.month);
-    if (!cells.has(key)) cells.set(key, []);
-    cells.get(key).push(entry);
-  });
-  cells.forEach((entries) => {
-    entries.sort(
-      (a, b) => (Number(b.revision) || 0) - (Number(a.revision) || 0),
-    );
-  });
-  const indexMonths = new Set(snapshotIndex.map((e) => e.month));
-
-  /* scope */
-  const latestIndexMonth = [...indexMonths].sort().pop();
-  const throughMonth = isMonthKey(scope.throughMonth)
-    ? scope.throughMonth
-    : isMonthKey(scope.startMonth)
-      ? scope.startMonth
-      : latestIndexMonth ||
-        `${new Date().getFullYear()}-${pad2(new Date().getMonth() + 1)}`;
-  const startMonth =
-    isMonthKey(scope.startMonth) && scope.startMonth <= throughMonth
-      ? scope.startMonth
-      : throughMonth;
-  const inScope = (month) => month >= startMonth && month <= throughMonth;
-
-  const yearSet = new Set([yearOf(throughMonth)]);
-  for (let y = yearOf(startMonth); y <= yearOf(throughMonth); y += 1)
-    yearSet.add(y);
-  indexMonths.forEach((m) => yearSet.add(yearOf(m)));
-  const years = [...yearSet].sort((a, b) => a - b);
-
-  const monthsForYear = (year) => {
-    const present = [];
-    for (let m = 1; m <= 12; m += 1) {
-      const key = `${year}-${pad2(m)}`;
-      if (inScope(key) || indexMonths.has(key)) present.push(m);
-    }
-    if (!present.length) return [];
-    const keys = [];
-    for (let m = 1; m <= present[present.length - 1]; m += 1)
-      keys.push(`${year}-${pad2(m)}`);
-    return keys;
+  const versionsFor = (accountId, month) =>
+    data.snapshotIndex
+      .filter(
+        (snapshot) =>
+          snapshot.accountId === accountId && snapshot.month === month,
+      )
+      .sort((a, b) => b.revision - a.revision);
+  const inspect = (target) => {
+    setModal(null);
+    setSelected(null);
+    onOpenSnapshot(target);
   };
-
-  /* selection */
-  let selection = null;
-  if (
-    pick &&
-    accountById.has(String(pick.accountId)) &&
-    isMonthKey(pick.month)
-  ) {
-    selection = pick;
-  } else {
-    const latest = snapshotIndex
-      .filter((e) => accountById.has(String(e.accountId)))
-      .sort(
-        (a, b) =>
-          (toDate(b.created)?.getTime() || 0) -
-          (toDate(a.created)?.getTime() || 0),
-      )[0];
-    if (latest)
-      selection = {
-        accountId: latest.accountId,
-        month: latest.month,
-        snapshotId: null,
-      };
-    else if (accounts[0])
-      selection = {
-        accountId: accounts[0].id,
-        month: throughMonth,
-        snapshotId: null,
-      };
-  }
-
-  const throughYear = yearOf(throughMonth);
-  let year = throughYear;
-  if (years.includes(yearPick)) year = yearPick;
-  else if (selection && years.includes(yearOf(selection.month)))
-    year = yearOf(selection.month);
-  else if (!years.includes(year)) year = years[years.length - 1];
-  const months = monthsForYear(year);
-
-  const selectedAccount = selection
-    ? accountById.get(String(selection.accountId))
-    : null;
-  const versions = selection
-    ? cells.get(cellKey(selection.accountId, selection.month)) || []
-    : [];
-  const currentVersion =
-    versions.find((v) => v.id != null && v.id === selection?.snapshotId) ||
-    versions[0] ||
-    null;
-  const monthHasArchive = selection
-    ? snapshots.some((s) => s.month === selection.month)
-    : false;
-
-  /* counts */
-  const queued = jobs.filter((j) => j.status === "queued");
-  const clearable = jobs.filter((j) => j.status !== "finalizing");
-  const needsAttention = jobs.filter((j) =>
-    ["routing", "overlap", "error"].includes(j.status),
-  );
-  const accountMonths = cells.size;
-  const showClearConfirm = confirmClear && clearable.length > 0;
-
-  /* history paging */
-  const pageCount = Math.max(1, Math.ceil(activity.length / HISTORY_PAGE_SIZE));
-  const page = Math.min(Math.max(historyPage, 0), pageCount - 1);
-  const pageStart = page * HISTORY_PAGE_SIZE;
-  const pageItems = activity.slice(pageStart, pageStart + HISTORY_PAGE_SIZE);
-
-  /* handlers */
-  const selectCell = (accountId, month) =>
-    setPick({ accountId, month, snapshotId: null });
-  const selectVersion = (entry) =>
-    setPick({ ...selection, snapshotId: entry.id });
-  const confirmClearNow = () => {
-    setConfirmClear(false);
-    return call(onClear);
-  };
-  const onTabKeyDown = (event) => {
-    if (event.key !== "ArrowRight" && event.key !== "ArrowLeft") return;
-    event.preventDefault();
-    const index = TABS.findIndex((t) => t.id === tab);
-    const next =
-      TABS[
-        (index + (event.key === "ArrowRight" ? 1 : TABS.length - 1)) %
-          TABS.length
-      ];
-    setTab(next.id);
-    const button = event.currentTarget.querySelector(`#dr-tab-${next.id}`);
-    if (button) button.focus();
-  };
-
-  /* ---------- pieces ---------- */
-
-  const renderJob = (job) => {
-    const status = JOB_STATUS[job.status] || {
-      label: String(job.status || "Waiting"),
-      tone: "muted",
-    };
-    const name = accountName(job.accountId);
-    const meta = [
-      name || "No account yet",
-      job.rowCount != null ? plural(job.rowCount, "row") : null,
-      job.schema ? schemaLabel(job.schema) : null,
-    ]
-      .filter(Boolean)
-      .join(" · ");
-    const conflicts = list(job.conflicts).length;
-    const finalizing = job.status === "finalizing";
-    return (
-      <li className="dr-file" key={job.id}>
-        <span className="dr-file-glyph" aria-hidden="true">
-          CSV
-        </span>
-        <div className="dr-file-info">
-          <strong>{job.filename || "Untitled file"}</strong>
-          <small>
-            {meta}
-            {conflicts ? ` · ${plural(conflicts, "overlapping row")}` : ""}
-          </small>
-          {job.error ? (
-            <small className="dr-error-text">{String(job.error)}</small>
-          ) : null}
-        </div>
-        <span className={`dr-chip dr-chip-${status.tone}`}>{status.label}</span>
-        {status.action ? (
-          <button
-            type="button"
-            className="dr-small"
-            disabled={busy}
-            onClick={() => call(onReview, job)}
-          >
-            {status.action}
-          </button>
-        ) : null}
-        <button
-          type="button"
-          className="dr-icon-button"
-          aria-label={`Remove ${job.filename || "file"} from Dropbox`}
-          title={
-            finalizing
-              ? "Finalizing files cannot be removed"
-              : "Remove intake copy"
-          }
-          disabled={busy || finalizing}
-          onClick={() => call(onDismiss, job.id)}
-        >
-          <span aria-hidden="true">×</span>
-        </button>
-      </li>
-    );
-  };
-
-  const dropboxPanel = (
-    <section className="dr-box dr-inbox" aria-labelledby="dr-inbox-title">
-      <div className="dr-box-head">
+  return (
+    <div className="data-room">
+      <header className="dr-heading">
         <div>
-          <div className="dr-titleline">
-            <h2 id="dr-inbox-title">Dropbox</h2>
-            <small>{jobs.length ? `${jobs.length} waiting` : "empty"}</small>
-          </div>
-          <small>
-            Your local intake folder. Copies land here before filing.
-          </small>
+          <div className="eyebrow">YOUR LOCAL DATA DESK</div>
+          <h1>A place for every file.</h1>
+          <p>Drop it in. Sort it out. Keep the history.</p>
         </div>
-        <div className="dr-actions">
-          <button
-            type="button"
-            className="dr-quiet"
-            disabled={busy}
-            onClick={() => call(onScan)}
-          >
-            Scan folder
-          </button>
-          <button
-            type="button"
-            className="dr-quiet"
-            onClick={() => call(onReveal, "dropbox")}
-          >
-            Open folder <span aria-hidden="true">↗</span>
-          </button>
-        </div>
-      </div>
-
-      {jobs.length ? (
-        <ul className="dr-file-list">{jobs.map(renderJob)}</ul>
-      ) : (
-        <div className="dr-empty">
-          <span className="dr-empty-mark" aria-hidden="true">
-            ✓
-          </span>
-          <div>
-            <strong>Nothing waiting.</strong>
-            <small>
-              Upload CSVs, choose a folder, or drop exports into the Dropbox
-              folder and scan.
-            </small>
-          </div>
-        </div>
-      )}
-
-      {busy ? (
-        <div className="dr-working" role="status">
-          Working…
-        </div>
-      ) : null}
-
-      {showClearConfirm ? (
-        <div
-          className="dr-inbox-foot dr-confirm"
-          role="group"
-          aria-label="Confirm clearing Dropbox"
-        >
-          <span>
-            Clear {plural(clearable.length, "intake copy", "intake copies")}{" "}
-            from Dropbox? Your original downloads and the archive stay where
-            they are.
-          </span>
-          <div className="dr-actions">
-            <button type="button" disabled={busy} onClick={confirmClearNow}>
-              Clear {plural(clearable.length, "copy", "copies")}
-            </button>
-            <button
-              type="button"
-              className="dr-quiet"
-              onClick={() => setConfirmClear(false)}
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      ) : (
-        <div className="dr-inbox-foot">
-          <div className="dr-actions">
-            <button
-              type="button"
-              className="dr-primary"
-              disabled={busy}
-              onClick={() => call(onProcess)}
-            >
-              {queued.length
-                ? `Process ${plural(queued.length, "queued file")}`
-                : "Process Dropbox"}
-            </button>
-            {needsAttention.length ? (
-              <small>
-                {plural(needsAttention.length, "file needs", "files need")} a
-                decision first
-              </small>
-            ) : null}
-          </div>
-          <button
-            type="button"
-            className="dr-quiet"
-            disabled={busy || clearable.length === 0}
-            onClick={() => setConfirmClear(true)}
-          >
-            Clear intake copies
-          </button>
-        </div>
-      )}
-    </section>
-  );
-
-  const recentPanel = (
-    <section className="dr-box dr-recent" aria-labelledby="dr-recent-title">
-      <div className="dr-box-head">
-        <h2 id="dr-recent-title">Recently filed</h2>
-        <button
-          type="button"
-          className="dr-quiet"
-          onClick={() => setTab("history")}
-        >
-          All history <span aria-hidden="true">→</span>
+        <button className="dr-refresh" disabled={busy} onClick={onScan}>
+          <span aria-hidden="true">↻</span> Refresh
         </button>
-      </div>
-      {history.length ? (
-        <ul className="dr-event-list">
-          {history.slice(0, RECENT_LIMIT).map((item) => {
-            const name =
-              (typeof item.account === "string" && item.account) ||
-              accountName(item.account_id) ||
-              "No account";
-            return (
-              <li className="dr-event" key={item.id}>
-                <span className="dr-event-mark" aria-hidden="true">
-                  ✓
-                </span>
-                <div>
-                  <strong>{item.filename || "Untitled file"}</strong>
-                  <small>
-                    {name} · {resultSummary(item.result) || "filed"}
-                  </small>
-                </div>
-                <time dateTime={isoDate(item.created)}>
-                  {formatDate(item.created, { year: false })}
-                </time>
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="dr-empty dr-empty-quiet">
-          <div>
-            <strong>No receipts yet.</strong>
-            <small>
-              Processed uploads appear here with what was added and matched.
-            </small>
-          </div>
-        </div>
-      )}
-      <div className="dr-archive-strip">
-        <div>
-          <strong>{plural(sources.length, "original")} archived</strong>
-          <small>
-            {plural(snapshotIndex.length, "account version")} across{" "}
-            {plural(snapshots.length, "archive revision")}
-          </small>
-        </div>
-        <button
-          type="button"
-          className="dr-quiet"
-          onClick={() => call(onReveal, "archive")}
-        >
-          Open archive <span aria-hidden="true">↗</span>
-        </button>
-      </div>
-    </section>
-  );
+      </header>
 
-  const renderSelected = () => {
-    if (!selection || !selectedAccount) return null;
-    const { month, accountId } = selection;
-    const outside = !inScope(month);
-    const hashes = currentVersion ? list(currentVersion.sourceHashes) : [];
-    return (
-      <div className="dr-selected">
-        <div className="dr-selected-summary">
-          <div className="dr-label">
-            {monthLabel(month, "long")}
-            {outside ? " · outside current range" : ""}
-          </div>
-          <h3>{selectedAccount.name}</h3>
-          <small>
-            {[
-              kindLabel(selectedAccount.kind),
-              schemaLabel(selectedAccount.schema),
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </small>
-          {versions.length ? (
-            <>
-              <p className="dr-sub">
-                {plural(versions.length, "saved version")} of this account for
-                the month
-              </p>
-              <div
-                className="dr-versions"
-                role="group"
-                aria-label="Saved account versions"
-              >
-                {versions.map((entry, i) => (
-                  <button
-                    type="button"
-                    key={entry.id ?? `${entry.revision}-${i}`}
-                    aria-pressed={entry === currentVersion}
-                    onClick={() => selectVersion(entry)}
-                  >
-                    r{entry.revision}
-                    {i === 0 ? " · latest" : ""}
-                  </button>
-                ))}
-              </div>
-            </>
-          ) : (
-            <p className="dr-sub">
-              No imported snapshot. A dash means nothing has been filed here
-              yet, not that the month is empty.
+      <section className="dr-library" aria-label="Snapshot library">
+        <div className="dr-section-line">
+          <div>
+            <h2>Snapshot library</h2>
+            <p>
+              {monthName(months[0], true)} — {monthName(months.at(-1), true)}
             </p>
-          )}
-        </div>
-
-        <div className="dr-selected-detail">
-          {currentVersion ? (
-            <>
-              <strong>
-                Version r{currentVersion.revision}
-                {currentVersion.rowCount != null
-                  ? ` · ${plural(currentVersion.rowCount, "transaction")}`
-                  : ""}
-              </strong>
-              <p>
-                Saved{" "}
-                {formatDateTime(currentVersion.created) || "at an unknown time"}
-                {currentVersion.workspaceRevision != null
-                  ? ` · month archive revision ${currentVersion.workspaceRevision}`
-                  : ""}
-              </p>
-              <div className="dr-label">Built from</div>
-              {hashes.length ? (
-                <ul className="dr-source-list">
-                  {hashes.map((hash) => {
-                    const source = sourceByHash.get(hash);
-                    return (
-                      <li key={hash}>
-                        <span>
-                          {source?.filename || "Original not in source list"}
-                        </span>
-                        <button
-                          type="button"
-                          className="dr-quiet dr-small"
-                          onClick={() => call(onReveal, "source", hash)}
-                        >
-                          Show original <span aria-hidden="true">↗</span>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : (
-                <p>No source files recorded for this version.</p>
-              )}
-              <div className="dr-actions">
-                <button
-                  type="button"
-                  onClick={() =>
-                    call(onOpenSnapshot, {
-                      month,
-                      accountId,
-                      id: currentVersion.id,
-                    })
-                  }
-                >
-                  Inspect snapshot
-                </button>
-                <button
-                  type="button"
-                  className="dr-quiet"
-                  onClick={() => call(onReveal, "month", month)}
-                >
-                  Open month folder <span aria-hidden="true">↗</span>
-                </button>
-                <button
-                  type="button"
-                  className="dr-quiet"
-                  onClick={() =>
-                    call(onReveal, "snapshot-file", currentVersion.id)
-                  }
-                >
-                  Show archive file <span aria-hidden="true">↗</span>
-                </button>
-              </div>
-            </>
-          ) : (
-            <>
-              <strong>Nothing filed yet</strong>
-              <p>
-                Upload an export for {selectedAccount.name} that includes{" "}
-                {monthLabel(month, "long")} and its snapshot will appear here.
-              </p>
-              {outside ? (
-                <p>
-                  This month is outside your import range, so its rows are set
-                  aside until the range changes.
-                </p>
-              ) : null}
-              <div className="dr-actions">
-                <button
-                  type="button"
-                  className="dr-primary"
-                  disabled={busy}
-                  onClick={() => call(onUpload)}
-                >
-                  Upload CSVs
-                </button>
-                {outside ? (
-                  <button
-                    type="button"
-                    className="dr-quiet"
-                    onClick={() => call(onRange)}
-                  >
-                    Change range
-                  </button>
-                ) : null}
-                {monthHasArchive ? (
-                  <button
-                    type="button"
-                    className="dr-quiet"
-                    onClick={() => call(onReveal, "month", month)}
-                  >
-                    Open month folder <span aria-hidden="true">↗</span>
-                  </button>
-                ) : null}
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const snapshotMap = (
-    <section className="dr-box dr-map" aria-labelledby="dr-map-title">
-      <div className="dr-box-head">
-        <div>
-          <h2 id="dr-map-title">Snapshot library</h2>
-          <small>
-            {plural(accountMonths, "account-month")} ·{" "}
-            {plural(snapshotIndex.length, "saved version")}
-          </small>
-        </div>
-        {years.length > 1 ? (
-          <div className="dr-years" role="group" aria-label="Archive year">
-            {years.map((y) => (
-              <button
-                type="button"
-                key={y}
-                aria-pressed={y === year}
-                onClick={() => setYearPick(y)}
-              >
-                {y}
-              </button>
-            ))}
           </div>
-        ) : (
-          <span className="dr-sub">{year}</span>
-        )}
-      </div>
-
-      {accounts.length === 0 ? (
-        <div className="dr-empty dr-empty-pad">
-          <div>
-            <strong>No accounts yet.</strong>
-            <small>
-              Add an account and set your import range to start filing exports.
-            </small>
-          </div>
-          <button
-            type="button"
-            className="dr-quiet"
-            onClick={() => call(onRange)}
-          >
-            Account settings <span aria-hidden="true">→</span>
+          <button className="dr-link" onClick={() => setModal("archive")}>
+            Browse archive ↗
           </button>
         </div>
-      ) : months.length === 0 ? (
-        <div className="dr-empty dr-empty-pad">
-          <div>
-            <strong>Nothing archived for {year}.</strong>
-            <small>Choose another year or change the import range.</small>
-          </div>
-        </div>
-      ) : (
-        <div className="dr-map-wrap">
-          <div className="dr-map-scroll">
-            <table className="dr-grid">
-              <caption className="dr-visually-hidden">
-                Saved monthly snapshot versions by account for {year}
-              </caption>
+        {data.accounts.length ? (
+          <div className="dr-calendar">
+            <table>
               <thead>
                 <tr>
                   <th scope="col">Account</th>
-                  {months.map((m) => (
-                    <th
-                      scope="col"
-                      key={m}
-                      className={inScope(m) ? undefined : "dr-out"}
-                    >
-                      <abbr title={monthLabel(m, "long")}>
-                        {MONTHS_SHORT[monthOf(m) - 1]}
-                      </abbr>
+                  {months.map((month, i) => (
+                    <th scope="col" key={month}>
+                      <span>
+                        {new Date(`${month}-15T12:00:00`).toLocaleDateString(
+                          "en-CA",
+                          { month: "short" },
+                        )}
+                      </span>
+                      <small>
+                        {i === 0 || month.endsWith("-01")
+                          ? month.slice(0, 4)
+                          : "\u00a0"}
+                      </small>
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {accounts.map((account) => (
-                  <tr key={account.id}>
-                    <th scope="row" className="dr-row-label">
+                {data.accounts.map((account) => (
+                  <tr
+                    key={account.id}
+                    style={{ "--account-color": account.color }}
+                  >
+                    <th scope="row">
+                      <span className="dr-account-dot" />
                       {account.name}
-                      <small>
-                        {[kindLabel(account.kind), schemaLabel(account.schema)]
-                          .filter(Boolean)
-                          .join(" · ")}
-                      </small>
                     </th>
-                    {months.map((m) => {
-                      const entries = cells.get(cellKey(account.id, m)) || [];
-                      const n = entries.length;
-                      const pressed =
-                        !!selection &&
-                        String(selection.accountId) === String(account.id) &&
-                        selection.month === m;
+                    {months.map((month) => {
+                      const versions = versionsFor(account.id, month),
+                        latest = versions[0];
                       return (
-                        <td key={m}>
-                          <button
-                            type="button"
-                            className={`dr-cell${n ? "" : " dr-missing"}${inScope(m) ? "" : " dr-cell-out"}`}
-                            data-count={Math.min(n, 4)}
-                            aria-pressed={pressed}
-                            aria-label={`${account.name}, ${monthLabel(m, "long")}, ${
-                              n
-                                ? plural(n, "saved version")
-                                : "no imported snapshot"
-                            }`}
-                            onClick={() => selectCell(account.id, m)}
-                          >
-                            {n ? `r${n}` : "—"}
-                          </button>
+                        <td key={month}>
+                          <div className="dr-cell-wrap">
+                            <button
+                              className={`dr-cell ${latest ? "filled" : ""}`}
+                              data-count={latest ? 1 : 0}
+                              aria-label={`${account.name}, ${monthName(month)}: ${latest ? `${latest.rowCount} transactions saved` : "no snapshot"}`}
+                              aria-describedby={`hint-${account.id}-${month}`}
+                              onClick={() =>
+                                setSelected({ account, month, versions })
+                              }
+                            >
+                              <span />
+                            </button>
+                            <div
+                              className="dr-tooltip"
+                              role="tooltip"
+                              id={`hint-${account.id}-${month}`}
+                            >
+                              <strong>{monthName(month)}</strong>
+                              <span>{account.name}</span>
+                              <small>
+                                {latest
+                                  ? `${latest.rowCount} transactions · saved ${when(latest.created)}`
+                                  : "No snapshot uploaded"}
+                              </small>
+                            </div>
+                          </div>
                         </td>
                       );
                     })}
@@ -872,347 +310,348 @@ export function DataWorkspace({
               </tbody>
             </table>
           </div>
-          <div className="dr-legend">
-            <span>
-              r1 = one saved version · r2 = two saved versions · — = no imported
-              snapshot
-            </span>
-            <span>Saved versions do not mean a month is fully covered.</span>
-          </div>
-        </div>
-      )}
-
-      {accounts.length ? renderSelected() : null}
-    </section>
-  );
-
-  const historyPanel = (
-    <section className="dr-box dr-history" aria-labelledby="dr-history-title">
-      <div className="dr-box-head">
-        <div>
-          <h2 id="dr-history-title">Upload history</h2>
-          <small>
-            {activity.length
-              ? `${plural(activity.length, "upload")} · newest first`
-              : "Every upload, including errors and removed copies, is listed here."}
-          </small>
-        </div>
-        <button
-          type="button"
-          className="dr-quiet"
-          onClick={() => call(onReveal, "sources")}
-        >
-          Open originals folder <span aria-hidden="true">↗</span>
-        </button>
-      </div>
-
-      {activity.length ? (
-        <ul className="dr-history-list">
-          {pageItems.map((item) => {
-            const status = activityStatus(item);
-            const name =
-              (typeof item.account === "string" && item.account) ||
-              accountName(item.account_id) ||
-              "No account";
-            const monthsFiled = list(item.result?.months).filter(isMonthKey);
-            const counts = item.result
-              ? [
-                  resultSummary(item.result),
-                  item.result.sourceRows != null
-                    ? plural(item.result.sourceRows, "source row")
-                    : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              : "";
-            return (
-              <li className="dr-history-row" key={item.id}>
-                <span
-                  className={`dr-status-mark dr-status-${status.tone}`}
-                  aria-hidden="true"
-                >
-                  {status.tone === "ok"
-                    ? "✓"
-                    : status.tone === "error"
-                      ? "!"
-                      : "·"}
-                </span>
-                <div className="dr-history-info">
-                  <strong>{item.filename || "Untitled file"}</strong>
-                  <small>
-                    {name} · {formatDateTime(item.created) || "unknown time"}
-                  </small>
-                  {counts ? <small>{counts}</small> : null}
-                  {monthsFiled.length ? (
-                    <small>
-                      Filed into{" "}
-                      {monthsFiled.map((m) => monthLabel(m)).join(", ")}
-                    </small>
-                  ) : null}
-                  {item.error ? (
-                    <small className="dr-error-text">
-                      {String(item.error)}
-                    </small>
-                  ) : null}
-                </div>
-                <span className={`dr-chip dr-chip-${status.tone}`}>
-                  {status.label}
-                </span>
-                {item.source_hash ? (
-                  <button
-                    type="button"
-                    className="dr-small"
-                    onClick={() => call(onReveal, "source", item.source_hash)}
-                  >
-                    Show original <span aria-hidden="true">↗</span>
-                  </button>
-                ) : (
-                  <span className="dr-sub dr-no-source">No original kept</span>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      ) : (
-        <div className="dr-empty dr-empty-pad">
-          <div>
-            <strong>No uploads yet.</strong>
-            <small>
-              Once you process a file its receipt will be kept here.
-            </small>
-          </div>
-        </div>
-      )}
-
-      {pageCount > 1 ? (
-        <div className="dr-pager">
-          <small>
-            Showing {pageStart + 1}–
-            {Math.min(pageStart + HISTORY_PAGE_SIZE, activity.length)} of{" "}
-            {activity.length}
-          </small>
-          <div className="dr-actions">
-            <button
-              type="button"
-              className="dr-small"
-              disabled={page === 0}
-              onClick={() => setHistoryPage(page - 1)}
-            >
-              Newer
-            </button>
-            <button
-              type="button"
-              className="dr-small"
-              disabled={page >= pageCount - 1}
-              onClick={() => setHistoryPage(page + 1)}
-            >
-              Older
-            </button>
-          </div>
-        </div>
-      ) : null}
-    </section>
-  );
-
-  const archivePanel = (
-    <>
-      <div className="dr-folders">
-        <button
-          type="button"
-          className="dr-folder-card"
-          onClick={() => call(onReveal, "sources")}
-        >
-          <span className="dr-folder-shape" aria-hidden="true" />
-          <strong>Original uploads</strong>
-          <small>
-            {plural(sources.length, "preserved CSV file")} · open in Explorer
-          </small>
-        </button>
-        <button
-          type="button"
-          className="dr-folder-card"
-          onClick={() => call(onReveal, "snapshots")}
-        >
-          <span className="dr-folder-shape" aria-hidden="true" />
-          <strong>Monthly snapshots</strong>
-          <small>
-            {plural(snapshots.length, "archive revision")} ·{" "}
-            {plural(snapshotIndex.length, "account version")} · open in Explorer
-          </small>
-        </button>
-      </div>
-
-      {snapshotMap}
-
-      <section className="dr-box dr-sources" aria-labelledby="dr-sources-title">
-        <div className="dr-box-head">
-          <div>
-            <h2 id="dr-sources-title">Original files</h2>
-            <small>
-              Every upload is kept byte-for-byte. Duplicate uploads share one
-              original.
-            </small>
-          </div>
-        </div>
-        {sources.length ? (
-          <div className="dr-table-scroll">
-            <table className="dr-files">
-              <thead>
-                <tr>
-                  <th scope="col">File</th>
-                  <th scope="col">Format</th>
-                  <th scope="col" className="dr-num">
-                    Size
-                  </th>
-                  <th scope="col" className="dr-num">
-                    Uploads
-                  </th>
-                  <th scope="col">
-                    <span className="dr-visually-hidden">Actions</span>
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {sources.map((source) => (
-                  <tr key={source.hash}>
-                    <td className="dr-file-name">
-                      {source.filename || "Untitled file"}
-                    </td>
-                    <td>{schemaLabel(source.schema)}</td>
-                    <td className="dr-num">{formatBytes(source.bytes)}</td>
-                    <td className="dr-num">{Number(source.uploads) || 0}</td>
-                    <td className="dr-row-action">
-                      <button
-                        type="button"
-                        className="dr-small"
-                        onClick={() => call(onReveal, "source", source.hash)}
-                      >
-                        Show original <span aria-hidden="true">↗</span>
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
         ) : (
-          <div className="dr-empty dr-empty-pad">
-            <div>
-              <strong>No originals archived yet.</strong>
-              <small>
-                Uploaded originals are preserved here unchanged, even before
-                processing.
-              </small>
-            </div>
+          <div className="dr-calendar-empty">
+            <span aria-hidden="true">▦</span>
+            <p>Your accounts will bring this calendar to life.</p>
+            <button onClick={onRange}>Add accounts</button>
           </div>
         )}
-      </section>
-    </>
-  );
-
-  /* ---------- page ---------- */
-
-  return (
-    <div className="data-room">
-      <header className="dr-heading">
-        <div className="dr-heading-text">
-          <div className="dr-eyebrow">Data</div>
-          <h1>A place for every file.</h1>
-          <p>From your Dropbox to a month you can come back to.</p>
+        <div className="dr-calendar-legend">
+          <span>
+            <i className="dr-legend-filled" /> Snapshot saved
+          </span>
+          <span>
+            <i /> No snapshot
+          </span>
+          <small>Activity does not confirm complete month coverage.</small>
         </div>
-        <div className="dr-heading-side">
-          <div className="dr-scope">
-            <span className="dr-scope-chip">
-              {rangeLabel(startMonth, throughMonth) || "No range set"}
+      </section>
+
+      <div className="dr-desk-columns">
+        <section className="dr-dropbox" aria-label="Dropbox">
+          <div className="dr-section-line">
+            <div>
+              <div className="eyebrow">01 / INTAKE</div>
+              <h2>
+                Dropbox <span className="dr-count">{data.jobs.length}</span>
+              </h2>
+            </div>
+            <button disabled={busy} onClick={() => onReveal("dropbox")}>
+              Open folder ↗
+            </button>
+          </div>
+          <div className={`dr-drop-pad ${progress ? "processing" : ""}`}>
+            {progress ? (
+              <div role="status" className="dr-processing">
+                <div className="dr-file-flight" aria-hidden="true">
+                  <i>CSV</i>
+                  <i>CSV</i>
+                  <i>CSV</i>
+                  <b>▦</b>
+                </div>
+                <strong>Finding a home for your files…</strong>
+                <p>
+                  {progress.filename || "Preparing the Dropbox"} ·{" "}
+                  {progress.done} / {progress.total}
+                </p>
+                <progress
+                  aria-label="Files processed"
+                  value={progress.done}
+                  max={progress.total || 1}
+                />
+              </div>
+            ) : (
+              <>
+                <div className="dr-drop-illustration" aria-hidden="true">
+                  <span>CSV</span>
+                  <span>CSV</span>
+                  <b>↓</b>
+                </div>
+                <h3>Fresh files, right here.</h3>
+                <p>Drop your bank CSVs or a folder anywhere on this page.</p>
+                <div className="dr-actions">
+                  <button
+                    className="primary"
+                    disabled={busy}
+                    onClick={onUpload}
+                  >
+                    Upload CSVs
+                  </button>
+                  <button disabled={busy} onClick={onChooseFolder}>
+                    Choose folder
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+          <div className="dr-intake-range">
+            <span>
+              Importing {monthName(data.scope.startMonth, true)}
+              {data.scope.startMonth !== data.scope.throughMonth &&
+                ` — ${monthName(data.scope.throughMonth, true)}`}
             </span>
-            <button
-              type="button"
-              className="dr-quiet dr-small"
-              onClick={() => call(onRange)}
-            >
+            <button className="dr-link" disabled={busy} onClick={onRange}>
               Change range
             </button>
           </div>
-          <div className="dr-actions">
-            <button
-              type="button"
-              className="dr-primary"
-              disabled={busy}
-              onClick={() => call(onUpload)}
-            >
-              <span className="dr-plus" aria-hidden="true">
-                +
-              </span>
-              Upload CSVs
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => call(onChooseFolder)}
-            >
-              Choose folder…
-            </button>
-          </div>
-        </div>
-      </header>
-
-      <div
-        className="dr-nav"
-        role="tablist"
-        aria-label="Data sections"
-        onKeyDown={onTabKeyDown}
-      >
-        {TABS.map((t) => {
-          const badge =
-            t.id === "overview"
-              ? jobs.length
-              : t.id === "history"
-                ? activity.length
-                : 0;
-          return (
-            <button
-              type="button"
-              role="tab"
-              key={t.id}
-              id={`dr-tab-${t.id}`}
-              aria-selected={tab === t.id}
-              aria-controls="dr-panel"
-              tabIndex={tab === t.id ? 0 : -1}
-              onClick={() => setTab(t.id)}
-            >
-              {t.label}
-              {badge ? (
-                <span
-                  className={`dr-badge${t.id === "overview" && needsAttention.length ? " dr-badge-warm" : ""}`}
+          {data.jobs.length ? (
+            <>
+              <div className="dr-queue">
+                {[...attention, ...queued].map((job) => (
+                  <article className="dr-queue-item" key={job.id}>
+                    <span className="dr-file-icon" aria-hidden="true">
+                      CSV
+                    </span>
+                    <div>
+                      <strong>{job.filename}</strong>
+                      <small>
+                        {accountById[job.accountId]?.name || "Account needed"}
+                        {job.rowCount != null && ` · ${job.rowCount} rows`}
+                      </small>
+                      {job.error && (
+                        <small className="dr-error-text">{job.error}</small>
+                      )}
+                    </div>
+                    {job.status === "queued" ? (
+                      <span className="dr-status queued">Ready</span>
+                    ) : job.status === "finalizing" ? (
+                      <button disabled={busy} onClick={onScan}>
+                        Retry archive
+                      </button>
+                    ) : (
+                      <button disabled={busy} onClick={() => onReview(job)}>
+                        {statusName[job.status]}
+                      </button>
+                    )}
+                    <button
+                      className="dr-remove"
+                      disabled={busy || job.status === "finalizing"}
+                      aria-label={`Remove ${job.filename} from intake`}
+                      onClick={() => onDismiss(job.id)}
+                    >
+                      ×
+                    </button>
+                  </article>
+                ))}
+              </div>
+              <div className="dr-queue-actions">
+                <button
+                  className="primary"
+                  disabled={busy || !queued.length}
+                  onClick={onProcess}
                 >
-                  {badge}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
-
-      <div
-        id="dr-panel"
-        role="tabpanel"
-        aria-labelledby={`dr-tab-${tab}`}
-        className="dr-panel"
-      >
-        {tab === "overview" ? (
-          <>
-            <div className="dr-top">
-              {dropboxPanel}
-              {recentPanel}
+                  Process {queued.length} queued file
+                  {queued.length === 1 ? "" : "s"}
+                </button>
+                <button
+                  className="dr-link"
+                  disabled={busy}
+                  onClick={() => setConfirmClear(true)}
+                >
+                  Clear intake copies
+                </button>
+              </div>
+            </>
+          ) : (
+            <div className="dr-queue-empty">
+              <span aria-hidden="true">✓</span>
+              <div>
+                <strong>Nothing waiting.</strong>
+                <small>Your next upload will land here.</small>
+              </div>
             </div>
-            {snapshotMap}
-          </>
-        ) : null}
-        {tab === "history" ? historyPanel : null}
-        {tab === "archive" ? archivePanel : null}
+          )}
+          {confirmClear && (
+            <div className="dr-clear-confirm" role="alert">
+              <strong>Clear the intake copies?</strong>
+              <p>
+                Originals stay archived. Snapshots, Downloads and other folder
+                contents stay in place.
+              </p>
+              <button
+                disabled={busy}
+                onClick={async () => {
+                  const cleared = await onClear();
+                  if (cleared !== false) setConfirmClear(false);
+                }}
+              >
+                Clear{" "}
+                {data.jobs.filter((j) => j.status !== "finalizing").length}{" "}
+                {data.jobs.filter((j) => j.status !== "finalizing").length === 1
+                  ? "copy"
+                  : "copies"}
+              </button>
+              <button onClick={() => setConfirmClear(false)}>Cancel</button>
+            </div>
+          )}
+          <p className="dr-footnote">
+            PC Financial · EQ Bank · Simplii · CSV files stay local
+          </p>
+        </section>
+
+        <aside className="dr-desk-aside">
+          <section className="dr-results" aria-label="Processing results">
+            <div className="eyebrow">02 / THE WRAP-UP</div>
+            <h2>
+              {progress
+                ? "A little organizing…"
+                : result
+                  ? result.remaining
+                    ? "A few files need a look."
+                    : "Dropbox, sorted."
+                  : "Ready when you are."}
+            </h2>
+            {progress ? (
+              <p>
+                Archiving originals, matching repeat rows and saving monthly
+                snapshots.
+              </p>
+            ) : result ? (
+              <>
+                <p>
+                  {result.completed} of {result.attempted} files processed
+                  {result.remaining
+                    ? ` · ${result.remaining} left for attention at the end of this run`
+                    : ""}
+                  .
+                </p>
+                <div className="dr-result-numbers">
+                  <div>
+                    <strong>{result.added}</strong>
+                    <span>new rows</span>
+                  </div>
+                  <div>
+                    <strong>{result.matched}</strong>
+                    <span>matched</span>
+                  </div>
+                  <div>
+                    <strong>{result.excluded}</strong>
+                    <span>outside range</span>
+                  </div>
+                </div>
+                <div className="dr-result-months">
+                  {result.months.length ? (
+                    result.months.map((month) => (
+                      <span key={month}>✓ {monthName(month, true)}</span>
+                    ))
+                  ) : (
+                    <span>No monthly snapshots changed.</span>
+                  )}
+                </div>
+                <small className="dr-result-time">
+                  Latest run · {when(result.created)}
+                </small>
+                {result.files.some((file) => file.status !== "complete") && (
+                  <p className="dr-error-text">
+                    Some files need review or archive recovery. See Dropbox for
+                    their current status.
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <div className="dr-resting-dots" aria-hidden="true">
+                  <i />
+                  <i />
+                  <i />
+                </div>
+                <p>
+                  Process your Dropbox and the results land here: new rows,
+                  repeat matches and months saved.
+                </p>
+              </>
+            )}
+            <button className="dr-link" onClick={() => setModal("history")}>
+              View upload history ↗
+            </button>
+          </section>
+          <section className="dr-archive-card">
+            <div className="eyebrow">03 / SAFELY FILED</div>
+            <h2>Your local archive</h2>
+            <p>
+              <strong>{data.sources.length}</strong> original file
+              {data.sources.length === 1 ? "" : "s"} ·{" "}
+              <strong>
+                {
+                  new Set(
+                    data.snapshotIndex.map((s) => `${s.accountId}/${s.month}`),
+                  ).size
+                }
+              </strong>{" "}
+              account-month snapshots
+            </p>
+            <p>Originals and saved history, always within reach.</p>
+            <div className="dr-actions">
+              <button disabled={busy} onClick={() => onReveal("archive")}>
+                Open archive ↗
+              </button>
+              <button className="dr-link" onClick={() => setModal("archive")}>
+                Inspect files
+              </button>
+            </div>
+          </section>
+        </aside>
       </div>
+      {modal === "history" && (
+        <WorkspaceModal title="Upload history" onClose={() => setModal(null)}>
+          <History data={data} onReveal={onReveal} />
+        </WorkspaceModal>
+      )}
+      {modal === "archive" && (
+        <WorkspaceModal title="Archive" onClose={() => setModal(null)}>
+          <Archive data={data} onReveal={onReveal} onOpenSnapshot={inspect} />
+        </WorkspaceModal>
+      )}
+      {selected && (
+        <WorkspaceModal
+          title={monthName(selected.month)}
+          onClose={() => setSelected(null)}
+        >
+          <p>
+            <span
+              className="dr-account-dot"
+              style={{ background: selected.account.color }}
+            />
+            {selected.account.name}
+          </p>
+          {selected.versions.length ? (
+            <>
+              <p>
+                {selected.versions[0].rowCount} transactions in the latest saved
+                snapshot.
+              </p>
+              <button
+                className="primary"
+                onClick={() => inspect(selected.versions[0])}
+              >
+                Inspect snapshot
+              </button>
+              <button
+                className="dr-link"
+                onClick={() => onReveal("month", selected.month)}
+              >
+                Open month folder ↗
+              </button>
+              <details className="dr-previous-saves">
+                <summary>Saved history ({selected.versions.length})</summary>
+                {selected.versions.map((saved) => (
+                  <div className="dr-saved-row" key={saved.id}>
+                    <span>
+                      {when(saved.created)} · {saved.rowCount} rows
+                    </span>
+                    <button onClick={() => inspect(saved)}>
+                      Inspect saved snapshot
+                    </button>
+                  </div>
+                ))}
+              </details>
+            </>
+          ) : (
+            <p>No snapshot has been uploaded for this account and month.</p>
+          )}
+        </WorkspaceModal>
+      )}
     </div>
   );
 }
-
-export default DataWorkspace;

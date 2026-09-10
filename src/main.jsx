@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
 import { DataWorkspace } from "./DataWorkspace.jsx";
+import { AccountSettings } from "./AccountSettings.jsx";
 import "./data-workspace.css";
 
 const api = window.urbanomics;
@@ -32,6 +33,8 @@ function App() {
     [page, setPage] = useState("data"),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
+  const [progress, setProgress] = useState(null);
+  useEffect(() => api?.onProgress(setProgress), []);
   const [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
     [dragging, setDragging] = useState(false);
@@ -280,6 +283,7 @@ function App() {
             <DataWorkspace
               data={data}
               busy={busy}
+              progress={progress}
               onUpload={() => intake(() => api.choose(false))}
               onChooseFolder={() => intake(() => api.choose(true))}
               onScan={() =>
@@ -293,7 +297,19 @@ function App() {
               }
               onProcess={() =>
                 run(
-                  () => api.process(),
+                  async () => {
+                    setProgress({
+                      done: 0,
+                      total: data.jobs.filter((j) => j.status === "queued")
+                        .length,
+                      filename: null,
+                    });
+                    try {
+                      return await api.process();
+                    } finally {
+                      setProgress(null);
+                    }
+                  },
                   (r) =>
                     r.attempted
                       ? r.completed +
@@ -475,7 +491,9 @@ function App() {
               </div>
             </>
           )}
-          {page === "accounts" && <Accounts data={data} run={run} />}
+          {page === "accounts" && (
+            <Accounts data={data} run={run} busy={busy} />
+          )}
         </main>
         <footer>
           <span>URBANOMICS / LOCAL WORKSPACE</span>
@@ -750,7 +768,7 @@ function Route({ job, data, run, done }) {
     </>
   );
 }
-function Accounts({ data, run }) {
+function Accounts({ data, run, busy }) {
   const [start, setStart] = useState(data.scope.startMonth),
     [through, setThrough] = useState(data.scope.throughMonth);
   return (
@@ -760,20 +778,7 @@ function Accounts({ data, run }) {
         <h1>Your accounts, your rules.</h1>
         <p>Recognize repeat exports without guessing where they belong.</p>
       </div>
-      <div className="account-grid">
-        {data.accounts.map((a) => (
-          <div className="account-card" key={a.id}>
-            <span className="bank-avatar">{initials(a.name)}</span>
-            <h2>{a.name}</h2>
-            <p>
-              {banks[a.schema]} · {a.kind === "credit" ? "Credit card" : a.kind}
-            </p>
-          </div>
-        ))}
-      </div>
-      {!data.accounts.length && (
-        <p className="empty-text">Drop an export to add its account.</p>
-      )}
+      <AccountSettings data={data} busy={busy} run={run} />
       <section className="section settings-card">
         <h2>Monthly import range</h2>
         <p>

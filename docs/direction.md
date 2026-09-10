@@ -4,6 +4,8 @@ Updated: 2026-09-10
 
 ## Current request
 
+The user requested editable account names, filename-prefix regex rules and account colors. Data now stays on one page: a refresh action, a compact rolling calendar of the last 12 completed months, the Dropbox queue, animated processing feedback and a persistent latest-run summary. Colored rounded squares indicate account-month snapshot presence, with minimal hover/focus details and no revision labels. Upload history and full archive inspection open in modals. Earlier archived months remain available there. Prefix rules are optional, bank-specific and case-insensitive; ambiguous matches require review. These are implemented decisions, not changes to the accounting model.
+
 The user accepted the in-chat Data prototype and requested applying it to the real app, with a Fable UI pass. The repository and live workspace now run from `C:/path/to/urbanomics`. The Data section is the single place for Dropbox intake, upload history, archived originals and account-month snapshot management. Fable 5.1 supplied the React/CSS layout through a restricted Claude Code task with code and synthetic inputs only; the coordinating agent implemented storage, IPC, integration and verification.
 
 Build an operational Electron app in the existing private `urbanomics` repo. Start with the most recent completed month from supplied CSV samples, support drag/drop multi-account intake, deduplicate into monthly snapshots, archive sources and revisions, and keep personal data local and ignored by Git.

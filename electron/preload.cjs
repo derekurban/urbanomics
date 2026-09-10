@@ -8,6 +8,11 @@ contextBridge.exposeInMainWorld("urbanomics", {
   state: () => invoke("workspace:state"),
   scan: () => invoke("workspace:scan"),
   process: () => invoke("workspace:process"),
+  onProgress: (callback) => {
+    const listener = (_event, progress) => callback(progress);
+    ipcRenderer.on("workspace:progress", listener);
+    return () => ipcRenderer.removeListener("workspace:progress", listener);
+  },
   clear: () => invoke("workspace:clear"),
   onChanged: (callback) => {
     const listener = (_event, error) => callback(error);
@@ -20,8 +25,11 @@ contextBridge.exposeInMainWorld("urbanomics", {
       files.map((file) => webUtils.getPathForFile(file)).filter(Boolean),
     ),
   choose: (folder) => invoke("workspace:choose", folder === true),
-  addAccount: (name, schema, kind) =>
-    invoke("workspace:account", name, schema, kind),
+  addAccount: (name, schema, kind, options) =>
+    invoke("workspace:account", name, schema, kind, options),
+  updateAccount: (id, values) => invoke("workspace:account-update", id, values),
+  testPrefix: (pattern, filename) =>
+    invoke("workspace:prefix-test", pattern, filename),
   route: (id, account, remember) =>
     invoke("workspace:route", id, account, remember),
   resolve: (id, choices) => invoke("workspace:resolve", id, choices),

@@ -2,6 +2,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
+const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const {
   parseExport,
   hash,
@@ -44,7 +45,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 2) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 3) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -63,7 +64,27 @@ class ImportStore {
       CREATE TABLE IF NOT EXISTS imports (id TEXT PRIMARY KEY, source_hash TEXT NOT NULL, account_id TEXT NOT NULL, scope TEXT NOT NULL, canonical TEXT NOT NULL, result TEXT NOT NULL, created TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, month TEXT NOT NULL, revision INTEGER NOT NULL, created TEXT NOT NULL, json TEXT NOT NULL, csv TEXT NOT NULL, UNIQUE(month,revision));
       CREATE TABLE IF NOT EXISTS staged_paths (filename TEXT PRIMARY KEY, source_hash TEXT NOT NULL REFERENCES sources(hash), job_id TEXT NOT NULL REFERENCES jobs(id));
-      PRAGMA user_version=2;`);
+      `);
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 3) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        this.db.exec(
+          "ALTER TABLE accounts ADD COLUMN prefixRegex TEXT NOT NULL DEFAULT ''; ALTER TABLE accounts ADD COLUMN color TEXT NOT NULL DEFAULT '#427A64';",
+        );
+        this.db
+          .prepare("SELECT id FROM accounts ORDER BY rowid")
+          .all()
+          .forEach((account, i) => {
+            this.db
+              .prepare("UPDATE accounts SET color=? WHERE id=?")
+              .run(colors[i % colors.length], account.id);
+          });
+        this.db.exec("PRAGMA user_version=3; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
     this.db
       .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")
       .run("startMonth", "2026-01");
@@ -78,7 +99,9 @@ class ImportStore {
   settings() {
     return Object.fromEntries(
       this.db
-        .prepare("SELECT * FROM settings")
+        .prepare(
+          "SELECT * FROM settings WHERE key IN ('startMonth','throughMonth')",
+        )
         .all()
         .map((r) => [r.key, r.value]),
     );
@@ -108,7 +131,7 @@ class ImportStore {
     }
     if (process) this.processPending();
   }
-  addAccount(name, schema, kind) {
+  addAccount(name, schema, kind, options = {}) {
     name = String(name || "").trim();
     if (
       !name ||
@@ -118,10 +141,76 @@ class ImportStore {
     )
       throw new Error("Enter a name, supported bank, and account type.");
     const id = randomUUID();
+    const count = this.db.prepare("SELECT COUNT(*) AS n FROM accounts").get().n;
+    const style = appearance(
+      name,
+      options.prefixRegex ?? "",
+      options.color ?? colors[count % colors.length],
+    );
     this.db
-      .prepare("INSERT INTO accounts VALUES (?,?,?,?)")
-      .run(id, name, schema, kind);
+      .prepare(
+        "INSERT INTO accounts (id,name,schema,kind,prefixRegex,color) VALUES (?,?,?,?,?,?)",
+      )
+      .run(id, style.name, schema, kind, style.prefixRegex, style.color);
+    this.rerouteWaiting();
     return id;
+  }
+  updateAccount(id, values) {
+    if (!this.db.prepare("SELECT id FROM accounts WHERE id=?").get(id))
+      throw new Error("Account not found.");
+    const style = appearance(values?.name, values?.prefixRegex, values?.color);
+    this.db
+      .prepare("UPDATE accounts SET name=?,prefixRegex=?,color=? WHERE id=?")
+      .run(style.name, style.prefixRegex, style.color, id);
+    this.rerouteWaiting();
+  }
+  testPrefix(pattern, filename) {
+    if (
+      typeof filename !== "string" ||
+      filename.length > 255 ||
+      /[/\\]/.test(filename)
+    )
+      throw new Error(
+        "Enter a filename, without a folder path (up to 255 characters).",
+      );
+    return { matches: prefixPattern(pattern)?.test(filename) ?? false };
+  }
+  routingChoices(sourceHash, filename, schema) {
+    const known = this.db
+      .prepare(
+        "SELECT DISTINCT account_id AS id FROM imports WHERE source_hash=?",
+      )
+      .all(sourceHash);
+    if (known.length) return known;
+    const remembered = this.db
+      .prepare("SELECT account_id AS id FROM rules WHERE key=? AND schema=?")
+      .all(routingKey(filename), schema);
+    const patterns = this.db
+      .prepare(
+        "SELECT id,prefixRegex FROM accounts WHERE schema=? AND prefixRegex<>''",
+      )
+      .all(schema)
+      .filter((a) => prefixPattern(a.prefixRegex).test(filename));
+    return [...new Set([...remembered, ...patterns].map((a) => a.id))].map(
+      (id) => ({ id }),
+    );
+  }
+  rerouteWaiting() {
+    for (const job of this.db
+      .prepare(
+        "SELECT j.*,s.schema FROM jobs j JOIN sources s ON s.hash=j.source_hash WHERE j.status='routing'",
+      )
+      .all()) {
+      const choices = this.routingChoices(
+        job.source_hash,
+        job.filename,
+        job.schema,
+      );
+      if (choices.length === 1)
+        this.db
+          .prepare("UPDATE jobs SET account_id=?,status='queued' WHERE id=?")
+          .run(choices[0].id, job.id);
+    }
   }
   resolveAccount(jobId, accountId, remember = true, { process = true } = {}) {
     const job = this.job(jobId);
@@ -240,17 +329,11 @@ class ImportStore {
         );
       let accountId = null;
       if (parsed) {
-        const known = this.db
-          .prepare(
-            "SELECT DISTINCT account_id AS id FROM imports WHERE source_hash=?",
-          )
-          .all(sourceHash);
-        const matched = this.db
-          .prepare(
-            "SELECT account_id AS id FROM rules WHERE key=? AND schema=?",
-          )
-          .all(routingKey(filename), parsed.schema);
-        const choices = known.length ? known : matched;
+        const choices = this.routingChoices(
+          sourceHash,
+          filename,
+          parsed.schema,
+        );
         if (choices.length === 1) accountId = choices[0].id;
       }
       this.db
@@ -296,6 +379,57 @@ class ImportStore {
       completed: jobs.filter((j) => this.job(j.id).status === "complete")
         .length,
     };
+  }
+  async processReadyWithProgress(progress = () => {}) {
+    this.scanDropbox();
+    this.recover();
+    const jobs = this.db
+      .prepare(
+        "SELECT id,filename FROM jobs WHERE status='queued' ORDER BY rowid",
+      )
+      .all();
+    const result = {
+      created: this.now().toISOString(),
+      attempted: jobs.length,
+      completed: 0,
+      added: 0,
+      matched: 0,
+      excluded: 0,
+      months: [],
+      files: [],
+    };
+    const months = new Set();
+    for (const [index, job] of jobs.entries()) {
+      progress({ done: index, total: jobs.length, filename: job.filename });
+      await new Promise((resolve) => setImmediate(resolve));
+      this.process(job.id);
+      const saved = this.job(job.id);
+      result.files.push({
+        id: saved.id,
+        filename: saved.filename,
+        status: saved.status,
+      });
+      if (saved.status === "complete") {
+        result.completed++;
+        const receipt = JSON.parse(saved.result);
+        for (const key of ["added", "matched", "excluded"])
+          result[key] += receipt[key];
+        receipt.months.forEach((month) => months.add(month));
+      }
+    }
+    result.months = [...months].sort();
+    result.remaining = this.db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM jobs WHERE status NOT IN ('complete','dismissed')",
+      )
+      .get().n;
+    this.db
+      .prepare(
+        "INSERT INTO settings VALUES ('lastProcessResult',?) ON CONFLICT(key) DO UPDATE SET value=excluded.value",
+      )
+      .run(JSON.stringify(result));
+    progress({ done: jobs.length, total: jobs.length, filename: null });
+    return result;
   }
   clearDropbox() {
     // Discover and preserve manually added CSVs before removing any intake copies.
@@ -725,6 +859,11 @@ class ImportStore {
       root: this.root,
       scope,
       lastCompleteMonth: lastCompleteMonth(this.now()),
+      lastProcessResult: JSON.parse(
+        this.db
+          .prepare("SELECT value FROM settings WHERE key='lastProcessResult'")
+          .get()?.value ?? "null",
+      ),
       accounts: this.db.prepare("SELECT * FROM accounts ORDER BY rowid").all(),
       rules: this.db
         .prepare(

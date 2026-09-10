@@ -23,7 +23,10 @@ const dev = !app.isPackaged && process.argv.includes("--dev");
 const appURL = dev
   ? "http://127.0.0.1:5173/"
   : pathToFileURL(path.join(__dirname, "..", "dist", "index.html")).href;
-let window, store;
+let window,
+  store,
+  processing = false,
+  quitAfterProcessing = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
@@ -60,6 +63,18 @@ else {
           )
             throw new Error("Untrusted application frame.");
           try {
+            if (
+              processing &&
+              ![
+                "workspace:state",
+                "workspace:transactions",
+                "workspace:detail",
+                "workspace:snapshot",
+                "workspace:reveal",
+                "workspace:prefix-test",
+              ].includes(channel)
+            )
+              throw new Error("Wait for Dropbox processing to finish.");
             return { ok: true, value: await fn(...args) };
           } catch (error) {
             return { ok: false, error: error.message };
@@ -69,8 +84,22 @@ else {
       handle("workspace:ingest", (files) =>
         store.enqueue(files, { stage: true, process: false }),
       );
-      handle("workspace:scan", () => store.scanDropbox());
-      handle("workspace:process", () => store.processReady());
+      handle("workspace:scan", () => {
+        store.recover();
+        return store.scanDropbox();
+      });
+      handle("workspace:process", async () => {
+        processing = true;
+        try {
+          return await store.processReadyWithProgress((progress) => {
+            if (!window.isDestroyed())
+              window.webContents.send("workspace:progress", progress);
+          });
+        } finally {
+          processing = false;
+          if (quitAfterProcessing) app.quit();
+        }
+      });
       handle("workspace:clear", () => store.clearDropbox());
       handle("workspace:choose", async (folder) => {
         const response = await dialog.showOpenDialog(window, {
@@ -88,8 +117,14 @@ else {
           ? { ids: [], skipped: 0 }
           : store.enqueue(response.filePaths, { stage: true, process: false });
       });
-      handle("workspace:account", (name, schema, kind) =>
-        store.addAccount(name, schema, kind),
+      handle("workspace:account", (name, schema, kind, options) =>
+        store.addAccount(name, schema, kind, options),
+      );
+      handle("workspace:account-update", (id, values) =>
+        store.updateAccount(id, values),
+      );
+      handle("workspace:prefix-test", (pattern, filename) =>
+        store.testPrefix(pattern, filename),
       );
       handle("workspace:route", (id, account, remember) =>
         store.resolveAccount(id, account, remember === true, {
@@ -175,6 +210,7 @@ else {
       });
       window.setMenu(null);
       window.on("focus", () => {
+        if (processing) return;
         try {
           store.scanDropbox();
           window.webContents.send("workspace:changed");
@@ -197,7 +233,12 @@ else {
       app.quit();
     });
   app.on("window-all-closed", () => app.quit());
-  app.on("before-quit", () => {
+  app.on("before-quit", (event) => {
+    if (processing) {
+      event.preventDefault();
+      quitAfterProcessing = true;
+      return;
+    }
     store?.close();
     store = null;
   });
