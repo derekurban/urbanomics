@@ -107,25 +107,34 @@ else {
       handle("review:transfer-unlink", (id, version, counterpartVersion) =>
         store.review.unlinkTransfer(id, version, counterpartVersion),
       );
-      handle("workspace:ingest", (files) =>
-        store.enqueue(files, { stage: true, process: false }),
-      );
-      handle("workspace:scan", () => {
-        store.recover();
-        return store.scanDropbox();
-      });
-      handle("workspace:process", async () => {
+      const processFiles = async (ids = null) => {
         processing = true;
         try {
           return await store.processReadyWithProgress((progress) => {
             if (!window.isDestroyed())
               window.webContents.send("workspace:progress", progress);
-          });
+          }, ids);
         } finally {
           processing = false;
           if (quitAfterProcessing) app.quit();
         }
+      };
+      const importFiles = async (files) => {
+        const received = store.enqueue(files, { stage: true, process: false });
+        const ready = received.ids.filter(
+          (id) => store.job(id).status === "queued",
+        );
+        return {
+          ...received,
+          result: ready.length ? await processFiles(ready) : null,
+        };
+      };
+      handle("workspace:ingest", importFiles);
+      handle("workspace:scan", () => {
+        store.recover();
+        return store.scanDropbox();
       });
+      handle("workspace:process", () => processFiles());
       handle("workspace:clear", () => store.clearDropbox());
       handle("workspace:choose", async (folder) => {
         const response = await dialog.showOpenDialog(window, {
@@ -141,7 +150,7 @@ else {
         });
         return response.canceled
           ? { ids: [], skipped: 0 }
-          : store.enqueue(response.filePaths, { stage: true, process: false });
+          : importFiles(response.filePaths);
       });
       handle("workspace:account", (name, schema, kind, options) =>
         store.addAccount(name, schema, kind, options),
@@ -154,20 +163,18 @@ else {
       handle("workspace:prefix-test", (pattern, filename) =>
         store.testPrefix(pattern, filename),
       );
-      handle("workspace:route", (id, account, remember) =>
+      handle("workspace:route", async (id, account, remember) => {
         store.resolveAccount(id, account, remember === true, {
           process: false,
-        }),
-      );
+        });
+        return { result: await processFiles([id]) };
+      });
       handle("workspace:resolve", (id, choices) => {
         if (!choices || typeof choices !== "object" || Array.isArray(choices))
           throw new Error("Invalid match decisions.");
         return store.process(id, choices);
       });
       handle("workspace:dismiss", (id) => store.dismiss(id));
-      handle("workspace:scope", (start, through) =>
-        store.setScope(start, through, { process: false }),
-      );
       handle("workspace:transactions", (month) =>
         store.aliases.decorate(store.transactions(month)),
       );
@@ -197,7 +204,10 @@ else {
           };
           let location = folders[kind];
           if (kind === "month") {
-            if (typeof id !== "string" || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(id))
+            if (
+              typeof id !== "string" ||
+              !/^(?:19\d{2}|20\d{2}|21\d{2}|2200)-(0[1-9]|1[0-2])$/.test(id)
+            )
               throw new Error("Invalid archive month.");
             location = path.join(privateRoot, "archive/snapshots", id);
           } else if (kind === "snapshot-file") {

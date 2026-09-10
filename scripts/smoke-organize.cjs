@@ -179,7 +179,7 @@ async function create(kind, name, selected = []) {
       .getByRole("button", { name: "Edit Synthetic card", exact: true })
       .waitFor();
     await page
-      .getByRole("heading", { name: "Monthly import range", exact: true })
+      .getByRole("heading", { name: "Remembered filenames", exact: true })
       .waitFor();
     await snapshot("accounts");
     await app.evaluate(({ BrowserWindow }) =>

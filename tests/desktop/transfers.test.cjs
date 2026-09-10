@@ -232,7 +232,7 @@ test("transfer linking blocks reviewed entries, same-account entries, out-of-ban
   );
   assert.throws(() => c.link("Exact out", "Competing in", 0), /pending/);
 });
-test("choosing one import month filters queued CSVs without processing or hiding other snapshots", (t) => {
+test("multi-month imports append dated rows while preserving previous snapshots", (t) => {
   const c = fixture(t),
     originalSnapshotCount = c.store.state().snapshots.length;
   const file = c.file("multi-month", [
@@ -242,21 +242,17 @@ test("choosing one import month filters queued CSVs without processing or hiding
   ]);
   const id = c.store.enqueue([file], { stage: true, process: false }).ids[0];
   c.store.resolveAccount(id, c.a, false, { process: false });
-  c.store.setScope("2026-07", "2026-07", { process: false });
   assert.equal(c.store.job(id).status, "queued");
   assert.equal(c.row("July row"), undefined);
   assert.ok(c.store.state().months.some((m) => m.month === "2026-08"));
   assert.equal(c.store.state().snapshots.length, originalSnapshotCount);
   c.store.process(id);
   assert.ok(c.row("July row"));
-  assert.equal(c.row("August row"), undefined);
-  assert.equal(c.row("September row"), undefined);
-  assert.equal(c.store.state().months.length, 2);
+  assert.ok(c.row("August row"));
+  assert.ok(c.row("September row"));
+  assert.equal(c.store.state().months.length, 3);
   c.reopen();
-  assert.deepEqual(c.store.settings(), {
-    startMonth: "2026-07",
-    throughMonth: "2026-07",
-  });
+  assert.equal(c.store.review.records().length, 13);
 });
 
 test("category views conserve transfer principal, fee cents and unexplained extras without treating them as income", async () => {

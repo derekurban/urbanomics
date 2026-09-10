@@ -50,7 +50,6 @@ contextBridge.exposeInMainWorld("urbanomics", {
     invoke("workspace:route", id, account, remember),
   resolve: (id, choices) => invoke("workspace:resolve", id, choices),
   dismiss: (id) => invoke("workspace:dismiss", id),
-  setScope: (start, through) => invoke("workspace:scope", start, through),
   transactions: (month) => invoke("workspace:transactions", month),
   detail: (id) => invoke("workspace:detail", id),
   snapshot: (id) => invoke("workspace:snapshot", id),

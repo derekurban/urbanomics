@@ -78,8 +78,9 @@ function History({ data, onReveal }) {
                 <span className="dr-upload-filename">{item.filename}</span>
                 {item.result && (
                   <p>
-                    {item.result.added} added · {item.result.matched} matched ·{" "}
-                    {item.result.excluded} outside range
+                    {item.result.added} added · {item.result.matched} matched
+                    {item.result.excluded > 0 &&
+                      ` · ${item.result.excluded} excluded in this earlier import`}
                   </p>
                 )}
                 {item.error && <p className="dr-error-text">{item.error}</p>}
@@ -201,25 +202,19 @@ export function DataWorkspace({
   onReveal,
   onOpenSnapshot,
   onRange,
-  onImportMonth,
   onResults,
   onOrganize,
 }) {
   const [modal, setModal] = useState(null),
     [selected, setSelected] = useState(null),
     [confirmClear, setConfirmClear] = useState(false);
-  const [importMonth, setImportMonth] = useState(data.scope.throughMonth),
-    [monthError, setMonthError] = useState("");
-  const validMonth =
-    /^20\d{2}-(0[1-9]|1[0-2])$/.test(importMonth) &&
-    importMonth <= data.lastCompleteMonth;
-  async function saveMonth() {
-    if (!validMonth || busy) return;
-    const result = await onImportMonth(importMonth);
-    if (result !== false) setModal(null);
-    else setMonthError("The import month could not be saved. Try again.");
-  }
-  const months = recentMonths(data.lastCompleteMonth);
+  const calendarEnd = [
+    data.lastCompleteMonth,
+    ...data.months.map((m) => m.month),
+  ]
+    .sort()
+    .at(-1);
+  const months = recentMonths(calendarEnd);
   const queued = data.jobs.filter((job) => job.status === "queued");
   const attention = data.jobs.filter((job) => job.status !== "queued");
   const result = data.lastProcessResult;
@@ -405,24 +400,10 @@ export function DataWorkspace({
               </>
             )}
           </div>
-          <div className="dr-intake-range">
-            <span>
-              Importing {monthName(data.scope.startMonth, true)}
-              {data.scope.startMonth !== data.scope.throughMonth &&
-                ` — ${monthName(data.scope.throughMonth, true)}`}
-            </span>
-            <button
-              className="dr-link"
-              disabled={busy}
-              onClick={() => {
-                setImportMonth(data.scope.throughMonth);
-                setMonthError("");
-                setModal("month");
-              }}
-            >
-              Change month
-            </button>
-          </div>
+          <p className="dr-auto-import">
+            Recognized files import automatically. Transactions find their month
+            by date.
+          </p>
           {data.jobs.length ? (
             <>
               <div className="dr-queue">
@@ -435,15 +416,21 @@ export function DataWorkspace({
                       <strong>{job.filename}</strong>
                       <small>
                         {accountById[job.accountId]?.name || "Account needed"}
-                        {job.includedCount != null &&
-                          ` · +${job.includedCount} included · −${job.excludedCount} outside ${data.scope.startMonth === data.scope.throughMonth ? "month" : "range"}`}
+                        {job.rowCount != null &&
+                          ` · ${job.rowCount} transactions`}
                       </small>
                       {job.error && (
                         <small className="dr-error-text">{job.error}</small>
                       )}
                     </div>
                     {job.status === "queued" ? (
-                      <span className="dr-status queued">Ready</span>
+                      job.conflicts.length ? (
+                        <button disabled={busy} onClick={() => onReview(job)}>
+                          Review matches
+                        </button>
+                      ) : (
+                        <span className="dr-status queued">Ready</span>
+                      )
                     ) : job.status === "finalizing" ? (
                       <button disabled={busy} onClick={onScan}>
                         Retry archive
@@ -557,60 +544,6 @@ export function DataWorkspace({
           </section>
         </aside>
       </div>
-      {modal === "month" && (
-        <WorkspaceModal
-          title="Choose import month"
-          onClose={() => {
-            if (!busy) setModal(null);
-          }}
-          footer={
-            <div className="dr-month-actions">
-              <button disabled={busy} onClick={() => setModal(null)}>
-                Cancel
-              </button>
-              <button
-                className="primary"
-                disabled={busy || !validMonth}
-                onClick={saveMonth}
-              >
-                Use this month
-              </button>
-            </div>
-          }
-        >
-          <label className="dr-month-picker">
-            Month and year
-            <input
-              type="month"
-              aria-label="Import month and year"
-              min="2000-01"
-              max={data.lastCompleteMonth}
-              value={importMonth}
-              disabled={busy}
-              onChange={(e) => {
-                setImportMonth(e.target.value);
-                setMonthError("");
-              }}
-            />
-          </label>
-          <p className="dr-month-help">
-            Queued CSVs will include only records dated in this month.
-            Processing starts when you press Process. Existing snapshots and
-            original files stay in the archive.
-          </p>
-          {!validMonth && (
-            <p role="alert">
-              Choose a completed month, up to{" "}
-              {monthName(data.lastCompleteMonth)}.
-            </p>
-          )}
-          {monthError && (
-            <p className="dr-error-text" role="alert">
-              {monthError}
-            </p>
-          )}
-        </WorkspaceModal>
-      )}
       {modal === "history" && (
         <WorkspaceModal title="Upload history" onClose={() => setModal(null)}>
           <History data={data} onReveal={onReveal} />

@@ -298,13 +298,6 @@
 .dr-drop-pad:hover .dr-drop-illustration span:first-child {
   animation: dr-wiggle 0.6s ease;
 }
-.dr-intake-range {
-  padding: 12px 0;
-  font-size: 11px;
-  color: #748074;
-  gap: 6px;
-  flex-wrap: wrap;
-}
 .dr-intake-range button {
   font-size: 11px;
 }
@@ -1012,9 +1005,6 @@
 .dr-queue-empty {
   padding-top: 13px;
 }
-.dr-intake-range {
-  padding: 8px 0;
-}
 .dr-archive-card {
   background: #eff3e9;
 }
@@ -1328,22 +1318,9 @@ button.danger:hover {
     gap: 9px;
   }
 }
-.dr-month-picker {
-  display: grid;
-  gap: 10px;
-  margin: 6px 0 18px;
-  max-width: 300px;
-}
-.dr-month-picker input {
-  width: 100%;
-}
-.dr-month-help {
+.dr-auto-import {
   color: #64715f;
-  font-size: 13px;
+  font-size: 12px;
   line-height: 1.6;
-}
-.dr-month-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
+  margin: 12px 0;
 }

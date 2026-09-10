@@ -160,10 +160,10 @@ test("processing progress and persisted results reflect actual completed files w
     progress.push(value),
   );
   assert.equal(result.completed, 2);
-  assert.equal(result.added, 2);
+  assert.equal(result.added, 3);
   assert.equal(result.matched, 0);
-  assert.equal(result.excluded, 1);
-  assert.deepEqual(result.months, ["2026-08"]);
+  assert.equal(result.excluded, 0);
+  assert.deepEqual(result.months, ["2026-08", "2026-09"]);
   assert.equal(result.remaining, 0);
   assert.deepEqual(
     progress.map((p) => p.done),
@@ -180,17 +180,18 @@ test("processing progress and persisted results reflect actual completed files w
   const repeat = await ctx.store.processReadyWithProgress();
   assert.equal(repeat.completed, 1);
   assert.equal(repeat.added, 0);
-  assert.equal(repeat.matched, 1);
+  assert.equal(repeat.matched, 2);
   assert.equal(ctx.store.transactions("2026-08").length, 2);
   ctx.store.enqueue([file("batch-overlap", [row("Cafe"), row("New")])], {
     stage: true,
     process: false,
   });
   const unresolved = await ctx.store.processReadyWithProgress();
-  assert.equal(unresolved.completed, 0);
-  assert.equal(unresolved.added, 0);
-  assert.equal(unresolved.remaining, 1);
-  assert.equal(unresolved.files[0].status, "overlap");
+  assert.equal(unresolved.completed, 1);
+  assert.equal(unresolved.added, 1);
+  assert.equal(unresolved.remaining, 0);
+  assert.equal(unresolved.files[0].status, "complete");
+  assert.equal(unresolved.matched, 1);
 });
 function setup(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-test-"));
@@ -382,15 +383,18 @@ test("overlap decisions preserve accepted rows and distinguish additional identi
   const old = f.store.state().snapshots[0],
     bytes = JSON.stringify(f.store.snapshot(old.id));
   const id = f.ingest(f.file("partial", [row(), row(), row("New")]));
-  assert.equal(f.store.job(id).status, "overlap");
-  assert.equal(f.store.transactions("2026-08").length, 2);
-  const conflict = f.store.state().jobs[0].conflicts[0];
-  assert.equal(conflict.matches, 1);
-  f.store.process(id, { [conflict.fingerprint]: "match" });
+  assert.equal(f.store.job(id).status, "complete");
+  assert.equal(JSON.parse(f.store.job(id).result).matched, 1);
   assert.equal(f.store.transactions("2026-08").length, 4);
   assert.equal(JSON.stringify(f.store.snapshot(old.id)), bytes);
   assert.equal(f.store.state().snapshots.length, 2);
-  const extra = f.ingest(f.file("additional", [row(), row("Another new")]));
+  const extra = f.store.enqueue(
+    [f.file("additional", [row(), row("Another new")])],
+    { process: false },
+  ).ids[0];
+  f.store.resolveAccount(extra, f.account, false, { process: false });
+  const conflict = f.store.state().jobs.find((j) => j.id === extra)
+    .conflicts[0];
   f.store.process(extra, { [conflict.fingerprint]: "keep" });
   assert.equal(f.store.transactions("2026-08").length, 6);
   assert.equal(
@@ -402,9 +406,14 @@ test("overlap decisions preserve accepted rows and distinguish additional identi
     1,
   );
 });
-test("scope excludes September, archives originals, and can backfill from the same file", (t) => {
+test("transaction dates select every month and legacy range settings do not filter new imports", (t) => {
   const f = setup(t);
-  f.store.setScope("2026-08", "2026-08");
+  f.store.db
+    .prepare("INSERT INTO settings VALUES (?,?)")
+    .run("startMonth", "2026-08");
+  f.store.db
+    .prepare("INSERT INTO settings VALUES (?,?)")
+    .run("throughMonth", "2026-08");
   const input = f.file("year", [
     row("July", "07/31/2026"),
     row(),
@@ -412,10 +421,10 @@ test("scope excludes September, archives originals, and can backfill from the sa
   ]);
   let id = f.ingest(input);
   assert.deepEqual(JSON.parse(f.store.job(id).result), {
-    added: 1,
+    added: 3,
     matched: 0,
-    excluded: 2,
-    months: ["2026-08"],
+    excluded: 0,
+    months: ["2026-07", "2026-08", "2026-09"],
     sourceRows: 3,
   });
   const original = path.join(
@@ -424,17 +433,118 @@ test("scope excludes September, archives originals, and can backfill from the sa
     hash(fs.readFileSync(input)) + ".csv",
   );
   assert.ok(fs.readFileSync(input).equals(fs.readFileSync(original)));
-  assert.equal(f.store.transactions("2026-09").length, 0);
-  f.store.setScope("2026-01", "2026-08");
+  assert.equal(f.store.transactions("2026-09").length, 1);
   id = f.ingest(input);
-  assert.equal(JSON.parse(f.store.job(id).result).added, 1);
+  assert.equal(JSON.parse(f.store.job(id).result).added, 0);
+  assert.equal(JSON.parse(f.store.job(id).result).matched, 3);
   assert.equal(f.store.transactions("2026-07").length, 1);
   assert.equal(f.store.transactions("2026-08").length, 1);
-  assert.throws(
-    () => f.store.setScope("2026-01", "2026-09"),
-    /completed months/,
+});
+test("re-uploading a legacy filtered original fills excluded months and preserves saved reviews", (t) => {
+  const f = setup(t);
+  const input = f.file("legacy-year", [
+    row("July", "07/31/2026"),
+    row(),
+    row("September", "09/01/2026"),
+  ]);
+  // Recreate a historical August-only import using the original complete CSV.
+  const plan = f.store.plan;
+  f.store.plan = function (job) {
+    const p = plan.call(this, job);
+    return {
+      ...p,
+      scope: { startMonth: "2026-08", throughMonth: "2026-08" },
+      included: p.included.filter((r) => r.month === "2026-08"),
+      excluded: p.included.filter((r) => r.month !== "2026-08"),
+    };
+  };
+  const first = f.ingest(input);
+  f.store.plan = plan;
+  const source = f.store.job(first).source_hash;
+  for (const record of [2, 4])
+    f.store.db
+      .prepare("INSERT INTO observations VALUES (?,?,?,NULL,?)")
+      .run(source, f.account, record, "outside selected range");
+  const saved = f.store.transactions("2026-08")[0];
+  f.store.review.organize([
+    { id: saved.id, version: 0, groups: [], groupsReviewed: true },
+  ]);
+  const reviews = f.store.db.prepare("SELECT * FROM review_items").all();
+  const snapshot = f.store.db.prepare("SELECT * FROM snapshots").get();
+  const original = fs.readFileSync(
+    path.join(f.store.root, "archive/sources", source + ".csv"),
+  );
+  f.reopen();
+  assert.equal(
+    f.store.review.records().length,
+    1,
+    "opening does not backfill old archives",
+  );
+  const repeat = f.ingest(input);
+  assert.deepEqual(JSON.parse(f.store.job(repeat).result), {
+    added: 2,
+    matched: 1,
+    excluded: 0,
+    months: ["2026-07", "2026-09"],
+    sourceRows: 3,
+  });
+  assert.equal(f.store.transactions("2026-08")[0].id, saved.id);
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM review_items").all(),
+    reviews,
+  );
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM snapshots WHERE id=?").get(snapshot.id),
+    snapshot,
+  );
+  assert.equal(
+    f.store.db
+      .prepare(
+        "SELECT COUNT(*) n FROM observations WHERE transaction_id IS NULL",
+      )
+      .get().n,
+    0,
+  );
+  assert.ok(
+    fs
+      .readFileSync(path.join(f.store.root, "archive/sources", source + ".csv"))
+      .equals(original),
+  );
+  f.ingest(input);
+  f.reopen();
+  assert.equal(f.store.review.records().length, 3);
+  assert.deepEqual(
+    f.store.db.prepare("SELECT * FROM review_items").all(),
+    reviews,
   );
 });
+
+test("automatic upload batches leave unrelated staged files pending", async (t) => {
+  const f = setup(t);
+  f.store.updateAccount(f.account, {
+    name: "Synthetic card",
+    prefixRegex: "card",
+    color: "#427A64",
+  });
+  const pending = f.store.enqueue([f.file("card-pending", [row("Pending")])], {
+    stage: true,
+    process: false,
+  }).ids[0];
+  const upload = f.store.enqueue([f.file("card-upload", [row("Uploaded")])], {
+    stage: true,
+    process: false,
+  }).ids;
+  const result = await f.store.processReadyWithProgress(() => {}, upload);
+  assert.equal(result.completed, 1);
+  assert.equal(result.remaining, 1);
+  assert.equal(f.store.job(pending).status, "queued");
+  assert.deepEqual(
+    f.store.transactions("2026-08").map((r) => r.description),
+    ["Uploaded"],
+  );
+  assert.ok(fs.existsSync(path.join(f.store.root, "dropbox/card-pending.csv")));
+});
+
 test("account identity is explicit and ambiguous filename rules do not guess", (t) => {
   const f = setup(t),
     second = f.store.addAccount("Other card", "pc", "credit");

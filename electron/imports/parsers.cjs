@@ -129,9 +129,6 @@ function routingKey(filename) {
     .replace(/\.csv$/, "")
     .replace(/[_-](?:initial|\d{4}-\d{2})$/, "");
 }
-function monthValid(month) {
-  return /^20\d{2}-(0[1-9]|1[0-2])$/.test(month);
-}
 function csv(rows) {
   return (
     "\uFEFF" +
@@ -145,4 +142,4 @@ function csv(rows) {
     "\r\n"
   );
 }
-module.exports = { parseExport, cents, hash, routingKey, monthValid, csv };
+module.exports = { parseExport, cents, hash, routingKey, csv };

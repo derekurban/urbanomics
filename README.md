@@ -13,9 +13,9 @@ npm ci
 npm start
 ```
 
-The Snapshots section brings Dropbox intake, upload history and archives together. Drop CSV files or a folder onto it, or use Upload CSVs / Choose folder. Files wait in the local Dropbox until you press Process. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
+The Snapshots section brings Dropbox intake, upload history and archives together. Drop CSV files or a folder onto it, or use Upload CSVs / Choose folder. Recognized CSVs with a known account import automatically, using each transaction’s date to update the right monthly snapshot. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
 
-Snapshots is one page with a compact calendar of the last 12 completed months. Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
+Snapshots is one page with a compact calendar of the last 12 months through the latest imported month (or last completed month, whichever is later). Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
 **Organize** manages Categories, Events, Accounts and People through searchable lists with transaction usage counts. Create, rename, recolor and delete shared items through their editors. Categories and people already used by transactions are protected from deletion.
 
@@ -29,9 +29,9 @@ Upload history uses compact account-first rows with the account color, upload ti
 
 Delete on an account card removes it and its transactions from active views and stops its filename rules. The confirmation describes the impact; local records, original files and snapshots are retained. Restore it from Deleted accounts to recover its transactions and rules. Pending uploads return to account selection. This is recoverable deletion, not permanent erasure of financial files.
 
-In Dropbox, **Change month** opens a month/year picker directly on Snapshots. Choose a completed month, then upload or drop CSVs and press Process. Each queued file shows included and excluded row counts. Selecting a month does not process files or hide existing snapshots. Organize → Accounts retains advanced multi-month ranges and remembered filenames. Re-drop an original to import another selected month; successful imports leave the intake queue automatically and Downloads files stay intact.
+There is no import month or date range to select. All valid dates in an uploaded CSV are included, including current-month activity. Re-upload an older original to bring in rows previously excluded by a month filter. Files copied directly into the local Dropbox folder are discovered on startup, focus or Refresh and wait for Process; opening the app does not backfill archived files. Successful imports clear app-owned intake copies, preserving Downloads originals.
 
-Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
+Exact same-account rows in repeated, reordered or overlapping exports match automatically one-for-one. Extra copies in a file become additional transactions; existing records, reviews and links stay intact. Bank exports lack reliable transaction IDs, so separate payments with completely identical exported details cannot be distinguished automatically. For that exception, stage a file via Dropbox/Refresh and use Review matches to keep its matching rows as additional payments. Partial exports never replace or delete an existing month. Snapshots show cash movements pending review, not settled spending or income.
 
 Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Categories and Events use a card stack with surrounding targets. Drop a card onto a category to save its full amount and advance, or click the card to open Transaction settings. Search and select multiple categories, adjust their dollar/cent split, then Save to advance. Cancel or Escape leaves the transaction and current card unchanged. Chevrons browse saved and pending cards. Events collect whole transactions and retain Save & next, including No event for everyday items. Larger target lists offer search and six-target pages. Category totals appear in Overview after financial review.
 
@@ -52,7 +52,7 @@ npm run test:review     # Synthetic categorization, grouping, financial review a
 npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
 npm run test:aliases    # Regex previews, conflicts, readable names, persistence and visual checks
-npm run test:transfers  # Pair matching, fees, linked history, month selection and scoped imports
+npm run test:transfers  # Pair matching, fees, linked history, automatic multi-month imports
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 
@@ -61,8 +61,8 @@ See [desktop architecture and import behavior](docs/desktop-imports.md) for arch
 ## Starting direction
 
 - Begin with the user's experience and the questions the app should answer.
-- Import a chosen month's bank exports through an intentional workflow.
-- Preserve original files and explain which rows are included or excluded.
+- Import bank exports and automatically organize transactions into monthly snapshots.
+- Preserve original files and report added and matched transactions.
 - Represent transfers, shared expenses, and reimbursements explicitly.
 - Make each reported amount traceable to its transactions and decisions.
 - Keep personal financial data local and outside Git.

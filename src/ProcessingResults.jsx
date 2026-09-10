@@ -56,8 +56,8 @@ export function ProcessingResults({ result, celebrate = false, onClose }) {
             <span>matched</span>
           </div>
           <div>
-            <strong>{result.excluded}</strong>
-            <span>outside range</span>
+            <strong>{result.months.length}</strong>
+            <span>months updated</span>
           </div>
         </div>
         <div className="dr-result-months">

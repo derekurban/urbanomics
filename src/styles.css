@@ -251,13 +251,6 @@ strong {
   padding: 0 13px;
   color: #bcc6b6;
 }
-.scope-chip {
-  font-size: 11px;
-  color: #6a7a60;
-  border: 1px solid #dfe5d6;
-  border-radius: 6px;
-  padding: 7px 10px;
-}
 .workspace main {
   max-width: 1330px;
   width: 100%;
@@ -743,17 +736,6 @@ tbody tr:hover {
 .settings-card p {
   font-size: 12px;
   max-width: 650px;
-}
-.range-form {
-  display: flex;
-  gap: 14px;
-  align-items: flex-end;
-}
-.range-form label {
-  display: grid;
-  gap: 8px;
-  font-size: 11px;
-  color: #7b8a6e;
 }
 .rule-row {
   display: flex;

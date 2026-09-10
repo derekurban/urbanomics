@@ -191,44 +191,11 @@ async function launch() {
       animations: "disabled",
     });
     await page.locator(".nav-item").filter({ hasText: "Snapshots" }).click();
-    await page
-      .getByRole("button", { name: "Change month", exact: true })
-      .click();
-    let modal = page.getByRole("dialog", {
-      name: "Choose import month",
-      exact: true,
-    });
-    await modal.getByLabel("Import month and year").fill("2026-07");
-    await modal.getByRole("button", { name: "Cancel", exact: true }).click();
     assert.equal(
-      (await page.evaluate(() => window.urbanomics.state())).scope.throughMonth,
-      "2026-08",
-    );
-    await page
-      .getByRole("button", { name: "Change month", exact: true })
-      .click();
-    await modal.getByLabel("Import month and year").fill("2099-01");
-    assert.equal(
-      await modal
-        .getByRole("button", { name: "Use this month", exact: true })
-        .isDisabled(),
-      true,
-    );
-    await modal.getByLabel("Import month and year").fill("2026-07");
-    await page.screenshot({
-      path: path.join(root, "import-month.png"),
-      animations: "disabled",
-    });
-    await modal
-      .getByRole("button", { name: "Use this month", exact: true })
-      .click();
-    await modal.waitFor({ state: "hidden" });
-    await page
-      .getByRole("heading", { name: "Snapshots", exact: true })
-      .waitFor();
-    assert.deepEqual(
-      (await page.evaluate(() => window.urbanomics.state())).scope,
-      { startMonth: "2026-07", throughMonth: "2026-07" },
+      await page
+        .getByRole("button", { name: "Change month", exact: true })
+        .count(),
+      0,
     );
     await app.evaluate(({ dialog }, file) => {
       dialog.showOpenDialog = async () => ({
@@ -247,23 +214,10 @@ async function launch() {
       { id: job.id, account: a },
     );
     await page.getByRole("button", { name: "Refresh", exact: true }).click();
-    assert.equal(
-      (await page.evaluate(() => window.urbanomics.reviewState())).records
-        .length,
-      7,
-    );
-    await page
-      .getByRole("button", { name: "Process 1 queued file", exact: true })
-      .click();
-    await page.getByRole("dialog").waitFor();
     state = await page.evaluate(() => window.urbanomics.reviewState());
     assert.ok(state.records.some((t) => t.description === "Only July"));
-    assert.ok(
-      !state.records.some(
-        (t) =>
-          t.description === "Only August" || t.description === "Only September",
-      ),
-    );
+    assert.ok(state.records.some((t) => t.description === "Only August"));
+    assert.ok(state.records.some((t) => t.description === "Only September"));
     assert.ok(
       (await page.evaluate(() => window.urbanomics.state())).months.some(
         (t) => t.month === "2026-08",
@@ -283,16 +237,12 @@ async function launch() {
         .reviewed,
       true,
     );
-    assert.equal(
-      (await page.evaluate(() => window.urbanomics.state())).scope.startMonth,
-      "2026-07",
-    );
     console.log(
       JSON.stringify({
         ok: true,
         root,
         checks:
-          "percentage matches, checked pair linking, fees, extra received, linked filtering, unlink, competing candidates, responsive layout, local month picker, scoped import and restart",
+          "percentage matches, checked pair linking, fees, extra received, linked filtering, unlink, competing candidates, responsive layout, automatic date-based import and restart",
       }),
     );
   } finally {

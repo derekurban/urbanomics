@@ -5,13 +5,7 @@ const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const { ReviewStore } = require("../review/store.cjs");
 const { AliasStore } = require("../review/aliases.cjs");
-const {
-  parseExport,
-  hash,
-  routingKey,
-  monthValid,
-  csv,
-} = require("./parsers.cjs");
+const { parseExport, hash, routingKey, csv } = require("./parsers.cjs");
 
 function lastCompleteMonth(now = new Date()) {
   return `${now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()}-${String(now.getMonth() === 0 ? 12 : now.getMonth()).padStart(2, "0")}`;
@@ -145,51 +139,10 @@ class ImportStore {
     }
     this.aliases = new AliasStore(this);
     this.review = new ReviewStore(this);
-    this.db
-      .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")
-      .run("startMonth", "2026-01");
-    this.db
-      .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")
-      .run("throughMonth", lastCompleteMonth(this.now()));
     this.recover();
   }
   close() {
     this.db.close();
-  }
-  settings() {
-    return Object.fromEntries(
-      this.db
-        .prepare(
-          "SELECT * FROM settings WHERE key IN ('startMonth','throughMonth')",
-        )
-        .all()
-        .map((r) => [r.key, r.value]),
-    );
-  }
-  setScope(start, through, { process = true } = {}) {
-    if (
-      !monthValid(start) ||
-      !monthValid(through) ||
-      start > through ||
-      through > lastCompleteMonth(this.now())
-    )
-      throw new Error(
-        "Choose completed months, with start before or equal to the last month.",
-      );
-    this.db.exec("BEGIN IMMEDIATE");
-    try {
-      this.db
-        .prepare("UPDATE settings SET value=? WHERE key=?")
-        .run(start, "startMonth");
-      this.db
-        .prepare("UPDATE settings SET value=? WHERE key=?")
-        .run(through, "throughMonth");
-      this.db.exec("COMMIT");
-    } catch (e) {
-      this.db.exec("ROLLBACK");
-      throw e;
-    }
-    if (process) this.processPending();
   }
   addAccount(name, schema, kind, options = {}) {
     name = String(name || "").trim();
@@ -490,14 +443,15 @@ class ImportStore {
         .length,
     };
   }
-  async processReadyWithProgress(progress = () => {}) {
+  async processReadyWithProgress(progress = () => {}, selectedIds = null) {
     this.scanDropbox();
     this.recover();
     const jobs = this.db
       .prepare(
         "SELECT id,filename FROM jobs WHERE status='queued' ORDER BY rowid",
       )
-      .all();
+      .all()
+      .filter((job) => selectedIds === null || selectedIds.includes(job.id));
     const result = {
       created: this.now().toISOString(),
       attempted: jobs.length,
@@ -592,31 +546,10 @@ class ImportStore {
     if (hash(bytes) !== job.source_hash)
       throw new Error("Original archive file failed its integrity check.");
     const parsed = parseExport(bytes);
-    const scope = this.settings();
-    const included = parsed.rows.filter(
-      (r) => r.month >= scope.startMonth && r.month <= scope.throughMonth,
-    );
-    const excluded = parsed.rows.filter(
-      (r) => r.month < scope.startMonth || r.month > scope.throughMonth,
-    );
+    const scope = { mode: "transaction-dates" };
+    const included = parsed.rows;
+    const excluded = [];
     const auto = new Map();
-    const canonical = this.db
-      .prepare(
-        "SELECT source_hash FROM imports WHERE canonical=? AND account_id=? AND scope=? ORDER BY created DESC LIMIT 1",
-      )
-      .get(parsed.canonicalHash, job.account_id, JSON.stringify(scope));
-    const previous = canonical
-      ? this.db
-          .prepare(
-            "SELECT t.id,t.fingerprint FROM observations o JOIN transactions t ON t.id=o.transaction_id WHERE o.source_hash=? AND o.account_id=? ORDER BY o.record",
-          )
-          .all(canonical.source_hash, job.account_id)
-      : [];
-    const available = new Map();
-    for (const row of previous) {
-      if (!available.has(row.fingerprint)) available.set(row.fingerprint, []);
-      available.get(row.fingerprint).push(row.id);
-    }
     for (const row of included) {
       const provenance = this.db
         .prepare(
@@ -625,8 +558,6 @@ class ImportStore {
         .get(job.source_hash, job.account_id, row.record);
       if (provenance?.transaction_id)
         auto.set(row.record, provenance.transaction_id);
-      else if (available.get(row.fingerprint)?.length)
-        auto.set(row.record, available.get(row.fingerprint).shift());
     }
     const grouped = new Map();
     for (const row of included.filter((r) => !auto.has(r.record))) {
@@ -664,18 +595,16 @@ class ImportStore {
     try {
       const plan = this.plan(job);
       if (
-        plan.conflicts.some(
-          (c) => !["match", "keep"].includes(resolutions[c.fingerprint]),
+        Object.values(resolutions).some(
+          (value) => !["match", "keep"].includes(value),
         )
-      ) {
-        this.db
-          .prepare("UPDATE jobs SET status=?,error=NULL WHERE id=?")
-          .run("overlap", id);
-        return;
-      }
+      )
+        throw new Error(
+          "Choose matching or additional transactions for duplicate rows.",
+        );
       const matches = new Map(plan.auto);
       for (const conflict of plan.conflicts)
-        if (resolutions[conflict.fingerprint] === "match") {
+        if (resolutions[conflict.fingerprint] !== "keep") {
           for (let n = 0; n < conflict.matches; n++)
             matches.set(conflict.rows[n].record, conflict.existing[n]);
         }
@@ -712,17 +641,6 @@ class ImportStore {
             )
             .run(job.source_hash, job.account_id, row.record, txId);
         }
-        for (const row of plan.excluded)
-          this.db
-            .prepare("INSERT OR IGNORE INTO observations VALUES (?,?,?,NULL,?)")
-            .run(
-              job.source_hash,
-              job.account_id,
-              row.record,
-              row.month < plan.scope.startMonth
-                ? "before-range"
-                : "after-range",
-            );
         result.months = [...affected].sort();
         this.db
           .prepare("INSERT INTO imports VALUES (?,?,?,?,?,?,?)")
@@ -912,7 +830,6 @@ class ImportStore {
     return index;
   }
   state() {
-    const scope = this.settings();
     const jobs = this.db
       .prepare(
         "SELECT j.*,s.schema FROM jobs j JOIN sources s ON s.hash=j.source_hash WHERE status NOT IN ('complete','dismissed') ORDER BY created",
@@ -932,9 +849,7 @@ class ImportStore {
               ),
             );
           rowCount = parsed.rows.length;
-          includedCount = parsed.rows.filter(
-            (r) => r.month >= scope.startMonth && r.month <= scope.throughMonth,
-          ).length;
+          includedCount = parsed.rows.length;
         } catch {
           /* explicit job error remains visible */
         }
@@ -975,7 +890,6 @@ class ImportStore {
     return {
       root: this.root,
       reviewPending: this.review.pending(),
-      scope,
       lastCompleteMonth: lastCompleteMonth(this.now()),
       lastProcessResult: JSON.parse(
         this.db

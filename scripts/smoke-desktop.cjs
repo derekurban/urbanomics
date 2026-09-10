@@ -36,7 +36,7 @@ fs.writeFileSync(
       "6.17",
     ],
     [
-      "September excluded",
+      "September included",
       "PURCHASE",
       "SAMPLE PERSON",
       "09/01/2026",
@@ -69,7 +69,6 @@ async function select(page) {
   let page = await launch();
   const errors = [];
   page.on("pageerror", (e) => errors.push(e.message));
-  await page.evaluate(() => window.urbanomics.setScope("2026-01", "2026-08"));
   await page.emulateMedia({ reducedMotion: "reduce" });
   const beforeRefresh = await page.locator(".dr-library").boundingBox();
   await page.getByRole("button", { name: "Refresh", exact: true }).click();
@@ -97,13 +96,9 @@ async function select(page) {
   await page
     .getByRole("textbox", { name: "New account name" })
     .fill("Synthetic Mastercard");
-  await page.getByRole("button", { name: "Add account & queue" }).click();
-  await page
-    .getByRole("button", { name: "Process 1 queued file", exact: true })
-    .waitFor();
   let staged = await page.evaluate(() => window.urbanomics.state());
   assert.equal(staged.months.length, 0);
-  assert.equal(staged.jobs[0].status, "queued");
+  assert.equal(staged.jobs[0].status, "routing");
   assert.equal(fs.readdirSync(path.join(dataDir, "dropbox")).length, 1);
   await page.evaluate(() => {
     window.processingEvents = [];
@@ -117,13 +112,12 @@ async function select(page) {
     const original = ImportStore.prototype.processReadyWithProgress;
     ImportStore.prototype.processReadyWithProgress = async function (...args) {
       ImportStore.prototype.processReadyWithProgress = original;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      args[0]({ done: 0, total: 1, filename: "Preparing synthetic import" });
+      await new Promise((resolve) => setTimeout(resolve, 1500));
       return original.apply(this, args);
     };
   }, repo);
-  await page
-    .getByRole("button", { name: "Process 1 queued file", exact: true })
-    .click();
+  await page.getByRole("button", { name: "Add account & import" }).click();
   await page.getByRole("progressbar", { name: "Files processed" }).waitFor();
   assert.equal(
     await page
@@ -150,13 +144,15 @@ async function select(page) {
     .click();
   await page.getByText("Nothing waiting.", { exact: true }).waitFor();
   let state = await page.evaluate(() => window.urbanomics.state());
-  assert.equal(state.months[0].count, 2);
-  assert.equal(state.history[0].result.excluded, 1);
+  assert.equal(state.months.find((m) => m.month === "2026-08").count, 2);
+  assert.equal(state.history[0].result.excluded, 0);
   assert.equal(state.jobs.length, 0);
-  assert.equal(state.lastProcessResult.added, 2);
-  assert.equal(state.lastProcessResult.excluded, 1);
+  assert.equal(state.lastProcessResult.added, 3);
+  assert.equal(state.lastProcessResult.excluded, 0);
   assert.deepEqual(
-    await page.evaluate(() => window.processingEvents.map((p) => p.done)),
+    await page.evaluate(() =>
+      window.processingEvents.slice(1).map((p) => p.done),
+    ),
     [0, 1],
   );
   assert.equal(await page.locator(".dr-cell").count(), 12);
@@ -196,9 +192,7 @@ async function select(page) {
   await page.screenshot({ path: path.join(root, "monthly-snapshot.png") });
   await page.getByRole("button", { name: "Snapshots", exact: false }).click();
   await select(page);
-  await page
-    .getByRole("button", { name: "Process 1 queued file", exact: true })
-    .click();
+
   await page
     .getByRole("button", { name: "Lovely. Done.", exact: true })
     .click();
@@ -207,8 +201,8 @@ async function select(page) {
   );
   state = await page.evaluate(() => window.urbanomics.state());
   assert.equal(state.history[0].result.added, 0);
-  assert.equal(state.history[0].result.matched, 2);
-  assert.equal(state.snapshots.length, 1);
+  assert.equal(state.history[0].result.matched, 3);
+  assert.equal(state.snapshots.length, 2);
   // Browser-native File objects exercise the real drop handler and webUtils path bridge.
   await page.evaluate(() => {
     const input = document.createElement("input");
@@ -229,9 +223,7 @@ async function select(page) {
       }),
     );
   });
-  await page
-    .getByRole("button", { name: "Process 1 queued file", exact: true })
-    .click();
+
   await page
     .getByRole("button", { name: "Lovely. Done.", exact: true })
     .click();
@@ -239,10 +231,10 @@ async function select(page) {
     async () => (await window.urbanomics.state()).history.length === 3,
   );
   state = await page.evaluate(() => window.urbanomics.state());
-  assert.equal(state.history[0].result.matched, 2);
+  assert.equal(state.history[0].result.matched, 3);
   assert.ok(fs.existsSync(file));
   assert.equal(state.sources.length, 1);
-  assert.equal(state.snapshotIndex.length, 1);
+  assert.equal(state.snapshotIndex.length, 2);
   assert.equal(fs.readdirSync(path.join(dataDir, "dropbox")).length, 0);
   await app.evaluate(({ shell }) => {
     globalThis.openedLocations = [];
@@ -281,7 +273,7 @@ async function select(page) {
   state = await page.evaluate(() => window.urbanomics.state());
   assert.equal(state.activity[0].status, "dismissed");
   assert.equal(state.sources.length, 2);
-  assert.equal(state.snapshots.length, 1);
+  assert.equal(state.snapshots.length, 2);
   await page.getByRole("button", { name: /View upload history/ }).click();
   await page
     .getByRole("heading", { name: "Upload history", exact: true })
@@ -321,7 +313,7 @@ async function select(page) {
     .getByRole("button", { name: "Close Upload history", exact: true })
     .click();
   await page.getByRole("button", { name: /Browse archive/ }).click();
-  assert.equal(await page.locator(".dr-account-snapshot").count(), 1);
+  assert.equal(await page.locator(".dr-account-snapshot").count(), 2);
   assert.equal(await page.locator(".dr-archive-months details").count(), 0);
   assert.equal(
     await page.getByRole("textbox", { name: "Search archive" }).isVisible(),
@@ -403,6 +395,7 @@ async function select(page) {
   assert.equal(
     await page
       .locator(".dr-cell.filled span")
+      .first()
       .evaluate((e) => getComputedStyle(e).backgroundColor),
     "rgb(150, 116, 183)",
   );
@@ -445,7 +438,15 @@ async function select(page) {
     ),
     true,
   );
-  await select(page); // Leave a staged repeat across restart; it must not auto-process.
+  // Files discovered on refresh remain staged across restart.
+  fs.copyFileSync(
+    file,
+    path.join(dataDir, "dropbox", "synthetic-card-restart.csv"),
+  );
+  await page.getByRole("button", { name: "Refresh", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Process 1 queued file", exact: true })
+    .waitFor();
   assert.equal(fs.readdirSync(path.join(dataDir, "inbox")).length, 1);
   assert.equal(await page.evaluate(() => typeof window.require), "undefined");
   assert.equal(
@@ -461,14 +462,14 @@ async function select(page) {
   await app.close();
   page = await launch();
   state = await page.evaluate(() => window.urbanomics.state());
-  assert.equal(state.months[0].count, 2);
+  assert.equal(state.months.find((m) => m.month === "2026-08").count, 2);
   assert.equal(state.history.length, 3);
   assert.equal(state.jobs.length, 1);
   assert.equal(state.jobs[0].status, "queued");
   assert.equal(state.accounts[0].name, "Everyday card");
   assert.equal(state.accounts[0].prefixRegex, "synthetic[_-]card");
   assert.equal(state.accounts[0].color, "#9674B7");
-  assert.equal(state.lastProcessResult.matched, 2);
+  assert.equal(state.lastProcessResult.matched, 3);
   await page
     .getByRole("button", { name: "Clear intake copies", exact: true })
     .click();
@@ -497,21 +498,19 @@ async function select(page) {
     });
   }, topup);
   await page.getByRole("button", { name: "Upload CSVs" }).click();
-  await page
-    .getByRole("button", { name: "Process 1 queued file", exact: true })
-    .click();
+
   await page
     .getByRole("button", { name: "Lovely. Done.", exact: true })
     .click();
   state = await page.evaluate(() => window.urbanomics.state());
-  assert.equal(state.snapshots.length, 2);
-  assert.equal(state.months[0].count, 3);
+  assert.equal(state.snapshots.length, 3);
+  assert.equal(state.months.find((m) => m.month === "2026-08").count, 3);
   await page.getByRole("button", { name: /Browse archive/ }).click();
-  assert.equal(await page.locator(".dr-account-snapshot").count(), 1);
+  assert.equal(await page.locator(".dr-account-snapshot").count(), 2);
   assert.ok(
-    (await page.locator(".dr-account-snapshot").innerText()).includes(
-      "3 transactions",
-    ),
+    (await page.locator(".dr-account-snapshot").allTextContents())
+      .join(" ")
+      .includes("3 transactions"),
   );
   await page
     .getByRole("button", {
@@ -555,9 +554,9 @@ async function select(page) {
   assert.equal(await page.locator(".dr-cell").count(), 0);
   await page.getByRole("button", { name: /Browse archive/ }).click();
   assert.ok(
-    (await page.locator(".dr-account-snapshot").innerText()).includes(
-      "Everyday card (deleted)",
-    ),
+    (await page.locator(".dr-account-snapshot").allTextContents())
+      .join(" ")
+      .includes("Everyday card (deleted)"),
   );
   await page
     .getByRole("button", { name: "Close Archive", exact: true })
@@ -578,12 +577,12 @@ async function select(page) {
     .waitFor();
   state = await page.evaluate(() => window.urbanomics.state());
   assert.equal(state.accounts.length, 1);
-  assert.equal(state.months[0].count, 3);
-  assert.equal(state.snapshots.length, 2);
+  assert.equal(state.months.find((m) => m.month === "2026-08").count, 3);
+  assert.equal(state.snapshots.length, 3);
   await app.close();
   app = null;
   console.log(
-    "Electron smoke passed: staged uploads, explicit processing, account snapshot map, sources, archive/history, Dropbox folder access and cleanup, deduplication, narrow layout, privacy boundary, and queued restart persistence.",
+    "Electron smoke passed: automatic dated uploads, staged folder discovery, account snapshot map, sources, archive/history, Dropbox folder access and cleanup, deduplication, narrow layout, privacy boundary, and queued restart persistence.",
   );
   console.log("Synthetic screenshots: " + root);
 })().catch(async (e) => {

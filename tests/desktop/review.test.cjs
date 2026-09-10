@@ -359,11 +359,7 @@ test("restart, repeat and amendment imports retain review IDs; new rows enter th
     bankRow("Dinner", "-120"),
     bankRow("New cafe", "-15"),
   ]);
-  const conflicts = c.store.state().jobs.find((j) => j.id === job).conflicts;
-  c.store.process(
-    job,
-    Object.fromEntries(conflicts.map((x) => [x.fingerprint, "match"])),
-  );
+  assert.equal(c.store.job(job).status, "complete");
   assert.deepEqual(c.row("Dinner"), before);
   assert.equal(c.row("New cafe").review.reviewed, false);
   c.ingest("repeat", [bankRow("Dinner", "-120"), bankRow("New cafe", "-15")]);

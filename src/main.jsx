@@ -39,7 +39,14 @@ function App() {
   const running = useRef(false);
   const [progress, setProgress] = useState(null);
   const [processResult, setProcessResult] = useState(null);
-  useEffect(() => api?.onProgress(setProgress), []);
+  useEffect(
+    () =>
+      api?.onProgress((value) => {
+        setSelectedJob(null);
+        setProgress(value);
+      }),
+    [],
+  );
   const [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
     [dragging, setDragging] = useState(false);
@@ -59,7 +66,7 @@ function App() {
   async function refresh() {
     const next = await api.state();
     setData(next);
-    const selected = month || next.months[0]?.month || next.scope.throughMonth;
+    const selected = month || next.months[0]?.month || next.lastCompleteMonth;
     setMonth(selected);
     setRows(await api.transactions(selected));
   }
@@ -130,6 +137,8 @@ function App() {
     try {
       const result = await fn();
       await refresh();
+      if (result?.result)
+        setProcessResult({ result: result.result, celebrate: true });
       if (message)
         setNotice(typeof message === "function" ? message(result) : message);
       return result;
@@ -138,6 +147,7 @@ function App() {
       setError(e.message);
       return false;
     } finally {
+      setProgress(null);
       running.current = false;
       setBusy(false);
     }
@@ -274,9 +284,6 @@ function App() {
             <span className="slash">/</span>
             {tabs.find((t) => t[0] === page)?.[2]}
           </div>
-          <span className="scope-chip">
-            Through {monthName(data.scope.throughMonth, true)}
-          </span>
         </header>
         <main>
           {(error || data.archiveError) && (
@@ -372,14 +379,6 @@ function App() {
               onRange={() => {
                 setOrganizeSection("accounts");
                 setPage("organize");
-              }}
-              onImportMonth={async (selected) => {
-                const result = await run(
-                  () => api.setScope(selected, selected),
-                  `Importing ${monthName(selected)}. Files are ready for processing.`,
-                );
-                if (result !== false) setMonth(selected);
-                return result;
               }}
             />
           )}
@@ -583,7 +582,8 @@ function App() {
                 done={() => setSelectedJob(null)}
               />
             )}
-            {activeJob.status === "overlap" && (
+            {(activeJob.status === "overlap" ||
+              activeJob.conflicts.length > 0) && (
               <>
                 <p className="explanation">
                   Different exports can contain the same transactions. Check the
@@ -659,7 +659,9 @@ function App() {
                 </button>
               </>
             )}
-            {["error", "finalizing", "queued"].includes(activeJob.status) && (
+            {(["error", "finalizing"].includes(activeJob.status) ||
+              (activeJob.status === "queued" &&
+                !activeJob.conflicts.length)) && (
               <>
                 <div className="alert error">
                   {activeJob.error ||
@@ -752,7 +754,9 @@ function Route({ job, data, run, done }) {
   async function choose(id) {
     const result = await run(
       () => api.route(job.id, id, remember),
-      "Account assigned. Ready to process from Dropbox.",
+      (r) => r.result.completed
+        ? "Account assigned and import processed."
+        : "Account assigned. Check Dropbox for the import issue.",
     );
     if (result !== false) done();
   }
@@ -805,57 +809,15 @@ function Route({ job, data, run, done }) {
           if (id) await choose(id);
         }}
       >
-        Add account & queue
+        Add account & import
       </button>
     </>
   );
 }
 function Accounts({ data, run, busy }) {
-  const [start, setStart] = useState(data.scope.startMonth),
-    [through, setThrough] = useState(data.scope.throughMonth);
   return (
     <>
       <AccountSettings data={data} busy={busy} run={run} />
-      <section className="section settings-card">
-        <h2>Monthly import range</h2>
-        <p>
-          Later rows are archived with the source, but stay out of monthly
-          snapshots. Re-drop an original after extending the range to bring
-          those rows in.
-        </p>
-        <div className="range-form">
-          <label>
-            Start month
-            <input
-              type="month"
-              aria-label="Start month"
-              value={start}
-              onChange={(e) => setStart(e.target.value)}
-            />
-          </label>
-          <label>
-            Through month
-            <input
-              type="month"
-              aria-label="Through month"
-              max={data.lastCompleteMonth}
-              value={through}
-              onChange={(e) => setThrough(e.target.value)}
-            />
-          </label>
-          <button
-            className="primary"
-            onClick={() =>
-              run(
-                () => api.setScope(start, through),
-                "Import range saved. Existing archived snapshots remain intact.",
-              )
-            }
-          >
-            Save range
-          </button>
-        </div>
-      </section>
       <section className="section">
         <h2>Remembered filenames</h2>
         <p className="muted">
