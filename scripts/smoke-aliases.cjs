@@ -199,6 +199,16 @@ async function newRule(name, pattern) {
     await d.getByRole("button", { name: "Save alias", exact: true }).click();
     await d.waitFor({ state: "hidden" });
     await shot("alias-list");
+    assert.ok(
+      await page
+        .locator(".al-rule-list .og-item")
+        .first()
+        .evaluate((el) => el.getBoundingClientRect().height <= 78),
+    );
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1360, 900),
+    );
+    await shot("alias-list-wide");
     s = await state();
     const rules = await page.evaluate(() => window.urbanomics.aliases());
     await app.close();

@@ -117,6 +117,36 @@ test("percentage candidates preserve exact-cent boundaries and ambiguous alterna
     "Fee in",
   );
 });
+test("incoming-first candidates obey the same band and exclude unavailable outgoing records", (t) => {
+  const c = fixture(t),
+    rows = c.store.review.records(),
+    incoming = c.row("Exact in");
+  assert.deepEqual(
+    transferCandidates(incoming, rows, 0).map((r) => r.description),
+    ["Exact out"],
+  );
+  assert.equal(
+    transferCandidates(c.row("Fee in"), rows, 200)[0].description,
+    "Fee out",
+  );
+  assert.equal(transferCandidates(c.row("Fee in"), rows, 0).length, 0);
+  assert.equal(
+    transferCandidates(
+      incoming,
+      rows.map((r) =>
+        r.description === "Exact out" ? { ...r, currency: "USD" } : r,
+      ),
+      0,
+    ).length,
+    0,
+  );
+  c.link("Exact out", "Exact in", 0);
+  assert.equal(
+    transferCandidates(c.row("Competing in"), c.store.review.records(), 0)
+      .length,
+    0,
+  );
+});
 test("link stores principal differences once, preserves sources and categories, and rejects stale or reused pairs", async (t) => {
   const c = fixture(t),
     category = c.store.review.entity("category", {

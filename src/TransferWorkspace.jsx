@@ -71,12 +71,12 @@ export function TransferWorkspace({
     : NaN;
   const valid = validBand(bandValue),
     visibleIds = new Set(visible.map((t) => t.id));
-  const outgoing = pendingTransfers(records).filter(
-    (t) => t.amountCents < 0 && visibleIds.has(t.id),
+  const pendingIncome = pendingTransfers(records).filter(
+    (t) => t.amountCents > 0 && visibleIds.has(t.id),
   );
-  const focus = outgoing.find((t) => t.id === selected);
+  const focus = pendingIncome.find((t) => t.id === selected);
   const candidates = valid ? transferCandidates(focus, records, bandValue) : [];
-  const incoming = candidates.find((t) => t.id === target);
+  const outgoing = candidates.find((t) => t.id === target);
   const matches = candidates.filter((t) =>
     `${t.description} ${t.originalDescription || ""} ${t.account} ${t.date}`
       .toLowerCase()
@@ -99,14 +99,14 @@ export function TransferWorkspace({
         (visibleIds.has(pair.outgoing.id) || visibleIds.has(pair.incoming.id)),
     );
   async function link() {
-    if (!focus || !incoming || busy) return;
-    const next = outgoing.find((t) => t.id !== focus.id)?.id || "";
+    if (!focus || !outgoing || busy) return;
+    const next = pendingIncome.find((t) => t.id !== focus.id)?.id || "";
     const result = await act(() =>
       api.linkTransfer(
+        outgoing.id,
+        outgoing.version,
         focus.id,
         focus.version,
-        incoming.id,
-        incoming.version,
         bandValue,
       ),
     );
@@ -139,7 +139,7 @@ export function TransferWorkspace({
               setNotice("");
             }}
           >
-            Pending <span>{outgoing.length}</span>
+            Pending <span>{pendingIncome.length}</span>
           </button>
           <button
             aria-pressed={filter === "linked"}
@@ -183,8 +183,9 @@ export function TransferWorkspace({
       {filter === "pending" ? (
         <>
           <p className="tr-help">
-            Matches use the outgoing amount and search all imported months in
-            other accounts. Smaller incoming amounts default to fees.
+            Start with money in, then find its outgoing match across accounts
+            and months. Tolerance uses the amount sent; a shortfall defaults to
+            a fee.
           </p>
           {!valid && (
             <p className="dr-error-text" role="alert">
@@ -193,15 +194,15 @@ export function TransferWorkspace({
           )}
           <div className="tr-columns">
             <section
-              aria-label="Pending outgoing transfers"
+              aria-label="Pending incoming transfers"
               className="tr-column"
             >
               <header>
-                <h2>Money out</h2>
-                <small>{outgoing.length} pending</small>
+                <h2>Money in</h2>
+                <small>{pendingIncome.length} pending</small>
               </header>
               <div className="tr-list">
-                {outgoing.map((row) => (
+                {pendingIncome.map((row) => (
                   <Entry
                     key={row.id}
                     row={row}
@@ -215,23 +216,23 @@ export function TransferWorkspace({
                     }}
                   />
                 ))}
-                {!outgoing.length && (
+                {!pendingIncome.length && (
                   <p className="tr-empty">
-                    No pending outgoing entries in this view.
+                    No pending incoming entries in this view.
                   </p>
                 )}
               </div>
             </section>
             <section
-              aria-label="Possible incoming matches"
+              aria-label="Possible outgoing matches"
               className="tr-column"
             >
               <header>
-                <h2>Money in</h2>
+                <h2>Money out</h2>
                 <small>
                   {focus
                     ? `${candidates.length} possible ${candidates.length === 1 ? "match" : "matches"}`
-                    : "Choose money out first"}
+                    : "Choose money in first"}
                 </small>
               </header>
               {focus && (
@@ -248,7 +249,7 @@ export function TransferWorkspace({
                   <Entry
                     key={row.id}
                     row={row}
-                    selected={incoming?.id === row.id}
+                    selected={outgoing?.id === row.id}
                     onClick={() => {
                       if (!busy) setTarget(row.id === target ? "" : row.id);
                     }}
@@ -257,12 +258,12 @@ export function TransferWorkspace({
                 {!matches.length && (
                   <p className="tr-empty">
                     {!focus
-                      ? "Select an outgoing transaction to see its possible matches."
+                      ? "Select an incoming transaction to see its possible matches."
                       : !valid
                         ? "Set a valid percentage band."
                         : candidates.length
                           ? "No matches for this search."
-                          : "No matching incoming entries. Adjust the band or import the other account’s month."}
+                          : "No matching outgoing entries. Adjust the band or import the other account’s month."}
                   </p>
                 )}
               </div>
@@ -270,10 +271,10 @@ export function TransferWorkspace({
           </div>
           <div className="tr-link-footer">
             <div>
-              {focus && incoming ? (
+              {focus && outgoing ? (
                 <>
-                  <Difference outgoing={focus} incoming={incoming} />
-                  {incoming.amountCents > -focus.amountCents && (
+                  <Difference outgoing={outgoing} incoming={focus} />
+                  {focus.amountCents > -outgoing.amountCents && (
                     <small>
                       The extra stays separate from income until explained.
                     </small>
@@ -285,7 +286,7 @@ export function TransferWorkspace({
             </div>
             <button
               className="primary"
-              disabled={busy || !focus || !incoming || !valid}
+              disabled={busy || !focus || !outgoing || !valid}
               onClick={link}
             >
               Link transfer
@@ -300,7 +301,7 @@ export function TransferWorkspace({
           {pairs.map((pair) => (
             <article className="tr-linked-pair" key={pair.outgoing.id}>
               <div className="tr-linked-entries">
-                {[pair.outgoing, pair.incoming].map((row) => (
+                {[pair.incoming, pair.outgoing].map((row) => (
                   <button
                     key={row.id}
                     onClick={() => onSource(row.id)}

@@ -34,21 +34,23 @@ export function pendingTransfers(records) {
       !reserved.has(t.id),
   );
 }
-export function transferCandidates(outgoing, records, basisPoints) {
-  if (!outgoing) return [];
+export function transferCandidates(focus, records, basisPoints) {
+  if (!focus) return [];
   return pendingTransfers(records)
     .filter(
       (t) =>
-        t.accountId !== outgoing.accountId &&
-        t.currency === outgoing.currency &&
-        withinBand(outgoing.amountCents, t.amountCents, basisPoints),
+        t.accountId !== focus.accountId &&
+        t.currency === focus.currency &&
+        (focus.amountCents > 0
+          ? withinBand(t.amountCents, focus.amountCents, basisPoints)
+          : withinBand(focus.amountCents, t.amountCents, basisPoints)),
     )
     .sort(
       (a, b) =>
-        Math.abs(a.amountCents + outgoing.amountCents) -
-          Math.abs(b.amountCents + outgoing.amountCents) ||
-        Math.abs(Date.parse(a.date) - Date.parse(outgoing.date)) -
-          Math.abs(Date.parse(b.date) - Date.parse(outgoing.date)) ||
+        Math.abs(a.amountCents + focus.amountCents) -
+          Math.abs(b.amountCents + focus.amountCents) ||
+        Math.abs(Date.parse(a.date) - Date.parse(focus.date)) -
+          Math.abs(Date.parse(b.date) - Date.parse(focus.date)) ||
         a.id.localeCompare(b.id),
     );
 }

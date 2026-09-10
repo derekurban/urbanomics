@@ -35,6 +35,7 @@ function file(name, rows) {
 const outFile = file("out", [
   ["Sample fee out", "-1002.50"],
   ["Sample exact out", "-200"],
+  ["Sample competing out", "-200"],
   ["Sample extra out", "-300"],
 ]);
 const inFile = file("in", [
@@ -71,28 +72,28 @@ async function launch() {
       .getByRole("navigation", { name: "Review stages" })
       .getByRole("button", { name: "Transfers", exact: true })
       .click();
+    await page
+      .getByLabel("Review month", { exact: true })
+      .selectOption("2026-07");
     const workspace = page.getByRole("region", {
       name: "Transfer linking",
       exact: true,
     });
     const left = workspace.getByRole("region", {
-        name: "Pending outgoing transfers",
+        name: "Pending incoming transfers",
       }),
       right = workspace.getByRole("region", {
-        name: "Possible incoming matches",
+        name: "Possible outgoing matches",
       });
     const link = workspace.getByRole("button", {
       name: "Link transfer",
       exact: true,
     });
     assert.equal(await link.isDisabled(), true);
-    await left
-      .getByRole("button")
-      .filter({ hasText: "Sample fee out" })
-      .click();
+    await left.getByRole("button").filter({ hasText: "Sample fee in" }).click();
     await right
       .getByRole("button")
-      .filter({ hasText: "Sample fee in" })
+      .filter({ hasText: "Sample fee out" })
       .waitFor();
     assert.equal(await link.isDisabled(), true);
     await workspace.getByLabel("Transfer percentage band").fill("0");
@@ -100,7 +101,7 @@ async function launch() {
     await workspace.getByLabel("Transfer percentage band").fill("2");
     await right
       .getByRole("button")
-      .filter({ hasText: "Sample fee in" })
+      .filter({ hasText: "Sample fee out" })
       .click();
     assert.equal(await left.locator("[aria-pressed=true]").count(), 1);
     assert.equal(await right.locator("[aria-pressed=true]").count(), 1);
@@ -128,10 +129,11 @@ async function launch() {
     assert.equal(
       await left
         .getByRole("button")
-        .filter({ hasText: "Sample fee out" })
+        .filter({ hasText: "Sample fee in" })
         .count(),
       0,
     );
+    assert.equal(await left.locator("[aria-pressed=true]").count(), 0);
     let state = await page.evaluate(() => window.urbanomics.reviewState());
     assert.equal(
       state.records.find((t) => t.description === "Sample fee out").review
@@ -147,14 +149,15 @@ async function launch() {
       .filter({ hasText: "Pair unlinked" })
       .waitFor();
     await workspace.getByRole("button", { name: /^Pending/ }).click();
+    await page.getByLabel("Review month", { exact: true }).selectOption("");
     await left
       .getByRole("button")
-      .filter({ hasText: "Sample exact out" })
+      .filter({ hasText: "Sample exact in" })
       .click();
     assert.equal(await right.getByRole("button").count(), 2);
     await right
       .getByRole("button")
-      .filter({ hasText: "Sample exact in" })
+      .filter({ hasText: "Sample exact out" })
       .click();
     await link.click();
     await workspace
@@ -167,14 +170,14 @@ async function launch() {
         .reviewed,
       false,
     );
-    const extraOut = left
+    const extraIn = left
       .getByRole("button")
-      .filter({ hasText: "Sample extra out" });
-    if ((await extraOut.getAttribute("aria-pressed")) !== "true")
-      await extraOut.click();
+      .filter({ hasText: "Sample extra in" });
+    if ((await extraIn.getAttribute("aria-pressed")) !== "true")
+      await extraIn.click();
     await right
       .getByRole("button")
-      .filter({ hasText: "Sample extra in" })
+      .filter({ hasText: "Sample extra out" })
       .click();
     assert.match(
       await workspace.locator(".tr-unresolved").innerText(),

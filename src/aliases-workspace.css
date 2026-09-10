@@ -36,7 +36,7 @@
 }
 .al-unaliased-list {
   display: grid;
-  gap: 7px;
+  gap: 3px;
   max-height: 360px;
   overflow: auto;
   padding: 5px;
@@ -45,7 +45,10 @@
 }
 .al-unaliased-list button {
   text-align: left;
-  padding: 12px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 8px;
+  padding: 8px 9px;
 }
 .al-unaliased-list strong,
 .al-unaliased-list small,
@@ -58,9 +61,14 @@
 }
 .al-unaliased-list small {
   font-size: 11px;
-  margin: 6px 0;
+  margin: 0;
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 .al-unaliased-list span {
+  grid-column: 2;
+  grid-row: 1;
+  white-space: nowrap;
   font-size: 12px;
 }
 .al-unaliased .al-pages {
@@ -147,10 +155,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 18px;
+  padding: 10px 14px;
   background: #edf2e9;
   border-radius: 14px;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 .al-account-link small,
 .al-rule-info {
@@ -182,7 +190,7 @@
   display: flex;
   justify-content: space-between;
   gap: 20px;
-  padding: 14px 5px;
+  padding: 8px 5px;
   border-bottom: 1px solid var(--line);
 }
 .al-results article > div {
@@ -257,5 +265,67 @@
   .al-account-link {
     align-items: start;
     flex-direction: column;
+  }
+}
+
+/* Dense alias rows keep the name, rule, scope and actions easy to scan. */
+.al-rule-list {
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.al-rule-list .og-item {
+  padding: 9px 12px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  border-radius: 0;
+  background: transparent;
+  gap: 12px;
+}
+.al-rule-list .og-item:last-child {
+  border-bottom: 0;
+}
+.al-rule-list .og-item-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 3px 16px;
+  align-items: center;
+}
+.al-rule-list h3 {
+  margin: 0;
+  font-size: 13px;
+}
+.al-rule-list code {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  color: var(--muted);
+  font-size: 11px;
+}
+.al-rule-list .al-rule-info {
+  grid-column: 2;
+  grid-row: 1;
+  margin: 0;
+  font-size: 11px;
+}
+.al-rule-list .og-item > button {
+  padding: 6px 10px;
+  font-size: 12px;
+}
+.al-rule-list h3,
+.al-rule-list code,
+.al-unaliased-list strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 800px) {
+  .al-rule-list .og-item-body {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .al-rule-list .al-rule-info {
+    grid-column: 1;
+    grid-row: 3;
   }
 }

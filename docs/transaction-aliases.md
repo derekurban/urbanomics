@@ -2,6 +2,8 @@
 
 Organize → Aliases manages readable transaction names separately from imported source data. The account-alias shortcut opens Organize → Accounts, which retains account names, filename-prefix regexes, filename tests and routing safeguards.
 
+The management list uses compact rows with names and account/match counts together, the regex underneath and Edit alongside. Long names and rules truncate visually with full text on hover and in the editor. Unaliased transactions place the amount beside the description, with account/date on a second line; previews use tighter spacing.
+
 A transaction rule has a readable name (1–80 characters), a description regex (1–256 characters), and an optional account scope. Rules search original bank descriptions case-insensitively using the existing RE2 engine. They do not match alias output, chain aliases, infer people, or classify transactions. Use `^` and `$` for anchoring. Lookarounds and backreferences are unsupported. Names are literal replacements, not capture-group templates.
 
 The editor's **Without an alias** panel lists transactions with no matching rule, independently of their categories or financial-review status. It covers all months (including labeled deleted accounts), follows the selected account scope, and supports searching bank text/account/date and paging ten rows at a time. Conflicting transactions stay in the conflict list instead. Clicking a row seeds an escaped, anchored exact-description regex and focuses the readable name. Regex punctuation is treated literally; descriptions that exceed the rule length limit require a shorter manual pattern rather than silent truncation.

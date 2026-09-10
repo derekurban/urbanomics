@@ -184,7 +184,7 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
                   aria-pressed={picked === r.id}
                   onClick={() => useTransaction(r)}
                 >
-                  <strong>{r.description}</strong>
+                  <strong title={r.description}>{r.description}</strong>
                   <small>
                     {r.account}
                     {r.deleted ? " (deleted)" : ""} · {r.date}
@@ -336,7 +336,7 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
                         className={r.conflicts.length ? "al-conflict" : ""}
                       >
                         <div>
-                          <strong>{r.description}</strong>
+                          <strong title={r.description}>{r.description}</strong>
                           <small>
                             {r.account}
                             {r.deleted ? " (deleted)" : ""} · {r.date}
@@ -491,7 +491,7 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
           </p>
           {state.conflicts.map((r) => (
             <div key={r.id}>
-              <strong>{r.description}</strong>
+              <strong title={r.description}>{r.description}</strong>
               <small>
                 {r.account} · {r.date}
               </small>
@@ -530,12 +530,12 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
           <p>Create a regex rule and preview its matches before saving.</p>
         </div>
       ) : (
-        <div className="og-list">
+        <div className="og-list al-rule-list">
           {rules.map((r) => (
             <article className="og-item" key={r.id}>
               <div className="og-item-body">
-                <h3>{r.name}</h3>
-                <code>{r.pattern}</code>
+                <h3 title={r.name}>{r.name}</h3>
+                <code title={r.pattern}>{r.pattern}</code>
                 <small className="al-rule-info">
                   {accounts.find((a) => a.id === r.accountId)?.name ||
                     "All accounts"}{" "}
