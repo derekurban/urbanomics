@@ -1,11 +1,15 @@
 const { randomUUID } = require("node:crypto");
 const { RE2 } = require("re2-wasm");
 
-function pattern(value) {
+function normalizedPattern(value) {
   if (typeof value !== "string" || !value.trim() || value.length > 256)
     throw new Error("Enter a description regex of 1–256 characters.");
+  return value.trim();
+}
+function pattern(value) {
+  const source = normalizedPattern(value);
   try {
-    return new RE2(value.trim(), "iu");
+    return new RE2(source, "iu");
   } catch {
     throw new Error(
       "Invalid regex. Use RE2 syntax without / delimiters; lookarounds and backreferences are not supported.",
@@ -20,6 +24,26 @@ class AliasStore {
   constructor(imports) {
     this.imports = imports;
     this.db = imports.db;
+    // re2-wasm owns compiled expressions in its fixed WASM heap and does not
+    // expose a supported disposal API on RE2. Keep one expression for each
+    // normalized source for this store's lifetime instead of recompiling every
+    // saved rule for each preview/state call.
+    this.regexCache = new Map();
+  }
+  regex(value) {
+    const source = normalizedPattern(value);
+    let regex = this.regexCache.get(source);
+    if (!regex) {
+      try {
+        regex = new RE2(source, "iu");
+      } catch {
+        throw new Error(
+          "Invalid regex. Use RE2 syntax without / delimiters; lookarounds and backreferences are not supported.",
+        );
+      }
+      this.regexCache.set(source, regex);
+    }
+    return regex;
   }
   rules() {
     return this.db
@@ -27,7 +51,7 @@ class AliasStore {
       .all();
   }
   compile(rules = this.rules()) {
-    return rules.map((r) => ({ ...r, regex: pattern(r.pattern) }));
+    return rules.map((r) => ({ ...r, regex: this.regex(r.pattern) }));
   }
   rows() {
     return this.db
@@ -67,7 +91,7 @@ class AliasStore {
     const name = typeof values.name === "string" ? values.name.trim() : "";
     if (!name || name.length > 80)
       throw new Error("Enter a readable name of 1–80 characters.");
-    const regex = pattern(values.pattern),
+    const regex = this.regex(values.pattern),
       accountId = values.accountId || "";
     if (
       typeof accountId !== "string" ||

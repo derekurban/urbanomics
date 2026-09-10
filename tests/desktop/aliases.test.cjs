@@ -198,3 +198,25 @@ test("account scopes can separate identical patterns and later imports expose am
   c.reopen();
   assert.equal(c.store.aliases.state().conflicts.length, 0);
 });
+
+test("aliases reuse RE2 expressions across repeated previews and state checks", (t) => {
+  const c = setup(t);
+  const rows = Array.from({ length: 100 }, (_, i) => [
+    `MERCHANT ${String(i).padStart(3, "0")}`,
+  ]);
+  c.ingest(rows);
+  const rules = rows.map(([description], i) =>
+    rule(`Merchant ${i}`, `^${description}$`),
+  );
+  for (const value of rules) c.store.aliases.save(value);
+  const saved = c.store.aliases.rules();
+  assert.equal(saved.length, 100);
+  assert.equal(c.store.aliases.regexCache.size, 100);
+  for (let pass = 0; pass < 20; pass++) {
+    const preview = c.store.aliases.preview(saved[pass % saved.length]);
+    assert.equal(preview.matches.length, 1);
+    assert.equal(preview.conflicts.length, 0);
+    assert.equal(c.store.aliases.state().conflicts.length, 0);
+  }
+  assert.equal(c.store.aliases.regexCache.size, 100);
+});
