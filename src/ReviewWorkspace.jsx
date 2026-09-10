@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { SplitEditor } from "./SplitEditor.jsx";
+import { OrbitSorter } from "./OrbitSorter.jsx";
 import {
   money,
   sum,
@@ -26,13 +27,14 @@ const toggle = (list, id) =>
   list.includes(id) ? list.filter((v) => v !== id) : [...list, id];
 
 function EntityEditor({ entity, tags, onClose, act, error }) {
+  const label = entity.kind === "group" ? "event" : entity.kind;
   const [name, setName] = useState(entity.name || ""),
     [color, setColor] = useState(entity.color || "#78976A"),
     [selected, setSelected] = useState(entity.tags || []),
     [confirm, setConfirm] = useState(false);
   return (
     <WorkspaceModal
-      title={`${entity.id ? "Edit" : "New"} ${entity.kind}`}
+      title={`${entity.id ? "Edit" : "New"} ${label}`}
       onClose={onClose}
     >
       <form
@@ -87,7 +89,7 @@ function EntityEditor({ entity, tags, onClose, act, error }) {
                 </button>
               ))}
             </div>
-            {!tags.length && <p>Create tags in Organize first.</p>}
+            {!tags.length && <p>Create tags in the Tags stage first.</p>}
           </>
         )}
         {error && (
@@ -102,22 +104,21 @@ function EntityEditor({ entity, tags, onClose, act, error }) {
               className="account-delete-link"
               onClick={() => setConfirm(true)}
             >
-              Delete {entity.kind}
+              Delete {label}
             </button>
           )}
           <button type="button" onClick={onClose}>
             Cancel
           </button>
           <button className="primary" disabled={!name.trim()}>
-            Save {entity.kind}
+            Save {label}
           </button>
         </footer>
         {confirm && (
           <div className="rv-confirm">
             <p>
-              Delete this {entity.kind}? Transactions stay intact. Tags and
-              people already in use must be removed from their transactions
-              first.
+              Delete this {label}? Transactions stay intact. Tags and people
+              already in use must be removed from their transactions first.
             </p>
             <button
               type="button"
@@ -505,7 +506,7 @@ function FinanceEditor({
                       <span>
                         {group.name}
                         <small>
-                          Group · {members.length} expenses
+                          Event · {members.length} expenses
                           {count && count < members.length
                             ? " · partially selected"
                             : ""}
@@ -614,6 +615,9 @@ function FinanceEditor({
 }
 
 export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
+  const [sortMode, setSortMode] = useState("cards");
+  const [tagDrafts, setTagDrafts] = useState({}),
+    [eventDrafts, setEventDrafts] = useState({});
   const [state, setState] = useState(null),
     [stage, setStage] = useState("organize"),
     [month, setMonth] = useState(initialMonth || ""),
@@ -822,8 +826,8 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       </header>
       <nav className="rv-stages" aria-label="Review stages">
         {[
-          ["organize", "1 · Organize"],
-          ["groups", "2 · Groups"],
+          ["organize", "1 · Tags"],
+          ["groups", "2 · Events"],
           ["review", "3 · Review"],
           ["categories", "4 · Categories"],
         ].map(([id, label]) => (
@@ -862,126 +866,154 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       )}
       {["organize", "groups"].includes(stage) && (
         <>
-          <div className="rv-section-title">
-            <p>
-              {stage === "organize"
-                ? "Drag into a tag, or select transactions and click a lane to assign."
-                : "Group whole transactions for a trip, event or shared collection."}
-            </p>
+          <div className="rv-sort-controls">
+            <div className="rv-toggle" aria-label="Sorting view">
+              {["cards", "board"].map((mode) => (
+                <button
+                  key={mode}
+                  aria-pressed={sortMode === mode}
+                  onClick={() => setSortMode(mode)}
+                >
+                  {mode === "cards" ? "Cards" : "Board"}
+                </button>
+              ))}
+            </div>
             <button
               disabled={busy}
               onClick={() =>
                 editEntity({ kind: stage === "organize" ? "tag" : "group" })
               }
             >
-              + New {stage === "organize" ? "tag" : "group"}
+              + New {stage === "organize" ? "tag" : "event"}
             </button>
           </div>
-          <div className="rv-board">
-            <section
-              className="rv-inbox-lane"
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={(e) => drop(e, "")}
-            >
-              <div className="rv-lane-heading">
-                <button
-                  disabled={!chosen.length || busy}
-                  onClick={() => assign("")}
-                >
-                  {stage === "organize" ? "Needs tags" : "Ungrouped"}
-                </button>
-                <label>
-                  <input
-                    type="checkbox"
-                    checked={showAll}
-                    onChange={(e) => setShowAll(e.target.checked)}
-                  />
-                  Show all
-                </label>
-              </div>
-              {visible
-                .filter(
+          {sortMode === "cards" && (
+            <OrbitSorter
+              key={stage}
+              rows={visible}
+              entities={stage === "organize" ? tags : groups}
+              events={stage === "groups"}
+              drafts={stage === "organize" ? tagDrafts : eventDrafts}
+              setDrafts={stage === "organize" ? setTagDrafts : setEventDrafts}
+              busy={busy}
+              onSave={(changes) => act(() => api.organize(changes))}
+              onEdit={editEntity}
+              onContinue={() =>
+                setStage(stage === "organize" ? "groups" : "review")
+              }
+            />
+          )}
+          {sortMode === "board" && (
+            <div className="rv-board">
+              <section
+                className="rv-inbox-lane"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => drop(e, "")}
+              >
+                <div className="rv-lane-heading">
+                  <button
+                    disabled={!chosen.length || busy}
+                    onClick={() => assign("")}
+                  >
+                    {stage === "organize" ? "Needs tags" : "No event yet"}
+                  </button>
+                  <label>
+                    <input
+                      type="checkbox"
+                      checked={showAll}
+                      onChange={(e) => setShowAll(e.target.checked)}
+                    />
+                    Show all
+                  </label>
+                </div>
+                {visible
+                  .filter(
+                    (t) =>
+                      showAll ||
+                      !(stage === "organize"
+                        ? t.review.tags.length
+                        : t.review.groupsReviewed || t.review.groups.length),
+                  )
+                  .map((t) => card(t))}
+                {!visible.some(
                   (t) =>
                     showAll ||
                     !(stage === "organize"
                       ? t.review.tags.length
-                      : t.review.groups.length),
-                )
-                .map((t) => card(t))}
-              {!visible.some(
-                (t) =>
-                  showAll ||
-                  !(stage === "organize"
-                    ? t.review.tags.length
-                    : t.review.groups.length),
-              ) && (
-                <p className="rv-empty">
-                  All sorted here. Turn on Show all to edit assigned items.
-                </p>
-              )}
-            </section>
-            <div className="rv-lanes">
-              {(stage === "organize" ? tags : groups).map((entity) => {
-                const members = visible.filter((t) =>
-                  stage === "organize"
-                    ? t.review.tags.some((p) => p.id === entity.id)
-                    : t.review.groups.includes(entity.id),
-                );
-                return (
-                  <section
-                    className="rv-lane"
-                    style={{ "--lane-color": entity.color }}
-                    key={entity.id}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={(e) => drop(e, entity.id)}
-                  >
-                    <div className="rv-lane-heading">
-                      <button disabled={busy} onClick={() => assign(entity.id)}>
-                        {entity.name}
-                        <small>{members.length}</small>
-                      </button>
-                      <button
-                        aria-label={`Edit ${entity.kind} ${entity.name}`}
-                        onClick={() => editEntity(entity)}
-                      >
-                        •••
-                      </button>
-                    </div>
-                    {members.map((t) =>
-                      card(
-                        t,
-                        stage === "organize"
-                          ? t.review.tags.find((p) => p.id === entity.id).cents
-                          : undefined,
-                        entity.id,
-                      ),
-                    )}
-                    {!members.length && (
-                      <p className="rv-empty">
-                        {chosen.length
-                          ? `Click the heading to assign ${chosen.length} selected.`
-                          : "Drop transactions here."}
-                      </p>
-                    )}
-                  </section>
-                );
-              })}
-              {!(stage === "organize" ? tags : groups).length && (
-                <div className="rv-empty-panel">
-                  <h2>
-                    {stage === "organize"
-                      ? "Start with a few tags."
-                      : "Bring related transactions together."}
-                  </h2>
-                  <p>
-                    {stage === "organize"
-                      ? "Groceries, dining, home… use names that make sense to you. Mixed purchases can be split across several tags."
-                      : "A group can hold expenses and incoming payments. Grouping does not assign a repayment or change any tags."}
+                      : t.review.groupsReviewed || t.review.groups.length),
+                ) && (
+                  <p className="rv-empty">
+                    All sorted here. Turn on Show all to edit assigned items.
                   </p>
-                </div>
-              )}
+                )}
+              </section>
+              <div className="rv-lanes">
+                {(stage === "organize" ? tags : groups).map((entity) => {
+                  const members = visible.filter((t) =>
+                    stage === "organize"
+                      ? t.review.tags.some((p) => p.id === entity.id)
+                      : t.review.groups.includes(entity.id),
+                  );
+                  return (
+                    <section
+                      className="rv-lane"
+                      style={{ "--lane-color": entity.color }}
+                      key={entity.id}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={(e) => drop(e, entity.id)}
+                    >
+                      <div className="rv-lane-heading">
+                        <button
+                          disabled={busy}
+                          onClick={() => assign(entity.id)}
+                        >
+                          {entity.name}
+                          <small>{members.length}</small>
+                        </button>
+                        <button
+                          aria-label={`Edit ${entity.kind} ${entity.name}`}
+                          onClick={() => editEntity(entity)}
+                        >
+                          •••
+                        </button>
+                      </div>
+                      {members.map((t) =>
+                        card(
+                          t,
+                          stage === "organize"
+                            ? t.review.tags.find((p) => p.id === entity.id)
+                                .cents
+                            : undefined,
+                          entity.id,
+                        ),
+                      )}
+                      {!members.length && (
+                        <p className="rv-empty">
+                          {chosen.length
+                            ? `Click the heading to assign ${chosen.length} selected.`
+                            : "Drop transactions here."}
+                        </p>
+                      )}
+                    </section>
+                  );
+                })}
+                {!(stage === "organize" ? tags : groups).length && (
+                  <div className="rv-empty-panel">
+                    <h2>
+                      {stage === "organize"
+                        ? "Start with a few tags."
+                        : "Bring related transactions together."}
+                    </h2>
+                    <p>
+                      {stage === "organize"
+                        ? "Groceries, dining, home… use names that make sense to you. Mixed purchases can be split across several tags."
+                        : "A group can hold expenses and incoming payments. Grouping does not assign a repayment or change any tags."}
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
+          )}
         </>
       )}
       {stage === "review" && (

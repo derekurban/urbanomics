@@ -2,6 +2,7 @@ const { randomUUID } = require("node:crypto");
 const empty = () => ({
   tags: [],
   groups: [],
+  groupsReviewed: false,
   kind: "unreviewed",
   reviewed: false,
   shares: null,
@@ -77,7 +78,7 @@ class ReviewStore {
         account: t.account,
         color: t.color,
         deleted: !!t.deletedAt,
-        review: t.review ? JSON.parse(t.review) : empty(),
+        review: t.review ? { ...empty(), ...JSON.parse(t.review) } : empty(),
         version: t.version || 0,
       }));
   }
@@ -156,7 +157,11 @@ class ReviewStore {
         for (const t of records.filter((t) => t.review.groups.includes(id)))
           this.write(
             t.id,
-            { ...t.review, groups: t.review.groups.filter((g) => g !== id) },
+            {
+              ...t.review,
+              groups: t.review.groups.filter((g) => g !== id),
+              groupsReviewed: false,
+            },
             t.version,
           );
       if (entity.kind === "tag")
@@ -222,6 +227,12 @@ class ReviewStore {
           review.groups = ids(change.groups, "groups");
           if (review.groups.some((id) => !groups.has(id)))
             throw new Error("Group no longer exists.");
+          review.groupsReviewed = review.groups.length > 0;
+        }
+        if (change.groupsReviewed !== undefined) {
+          if (typeof change.groupsReviewed !== "boolean")
+            throw new Error("Event review must be true or false.");
+          review.groupsReviewed = change.groupsReviewed;
         }
         this.write(row.id, review, row.version);
       }

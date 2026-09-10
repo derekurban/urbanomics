@@ -27,7 +27,7 @@ The Accounts screen also controls the completed-month range. Rows outside that r
 
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
-Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Create reusable tags and drag transactions into their lanes; assigned items leave Needs tags. Select several rows and click a lane heading for bulk assignment. Edit tags to divide mixed purchases using adjacent dividers with dollar/cent precision. Groups collect whole transactions separately from tags. Category views collect any chosen tags, with overlapping views counted once when combined.
+Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Tags and Events open a card stack with surrounding targets. Drop a card or click targets to select them, adjust tag splits using dollar/cent dividers, then Save & next. Chevrons browse transactions while retaining drafts within Review. Saved progress advances only after saving. Events collect whole transactions; choose No event for everyday items. Larger target lists offer search and six-target pages. Manage tags/events opens their editors, and Board remains available for inspecting contents and bulk assignment. Category views come after financial review and collect chosen tags, with overlapping views counted once when combined.
 
 The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Tags, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
 
@@ -39,6 +39,7 @@ Development data lives in `private/desktop/`, including Electron cache and logs.
 npm test                # Import, deduplication, date, and recovery checks
 npm run test:desktop    # Real Electron UI + persistence checks; build first
 npm run test:review     # Synthetic tagging, grouping, financial review and restart checks
+npm run test:orbit      # Card dragging, drafts, tag splits, event decisions and responsive layout
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 

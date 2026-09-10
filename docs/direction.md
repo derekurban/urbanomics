@@ -160,6 +160,8 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 ## Next action and review point
 
+The circular card trial is now accepted for implementation in Tags and Events. Each stage uses explicit Save & next, retained drafts while browsing Review, and saved completion progress. Events reuse existing group identities and support No event. Board remains available for bulk work and inspection. The proposal for a separate app-wide Organize area covering tags, categories, accounts and people remains an open design direction; this change integrates the card workflow into Review.
+
 The user has supplied manual CSV exports and asked for monthly copies excluding September. The January–August preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
 
 The user has accepted the overall sixth-trial experience and requested the first operational desktop import milestone. Electron + React and a SQLite-backed importer are implemented with three bank adapters, explicit account routing, cautious overlap review, source provenance, and immutable monthly revisions. Native Electron integration and synthetic recovery checks are now separate from prototype tests; see `docs/desktop-imports.md`. The latest completed month is loaded locally as a trial, with source-specific results kept private.

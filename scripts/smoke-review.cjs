@@ -77,19 +77,23 @@ const snap = (name) =>
     animations: "disabled",
   });
 async function create(kind, name, tags = []) {
+  const label = kind === "group" ? "event" : kind;
   await page
     .getByRole("button", {
-      name: kind === "person" ? "+ Person" : `+ New ${kind}`,
+      name: kind === "person" ? "+ Person" : `+ New ${label}`,
       exact: true,
     })
     .first()
     .click();
-  const dialog = page.getByRole("dialog", { name: `New ${kind}`, exact: true });
+  const dialog = page.getByRole("dialog", {
+    name: `New ${label}`,
+    exact: true,
+  });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
   for (const tag of tags)
     await dialog.getByRole("button", { name: tag, exact: true }).click();
   await dialog
-    .getByRole("button", { name: `Save ${kind}`, exact: true })
+    .getByRole("button", { name: `Save ${label}`, exact: true })
     .click();
   await dialog.waitFor({ state: "hidden" });
 }
@@ -126,6 +130,7 @@ async function saveReview() {
     await create("tag", "Groceries");
     await create("tag", "Home");
     await create("tag", "Dining");
+    await page.getByRole("button", { name: "Board", exact: true }).click();
     const queue = page.locator(".rv-inbox-lane");
     await card(queue, "Walmart").dragTo(lane("Groceries"));
     await page.waitForFunction(async () => {
@@ -192,7 +197,7 @@ async function saveReview() {
     await lane("Dining").locator(".rv-lane-heading button").first().click();
     await card(lane("Dining"), "Juniper dinner").waitFor();
     await snap("organize-board");
-    await stage("2 · Groups");
+    await stage("2 · Events");
     await create("group", "Mountain weekend");
     for (const name of ["Juniper dinner", "Cabin", "Alex e-transfer"])
       await queue
@@ -230,7 +235,7 @@ async function saveReview() {
       .click();
     await page
       .getByRole("checkbox", {
-        name: "Mountain weekend Group · 2 expenses",
+        name: "Mountain weekend Event · 2 expenses",
         exact: true,
       })
       .check();
@@ -306,7 +311,7 @@ async function saveReview() {
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 700),
     );
-    await stage("1 · Organize");
+    await stage("1 · Tags");
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,

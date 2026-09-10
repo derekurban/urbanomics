@@ -13,6 +13,7 @@
     "test:prototypes": "node --test tests/*-prototype.test.cjs",
     "test:desktop": "node scripts/smoke-desktop.cjs",
     "test:review": "node scripts/smoke-review.cjs",
+    "test:orbit": "node scripts/smoke-orbit.cjs",
     "package:win": "npm run build && electron-builder --win dir"
   },
   "dependencies": {

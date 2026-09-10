@@ -292,6 +292,46 @@ test("restart, repeat and amendment imports retain review IDs; new rows enter th
   assert.deepEqual(c.row("Dinner"), before);
   assert.equal(c.store.review.pending(), 6);
 });
+test("explicit no-event decisions persist independently of tags and financial review", (t) => {
+  const c = setup(t),
+    tag = c.entity("tag", "Dining"),
+    event = c.entity("group", "Weekend");
+  let row = c.row("Dinner");
+  c.store.review.organize([
+    { id: row.id, version: row.version, tags: [{ id: tag, cents: 12000 }] },
+  ]);
+  c.save("Dinner", { kind: "expense", reviewed: true });
+  row = c.row("Dinner");
+  c.store.review.organize([
+    { id: row.id, version: row.version, groups: [], groupsReviewed: true },
+  ]);
+  c.reopen();
+  assert.equal(c.row("Dinner").review.groupsReviewed, true);
+  assert.equal(c.row("Dinner").review.reviewed, true);
+  assert.deepEqual(c.row("Dinner").review.tags, row.review.tags);
+  row = c.row("Dinner");
+  assert.throws(
+    () =>
+      c.store.review.organize([
+        {
+          id: row.id,
+          version: row.version,
+          groups: [event],
+          groupsReviewed: "yes",
+        },
+      ]),
+    /true or false/,
+  );
+  assert.deepEqual(c.row("Dinner"), row);
+  c.store.review.organize([
+    { id: row.id, version: row.version, groups: [event] },
+  ]);
+  assert.equal(c.row("Dinner").review.groupsReviewed, true);
+  c.store.review.removeEntity(event);
+  assert.equal(c.row("Dinner").review.groupsReviewed, false);
+  assert.deepEqual(c.row("Dinner").review.groups, []);
+  assert.equal(c.row("Dinner").review.reviewed, true);
+});
 test("divider precision, retagging, capped distribution and overlapping category union", async () => {
   const m = await import("../../src/review-model.js");
   assert.deepEqual(m.equal(["a", "b", "c"], 100), [
