@@ -66,21 +66,23 @@ class ReviewStore {
       .map((e) => ({ ...e, tags: JSON.parse(e.tags) }));
   }
   records() {
-    return this.db
-      .prepare(
-        "SELECT t.*,a.name AS account,a.color,a.deletedAt,r.payload AS review,r.version FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id ORDER BY t.date DESC,t.rowid DESC",
-      )
-      .all()
-      .map((t) => ({
-        ...JSON.parse(t.payload),
-        id: t.id,
-        accountId: t.account_id,
-        account: t.account,
-        color: t.color,
-        deleted: !!t.deletedAt,
-        review: t.review ? { ...empty(), ...JSON.parse(t.review) } : empty(),
-        version: t.version || 0,
-      }));
+    return this.imports.aliases.decorate(
+      this.db
+        .prepare(
+          "SELECT t.*,a.name AS account,a.color,a.deletedAt,r.payload AS review,r.version FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id ORDER BY t.date DESC,t.rowid DESC",
+        )
+        .all()
+        .map((t) => ({
+          ...JSON.parse(t.payload),
+          id: t.id,
+          accountId: t.account_id,
+          account: t.account,
+          color: t.color,
+          deleted: !!t.deletedAt,
+          review: t.review ? { ...empty(), ...JSON.parse(t.review) } : empty(),
+          version: t.version || 0,
+        })),
+    );
   }
   state() {
     return { entities: this.entities(), records: this.records() };

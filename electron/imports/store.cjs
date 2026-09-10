@@ -4,6 +4,7 @@ const { randomUUID } = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const { ReviewStore } = require("../review/store.cjs");
+const { AliasStore } = require("../review/aliases.cjs");
 const {
   parseExport,
   hash,
@@ -46,7 +47,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 6) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 7) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -137,6 +138,12 @@ class ImportStore {
         throw error;
       }
     }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 7) {
+      this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE IF NOT EXISTS transaction_aliases (id TEXT PRIMARY KEY,name TEXT NOT NULL,pattern TEXT NOT NULL,accountId TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL);
+        PRAGMA user_version=7; COMMIT;`);
+    }
+    this.aliases = new AliasStore(this);
     this.review = new ReviewStore(this);
     this.db
       .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")

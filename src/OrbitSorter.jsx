@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { TransactionSettings } from "./TransactionSettings.jsx";
+import { Chevron } from "./Chevron.jsx";
 import { money, retag } from "./review-model.js";
 import "./orbit-sorter.css";
 
@@ -76,7 +77,16 @@ export function OrbitSorter({
   function choose(id, toggle = true) {
     if (busy || !row || saving.current) return;
     if (!events) {
-      save([{ id, cents: Math.abs(row.amountCents) }]);
+      if (toggle && selected(id)) {
+        save(
+          retag(
+            values,
+            values.map((p) => p.id).filter((v) => v !== id),
+            Math.abs(row.amountCents),
+          ),
+          false,
+        );
+      } else save([{ id, cents: Math.abs(row.amountCents) }]);
       return;
     }
     if (!toggle && selected(id)) {
@@ -108,13 +118,13 @@ export function OrbitSorter({
     setActive(next?.id || savedRow.id);
     setMessage(`${savedRow.description} saved.`);
   }
-  async function save(nextValues = values) {
+  async function save(nextValues = values, advanceAfter = true) {
     if (
       !row ||
       busy ||
       saving.current ||
       stale ||
-      (!events && !nextValues.length) ||
+      (!events && !nextValues.length && advanceAfter) ||
       (events && !decided)
     )
       return;
@@ -134,7 +144,8 @@ export function OrbitSorter({
         delete next[row.id];
         return next;
       });
-      advance(row);
+      if (advanceAfter) advance(row);
+      else setMessage("Category removed. Stay here to adjust this card.");
     } finally {
       saving.current = false;
     }
@@ -217,7 +228,7 @@ export function OrbitSorter({
               disabled={!entityPage}
               onClick={() => setPage(entityPage - 1)}
             >
-              ‹
+              <Chevron />
             </button>
             <span>
               {entityPage + 1} / {pages}
@@ -227,7 +238,7 @@ export function OrbitSorter({
               disabled={entityPage === pages - 1}
               onClick={() => setPage(entityPage + 1)}
             >
-              ›
+              <Chevron right />
             </button>
           </div>
         </div>
@@ -278,7 +289,14 @@ export function OrbitSorter({
                   </span>
                   <span aria-hidden="true">⠿</span>
                 </div>
-                <h3 title={row.description}>{row.description}</h3>
+                <h3 title={row.originalDescription || row.description}>
+                  {row.description}
+                </h3>
+                {row.aliasConflicts?.length > 0 && (
+                  <span className="alias-warning">
+                    Alias conflict · resolve in Organize
+                  </span>
+                )}
                 <small>
                   {row.account} · {row.date}
                 </small>
@@ -346,17 +364,13 @@ export function OrbitSorter({
                 <button
                   key={id}
                   disabled={busy}
-                  aria-label={
-                    events
-                      ? `Remove ${names[id] || "missing assignment"}`
-                      : `Edit ${names[id] || "category"} allocation`
-                  }
-                  onClick={() => (events ? choose(id) : setEditing(row))}
+                  aria-label={`Remove ${names[id] || "missing assignment"}`}
+                  onClick={() => choose(id)}
                 >
                   <i style={{ background: colors[id] }} />
                   {names[id] || "Removed item"}{" "}
                   <span aria-hidden="true">
-                    {events ? "×" : money(p.cents)}
+                    {events ? "×" : `${money(p.cents)} ×`}
                   </span>
                 </button>
               );
@@ -411,7 +425,7 @@ export function OrbitSorter({
               aria-label="Previous transaction"
               onClick={() => navigate(index - 1)}
             >
-              ‹
+              <Chevron />
             </button>
             <div>
               <div className="os-progress-label">
@@ -437,7 +451,7 @@ export function OrbitSorter({
               aria-label="Next transaction"
               onClick={() => navigate(index + 1)}
             >
-              ›
+              <Chevron right />
             </button>
           </div>
           <div className="os-status" role="status">
@@ -446,7 +460,7 @@ export function OrbitSorter({
                 ? "Draft stays with this card while you browse Review."
                 : events
                   ? "Drag the card or select the surrounding buttons."
-                  : "Drop to save instantly. Click the card for multiple categories.")}
+                  : "Drop to save. Click a selected category to remove it.")}
           </div>
           {count === rows.length && (
             <button className="os-continue" onClick={onContinue}>

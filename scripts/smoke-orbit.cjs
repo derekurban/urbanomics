@@ -125,6 +125,25 @@ async function drag(target) {
       "drop saves exactly once",
     );
     // Cancel and Escape retain the card and saved state.
+    await page
+      .getByRole("button", { name: "Previous transaction", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Category Groceries", exact: true })
+      .click();
+    await page.getByText("0 of 3 categorized", { exact: true }).waitFor();
+    assert.match(
+      await page.locator(".os-transaction").textContent(),
+      /Walmart/,
+    );
+    assert.deepEqual(
+      (await state()).records.find((t) => t.description === "Walmart").review
+        .tags,
+      [],
+    );
+    await drag("Category Groceries");
+    await page.getByText("1 of 3 categorized", { exact: true }).waitFor();
+    s = await state();
     await page.locator(".os-transaction").click();
     let modal = page.getByRole("dialog", { name: "Transaction settings" });
     await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
@@ -167,6 +186,52 @@ async function drag(target) {
       [14001, 9999],
     );
     assert.ok(s.records.every((t) => !t.review.reviewed));
+    await page
+      .getByRole("button", { name: "Previous transaction", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Remove Home", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Category Home", exact: true })
+      .filter({ hasText: "Assign & next" })
+      .waitFor();
+    assert.match(
+      await page.locator(".os-transaction").textContent(),
+      /Walmart/,
+    );
+    assert.deepEqual(
+      (await state()).records
+        .find((t) => t.description === "Walmart")
+        .review.tags.map((p) => p.cents),
+      [24000],
+    );
+    await page.locator(".os-transaction").click();
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
+    await modal
+      .getByRole("spinbutton", {
+        name: "Exact divider after Groceries",
+        exact: true,
+      })
+      .fill("140.01");
+    await modal.getByRole("button", { name: "Save", exact: true }).click();
+    await modal.waitFor({ state: "hidden" });
+    assert.ok(
+      await page
+        .locator(".os-navigation > button, .os-target-pages button")
+        .evaluateAll((buttons) =>
+          buttons.every((b) => {
+            const r = b.getBoundingClientRect(),
+              s = b.querySelector("svg").getBoundingClientRect();
+            return (
+              Math.abs(r.width - r.height) < 1 &&
+              Math.abs(r.x + r.width / 2 - s.x - s.width / 2) < 1 &&
+              Math.abs(r.y + r.height / 2 - s.y - s.height / 2) < 1
+            );
+          }),
+        ),
+      "chevrons are centered inside square buttons",
+    );
     await page
       .getByRole("button", { name: "Next targets", exact: true })
       .click();

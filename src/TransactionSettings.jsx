@@ -81,6 +81,17 @@ export function TransactionSettings({
       <p>
         {row.account} · {row.date}
       </p>
+      {row.originalDescription && (
+        <p className="alias-original">
+          Bank description: {row.originalDescription}
+        </p>
+      )}
+      {row.aliasConflicts?.length > 0 && (
+        <p className="alias-warning">
+          Competing aliases: {row.aliasConflicts.map((a) => a.name).join(", ")}.
+          Resolve them in Organize → Aliases.
+        </p>
+      )}
       <fieldset disabled={busy} className="ts-fields">
         <label className="ts-search">
           Categories

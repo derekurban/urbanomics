@@ -4,6 +4,8 @@ Updated: 2026-09-10
 
 ## Current request
 
+The latest request adds regex-based transaction aliases in Organize alongside a shortcut to existing account-name/prefix management. Preview all historical imported matches and competing rules before saving. Retain source text, flag future ambiguous matches without guessing, and keep financial decisions independent. Clicking a selected category now removes it and stays on the same card; dropping retains quick-save-and-advance. Chevron alignment is corrected with centered SVG icons and square controls.
+
 The latest accepted refinement replaces tags plus category views with direct categories and removes the board. Category cards save and advance immediately when dropped onto a category. Clicking a card opens a searchable multi-category settings modal with split controls; Save advances after persistence, while Cancel leaves the card and data unchanged. The user's mention of “multiple tags” in this request is interpreted as multiple categories, consistent with removing tags. Organize now contains Categories, Events, Accounts and People. Events retain whole-transaction membership and their explicit Save & next flow. Earlier tag/view and board descriptions below are historical.
 
 

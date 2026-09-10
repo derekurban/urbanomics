@@ -19,6 +19,8 @@ Snapshots is one page with a compact calendar of the last 12 completed months. E
 
 **Organize** manages Categories, Events, Accounts and People through searchable lists with transaction usage counts. Create, rename, recolor and delete shared items through their editors. Categories and people already used by transactions are protected from deletion.
 
+Its **Aliases** section turns bank descriptions into readable transaction names using regex rules. Preview matches across all imported months, check competing rules, optionally scope to an account, then save. Existing overlaps block saving; future ambiguous matches keep their original names and appear in a conflict list. Original bank text and financial decisions stay intact. Account aliases link to the existing account-name and filename-prefix settings. See [transaction alias behavior](docs/transaction-aliases.md).
+
 Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors stay private and local.
 
 Upload history uses compact account-first rows with the account color, upload time and status. Expand a row to see the source filename and import counts. Search supports account names, filenames and status.
@@ -30,6 +32,8 @@ Organize → Accounts also controls the completed-month range and remembered fil
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
 Open **Review** (or **Organize transactions** on Snapshots) to sort an imported month. Categories and Events use a card stack with surrounding targets. Drop a card onto a category to save its full amount and advance, or click the card to open Transaction settings. Search and select multiple categories, adjust their dollar/cent split, then Save to advance. Cancel or Escape leaves the transaction and current card unchanged. Chevrons browse saved and pending cards. Events collect whole transactions and retain Save & next, including No event for everyday items. Larger target lists offer search and six-target pages. Category totals appear in Overview after financial review.
+
+Click a selected category to remove it and stay on that card. Remaining categories absorb its amount; removing the final category makes the transaction uncategorized again.
 
 The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Categories, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
 
@@ -43,6 +47,7 @@ npm run test:desktop    # Real Electron UI + persistence checks; build first
 npm run test:review     # Synthetic categorization, grouping, financial review and restart checks
 npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
+npm run test:aliases    # Regex previews, conflicts, readable names, persistence and visual checks
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 

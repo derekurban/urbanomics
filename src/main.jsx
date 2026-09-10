@@ -178,7 +178,9 @@ function App() {
   const shown = (revision?.transactions || rows).filter(
     (r) =>
       (!accountFilter || r.accountId === accountFilter) &&
-      `${r.description} ${r.type}`.toLowerCase().includes(search.toLowerCase()),
+      `${r.description} ${r.originalDescription || ""} ${r.type}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
   );
   const imports = data.history;
   const openJob = (job) => {
@@ -449,6 +451,7 @@ function App() {
                         <td>
                           <button
                             className="transaction-name"
+                            title={row.originalDescription || row.description}
                             onClick={() =>
                               api
                                 .detail(row.id)
@@ -458,6 +461,11 @@ function App() {
                           >
                             {row.description}
                           </button>
+                          {row.aliasConflicts?.length > 0 && (
+                            <span className="alias-warning">
+                              Alias conflict · resolve in Organize
+                            </span>
+                          )}
                           <small className="bank-type">
                             {row.type || "Bank transaction"}
                           </small>
@@ -499,9 +507,9 @@ function App() {
                 )}
               </section>
               <p className="footnote">
-                These are cash movements, before categories, repayments, and transfer
-                review. Bank exports may show different dates from your local
-                banking screen.
+                These are cash movements, before categories, repayments, and
+                transfer review. Bank exports may show different dates from your
+                local banking screen.
               </p>
               {revision && (
                 <button onClick={() => setRevision(null)}>

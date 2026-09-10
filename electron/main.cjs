@@ -68,6 +68,8 @@ else {
               ![
                 "workspace:state",
                 "review:state",
+                "aliases:state",
+                "aliases:preview",
                 "workspace:transactions",
                 "workspace:detail",
                 "workspace:snapshot",
@@ -83,6 +85,12 @@ else {
         });
       handle("workspace:state", () => store.state());
       handle("review:state", () => store.review.state());
+      handle("aliases:state", () => store.aliases.state());
+      handle("aliases:preview", (values) => store.aliases.preview(values));
+      handle("aliases:save", (values) => store.aliases.save(values));
+      handle("aliases:remove", (id, version) =>
+        store.aliases.remove(id, version),
+      );
       handle("review:entity", (kind, values) =>
         store.review.entity(kind, values),
       );
@@ -152,7 +160,9 @@ else {
       handle("workspace:scope", (start, through) =>
         store.setScope(start, through, { process: false }),
       );
-      handle("workspace:transactions", (month) => store.transactions(month));
+      handle("workspace:transactions", (month) =>
+        store.aliases.decorate(store.transactions(month)),
+      );
       handle("workspace:detail", (id) => store.detail(id));
       handle("workspace:snapshot", (id) => store.snapshot(id));
       handle("workspace:rule-remove", (key, schema, account) =>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { EntityEditor } from "./EntityEditor.jsx";
+import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
 import "./organize-workspace.css";
 
 const api = window.urbanomics;
@@ -8,6 +9,7 @@ const sections = [
   ["group", "Events"],
   ["accounts", "Accounts"],
   ["person", "People"],
+  ["aliases", "Aliases"],
 ];
 const singular = {
   category: "category",
@@ -109,16 +111,25 @@ export function OrganizeWorkspace({
             }}
           >
             <span>{label}</span>
-            <small>
-              {id === "accounts"
-                ? data.accounts.length
-                : entities.filter((e) => e.kind === id).length}
-            </small>
+            {id !== "aliases" && (
+              <small>
+                {id === "accounts"
+                  ? data.accounts.length
+                  : entities.filter((e) => e.kind === id).length}
+              </small>
+            )}
           </button>
         ))}
       </nav>
       {section === "accounts" ? (
         accounts
+      ) : section === "aliases" ? (
+        <AliasesWorkspace
+          data={data}
+          run={run}
+          busy={busy}
+          onAccounts={() => onSection("accounts")}
+        />
       ) : (
         <>
           <div className="og-heading">

@@ -123,6 +123,16 @@ function FinanceEditor({
         <button onClick={() => onTags(row)}>Edit categories</button>
         <button onClick={() => onSource(row.id)}>View source</button>
       </div>
+      {row.originalDescription && (
+        <p className="alias-original">
+          Bank description: {row.originalDescription}
+        </p>
+      )}
+      {row.aliasConflicts?.length > 0 && (
+        <p className="alias-warning">
+          Competing aliases · resolve in Organize → Aliases.
+        </p>
+      )}
       <h3>What is this money for?</h3>
       <div className="rv-purpose">
         {(row.amountCents < 0
@@ -472,7 +482,9 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
   const activeRows = records.filter((t) => !t.deleted),
     scoped = activeRows.filter((t) => !month || t.month === month),
     visible = scoped.filter((t) =>
-      `${title(t)} ${t.account}`.toLowerCase().includes(search.toLowerCase()),
+      `${title(t)} ${t.originalDescription || ""} ${t.account}`
+        .toLowerCase()
+        .includes(search.toLowerCase()),
     );
   const editEntity = (entity) => {
     setError("");
