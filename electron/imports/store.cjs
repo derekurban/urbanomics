@@ -36,9 +36,20 @@ class ImportStore {
   constructor(root, options = {}) {
     this.root = path.resolve(root);
     this.now = options.now || (() => new Date());
-    for (const dir of ["inbox", "archive/sources", "archive/snapshots"])
+    for (const dir of [
+      "inbox",
+      "dropbox",
+      "archive/sources",
+      "archive/snapshots",
+    ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 2) {
+      this.db.close();
+      throw new Error(
+        "This workspace was created by a newer Urbanomics version.",
+      );
+    }
     this.db
       .exec(`PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL; PRAGMA foreign_keys=ON;
       CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -51,7 +62,8 @@ class ImportStore {
       CREATE TABLE IF NOT EXISTS observations (source_hash TEXT NOT NULL REFERENCES sources(hash), account_id TEXT NOT NULL REFERENCES accounts(id), record INTEGER NOT NULL, transaction_id TEXT REFERENCES transactions(id), reason TEXT, PRIMARY KEY(source_hash,account_id,record));
       CREATE TABLE IF NOT EXISTS imports (id TEXT PRIMARY KEY, source_hash TEXT NOT NULL, account_id TEXT NOT NULL, scope TEXT NOT NULL, canonical TEXT NOT NULL, result TEXT NOT NULL, created TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS snapshots (id TEXT PRIMARY KEY, month TEXT NOT NULL, revision INTEGER NOT NULL, created TEXT NOT NULL, json TEXT NOT NULL, csv TEXT NOT NULL, UNIQUE(month,revision));
-      PRAGMA user_version=1;`);
+      CREATE TABLE IF NOT EXISTS staged_paths (filename TEXT PRIMARY KEY, source_hash TEXT NOT NULL REFERENCES sources(hash), job_id TEXT NOT NULL REFERENCES jobs(id));
+      PRAGMA user_version=2;`);
     this.db
       .prepare("INSERT OR IGNORE INTO settings VALUES (?,?)")
       .run("startMonth", "2026-01");
@@ -71,7 +83,7 @@ class ImportStore {
         .map((r) => [r.key, r.value]),
     );
   }
-  setScope(start, through) {
+  setScope(start, through, { process = true } = {}) {
     if (
       !monthValid(start) ||
       !monthValid(through) ||
@@ -94,7 +106,7 @@ class ImportStore {
       this.db.exec("ROLLBACK");
       throw e;
     }
-    this.processPending();
+    if (process) this.processPending();
   }
   addAccount(name, schema, kind) {
     name = String(name || "").trim();
@@ -111,7 +123,7 @@ class ImportStore {
       .run(id, name, schema, kind);
     return id;
   }
-  resolveAccount(jobId, accountId, remember = true) {
+  resolveAccount(jobId, accountId, remember = true, { process = true } = {}) {
     const job = this.job(jobId);
     if (!["routing", "overlap", "error", "queued"].includes(job.status))
       throw new Error("This import is already complete.");
@@ -130,14 +142,14 @@ class ImportStore {
       this.db
         .prepare("INSERT OR IGNORE INTO rules VALUES (?,?,?)")
         .run(routingKey(job.filename), source.schema, accountId);
-    return this.process(jobId);
+    if (process) return this.process(jobId);
   }
   job(id) {
     const job = this.db.prepare("SELECT * FROM jobs WHERE id=?").get(id);
     if (!job) throw new Error("Import not found.");
     return job;
   }
-  enqueue(paths) {
+  enqueue(paths, { stage = false, process = true } = {}) {
     if (!Array.isArray(paths) || paths.length > 250)
       throw new Error("Drop up to 250 files at a time.");
     const files = [];
@@ -177,12 +189,31 @@ class ImportStore {
       const bytes = fs.readFileSync(file);
       const sourceHash = hash(bytes),
         filename = path.basename(file);
+      let stagedName;
+      if (stage) {
+        const directory = path.join(this.root, "dropbox");
+        stagedName = filename;
+        // Never overwrite a different file that shares an export's filename.
+        let suffix = 1;
+        while (fs.existsSync(path.join(directory, stagedName))) {
+          const target = path.join(directory, stagedName);
+          if (
+            fs.lstatSync(target).isFile() &&
+            !fs.lstatSync(target).isSymbolicLink() &&
+            hash(fs.readFileSync(target)) === sourceHash
+          )
+            break;
+          stagedName = `${path.parse(filename).name} (${suffix++}).csv`;
+        }
+        immutable(path.join(directory, stagedName), bytes);
+      }
       const active = this.db
         .prepare(
           "SELECT id FROM jobs WHERE source_hash=? AND status NOT IN ('complete','dismissed')",
         )
         .get(sourceHash);
       if (active) {
+        if (stagedName) this.trackStaged(stagedName, sourceHash, active.id);
         ids.push(active.id);
         continue;
       }
@@ -235,9 +266,80 @@ class ImportStore {
           this.now().toISOString(),
         );
       ids.push(id);
-      if (accountId && !error) this.process(id);
+      if (stagedName) this.trackStaged(stagedName, sourceHash, id);
+      if (accountId && !error && process) this.process(id);
     }
     return { ids, skipped };
+  }
+  trackStaged(filename, sourceHash, jobId) {
+    this.db
+      .prepare(
+        "INSERT INTO staged_paths VALUES (?,?,?) ON CONFLICT(filename) DO UPDATE SET source_hash=excluded.source_hash,job_id=excluded.job_id",
+      )
+      .run(filename, sourceHash, jobId);
+  }
+  scanDropbox() {
+    return this.enqueue([path.join(this.root, "dropbox")], {
+      stage: true,
+      process: false,
+    });
+  }
+  processReady() {
+    this.scanDropbox();
+    this.recover();
+    const jobs = this.db
+      .prepare("SELECT id FROM jobs WHERE status='queued' ORDER BY rowid")
+      .all();
+    for (const job of jobs) this.process(job.id);
+    return {
+      attempted: jobs.length,
+      completed: jobs.filter((j) => this.job(j.id).status === "complete")
+        .length,
+    };
+  }
+  clearDropbox() {
+    // Discover and preserve manually added CSVs before removing any intake copies.
+    this.scanDropbox();
+    const jobs = this.db
+      .prepare(
+        "SELECT id FROM jobs WHERE status IN ('queued','routing','overlap','error')",
+      )
+      .all();
+    for (const job of jobs) this.dismiss(job.id);
+    return { cleared: jobs.length };
+  }
+  removeIntake(job) {
+    const original = path.join(
+      this.root,
+      "archive/sources",
+      `${job.source_hash}.csv`,
+    );
+    if (
+      !fs.existsSync(original) ||
+      hash(fs.readFileSync(original)) !== job.source_hash
+    )
+      throw new Error(
+        "Original archive integrity check failed. Intake copies were kept.",
+      );
+    for (const entry of this.db
+      .prepare("SELECT * FROM staged_paths WHERE job_id=?")
+      .all(job.id)) {
+      if (path.basename(entry.filename) !== entry.filename)
+        throw new Error("Invalid Dropbox filename.");
+      const file = path.join(this.root, "dropbox", entry.filename);
+      // A file changed by the user after staging must survive cleanup.
+      if (
+        fs.existsSync(file) &&
+        !fs.lstatSync(file).isSymbolicLink() &&
+        hash(fs.readFileSync(file)) === entry.source_hash
+      )
+        fs.unlinkSync(file);
+      this.db
+        .prepare("DELETE FROM staged_paths WHERE filename=?")
+        .run(entry.filename);
+    }
+    const copy = path.join(this.root, "inbox", `${job.id}.csv`);
+    if (fs.existsSync(copy)) fs.unlinkSync(copy);
   }
   plan(job) {
     const bytes = fs.readFileSync(
@@ -502,8 +604,7 @@ class ImportStore {
         .prepare("SELECT * FROM jobs WHERE status='finalizing'")
         .all()) {
         // Only remove this app's intake copy after archive publication succeeds.
-        const inboxFile = path.join(this.root, "inbox", `${job.id}.csv`);
-        if (fs.existsSync(inboxFile)) fs.unlinkSync(inboxFile);
+        this.removeIntake(job);
         this.db
           .prepare("UPDATE jobs SET status=?,error=NULL WHERE id=?")
           .run("complete", job.id);
@@ -521,12 +622,50 @@ class ImportStore {
   }
   dismiss(id) {
     const job = this.job(id);
-    if (!["error", "routing", "overlap"].includes(job.status))
+    if (!["queued", "error", "routing", "overlap"].includes(job.status))
       throw new Error("This import cannot be dismissed while saving.");
     // Source remains archived. The queue item is simply hidden, never an original deletion.
+    this.removeIntake(job);
     this.db.prepare("UPDATE jobs SET status=? WHERE id=?").run("dismissed", id);
-    const file = path.join(this.root, "inbox", `${id}.csv`);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
+  }
+  snapshotIndex() {
+    const index = [],
+      previous = new Map();
+    for (const snapshot of this.db
+      .prepare("SELECT * FROM snapshots ORDER BY month,revision")
+      .all()) {
+      const data = JSON.parse(snapshot.json),
+        grouped = new Map();
+      for (const row of data.transactions) {
+        if (!grouped.has(row.accountId)) grouped.set(row.accountId, []);
+        grouped.get(row.accountId).push(row);
+      }
+      for (const [accountId, rows] of grouped) {
+        const key = `${snapshot.month}:${accountId}`;
+        // Accepted transactions are immutable. Added IDs establish an account change;
+        // an unrelated account's save or extra source observation does not.
+        const signature = hash(JSON.stringify(rows.map((r) => r.id).sort()));
+        const prior = previous.get(key);
+        if (prior?.signature === signature) continue;
+        const revision = (prior?.revision || 0) + 1;
+        index.push({
+          id: snapshot.id,
+          month: snapshot.month,
+          accountId,
+          revision,
+          workspaceRevision: snapshot.revision,
+          created: snapshot.created,
+          rowCount: rows.length,
+          sourceHashes: [
+            ...new Set(
+              rows.flatMap((r) => (r.sources || []).map((s) => s.hash)),
+            ),
+          ],
+        });
+        previous.set(key, { signature, revision });
+      }
+    }
+    return index;
   }
   state() {
     const scope = this.settings();
@@ -536,9 +675,17 @@ class ImportStore {
       )
       .all()
       .map((j) => {
-        let plan;
+        let plan,
+          rowCount = null;
         try {
           if (j.account_id && j.status !== "error") plan = this.plan(j);
+          rowCount =
+            plan?.parsed.rows.length ??
+            parseExport(
+              fs.readFileSync(
+                path.join(this.root, "archive/sources", `${j.source_hash}.csv`),
+              ),
+            ).rows.length;
         } catch {
           /* explicit job error remains visible */
         }
@@ -549,6 +696,8 @@ class ImportStore {
           schema: j.schema,
           status: j.status,
           error: j.error,
+          rowCount,
+          created: j.created,
           conflicts:
             plan?.conflicts.map((c) => ({
               fingerprint: c.fingerprint,
@@ -584,6 +733,18 @@ class ImportStore {
         .all(),
       jobs,
       months,
+      activity: this.db
+        .prepare(
+          "SELECT j.*,a.name AS account FROM jobs j LEFT JOIN accounts a ON a.id=j.account_id ORDER BY j.created DESC,j.rowid DESC",
+        )
+        .all()
+        .map((j) => ({ ...j, result: j.result ? JSON.parse(j.result) : null })),
+      sources: this.db
+        .prepare(
+          "SELECT s.*,COUNT(j.id) AS uploads FROM sources s LEFT JOIN jobs j ON j.source_hash=s.hash GROUP BY s.hash ORDER BY MAX(j.created) DESC",
+        )
+        .all(),
+      snapshotIndex: this.snapshotIndex(),
       history: this.db
         .prepare(
           "SELECT j.id,j.filename,j.source_hash,j.account_id,a.name AS account,j.result,j.created FROM jobs j LEFT JOIN accounts a ON a.id=j.account_id WHERE j.status='complete' ORDER BY j.created DESC,j.rowid DESC",

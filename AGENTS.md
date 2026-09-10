@@ -7,6 +7,7 @@ Read `README.md` and `docs/direction.md` before implementation. Keep user statem
 - Build from scratch. The accepted first workflow now uses Electron + React (Vite) with SQLite owned by the main process. Read `docs/desktop-imports.md` before changing ingestion or persistence.
 - Start with a small, runnable experience using synthetic data, then extend it based on the user's reaction.
 - The user has accepted the sixth trial's overall flow and playful sorting experience as the implementation direction. Preserve it while building real import and persistence; visual cleanup and animation can follow. Individual accounting defaults still need validation.
+- The accepted Data layout unifies Dropbox intake, upload history, archived originals and an account-by-month snapshot map. Uploads stage before explicit processing. Account version counts must exclude saves that changed only another account. Keep real folder actions and cleanup confined to app-owned intake copies.
 - Keep this file and discovery notes current when the user settles a decision.
 - Do not delegate to other agents unless the user explicitly requests it.
 

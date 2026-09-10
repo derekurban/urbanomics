@@ -1,0 +1,1090 @@
+/* DataWorkspace — scoped to .data-room, dr-* class names.
+   Palette follows the app globals (--green, --ink, --muted, --line, --soft, --paper, --sand).
+   Global rules for button, h1/h2/h3, p, small, table, th, td are overridden deliberately below. */
+
+.data-room {
+  --dr-green: var(--green, #286046);
+  --dr-green-deep: #1e4e37;
+  --dr-ink: var(--ink, #243d2e);
+  --dr-muted: var(--muted, #748074);
+  --dr-line: var(--line, #dfe5dc);
+  --dr-soft: var(--soft, #edf2e9);
+  --dr-paper: var(--paper, #fff);
+  --dr-sand: var(--sand, #eae5d8);
+  --dr-tint-1: #e6eedc;
+  --dr-tint-2: #d3e2c7;
+  --dr-tint-3: #bcd4ad;
+  --dr-warm-bg: #f3ecdb;
+  --dr-warm-text: #8a6f37;
+  --dr-error-bg: #f9e8e3;
+  --dr-error-text: #a24a39;
+  --dr-ok-bg: #e4eedc;
+  --dr-ok-text: #4f7a4c;
+  --dr-focus: #95bea2;
+  --dr-radius: 12px;
+
+  color: var(--dr-ink);
+  font-size: 14px;
+  line-height: 1.5;
+  min-width: 0;
+  container-type: inline-size;
+  container-name: dr;
+}
+
+.data-room *,
+.data-room *::before,
+.data-room *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- type resets (globals give h1 36px, p margins, etc.) ---------- */
+
+.data-room h1,
+.data-room h2,
+.data-room h3,
+.data-room p {
+  margin: 0;
+}
+
+.data-room h1 {
+  font-size: 30px;
+  font-weight: 500;
+  letter-spacing: -0.9px;
+  line-height: 1.15;
+}
+
+.data-room h2 {
+  font-size: 16px;
+  font-weight: 550;
+  letter-spacing: -0.2px;
+}
+
+.data-room h3 {
+  font-size: 17px;
+  font-weight: 550;
+  letter-spacing: -0.2px;
+  margin: 4px 0 2px;
+}
+
+.data-room p {
+  color: var(--dr-muted);
+  line-height: 1.55;
+}
+
+.data-room small,
+.data-room .dr-sub {
+  font-size: 12px;
+  color: var(--dr-muted);
+  line-height: 1.45;
+}
+
+.data-room strong {
+  font-weight: 550;
+}
+
+.data-room abbr[title] {
+  text-decoration: none;
+  border: 0;
+}
+
+.data-room ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.data-room .dr-label,
+.data-room .dr-eyebrow {
+  font-size: 10px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  font-weight: 600;
+  color: #859078;
+}
+
+.data-room .dr-visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- buttons (globals: white, 38px min-height, 9px radius, cursor:wait when disabled) ---------- */
+
+.data-room button {
+  font: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dr-ink);
+  background: var(--dr-paper);
+  border: 1px solid var(--dr-line);
+  border-radius: 9px;
+  min-height: 36px;
+  padding: 7px 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background 0.16s,
+    border-color 0.16s,
+    color 0.16s;
+}
+
+.data-room button:hover:not(:disabled) {
+  background: var(--dr-soft);
+}
+
+.data-room button:disabled {
+  opacity: 0.5;
+  cursor: default;
+  transform: none;
+}
+
+.data-room button:focus-visible {
+  outline: 3px solid var(--dr-focus);
+  outline-offset: 2px;
+}
+
+.data-room .dr-primary {
+  background: var(--dr-green);
+  border-color: var(--dr-green);
+  color: #fff;
+}
+
+.data-room .dr-primary:hover:not(:disabled) {
+  background: var(--dr-green-deep);
+  border-color: var(--dr-green-deep);
+}
+
+.data-room .dr-quiet {
+  background: transparent;
+  border-color: transparent;
+  color: #4f6a55;
+  padding: 6px 9px;
+}
+
+.data-room .dr-quiet:hover:not(:disabled) {
+  background: var(--dr-soft);
+  color: var(--dr-ink);
+}
+
+.data-room .dr-small {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+.data-room .dr-icon-button {
+  width: 30px;
+  min-height: 30px;
+  padding: 0;
+  font-size: 18px;
+  line-height: 1;
+  color: var(--dr-muted);
+  background: transparent;
+  border-color: transparent;
+}
+
+.data-room .dr-icon-button:hover:not(:disabled) {
+  color: var(--dr-error-text);
+  background: var(--dr-error-bg);
+}
+
+.data-room .dr-plus {
+  font-size: 17px;
+  line-height: 1;
+  margin: -2px 2px 0 -2px;
+}
+
+.data-room .dr-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+}
+
+/* ---------- heading ---------- */
+
+.data-room .dr-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 20px 28px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+
+.data-room .dr-heading-text {
+  min-width: 0;
+}
+
+.data-room .dr-eyebrow {
+  margin-bottom: 12px;
+}
+
+.data-room .dr-heading p {
+  margin-top: 6px;
+  font-size: 14px;
+}
+
+.data-room .dr-heading-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+}
+
+.data-room .dr-scope {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.data-room .dr-scope-chip {
+  font-size: 11px;
+  color: #6a7a60;
+  border: 1px solid #dfe5d6;
+  background: #fafbf7;
+  border-radius: 6px;
+  padding: 6px 10px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- tabs ---------- */
+
+.data-room .dr-nav {
+  display: flex;
+  gap: 22px;
+  border-bottom: 1px solid var(--dr-line);
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.data-room .dr-nav button {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  min-height: 0;
+  padding: 9px 0 12px;
+  color: var(--dr-muted);
+  box-shadow: inset 0 -2px transparent;
+  transition:
+    color 0.16s,
+    box-shadow 0.16s;
+}
+
+.data-room .dr-nav button:hover:not(:disabled) {
+  background: transparent;
+  color: var(--dr-ink);
+}
+
+.data-room .dr-nav button[aria-selected="true"] {
+  color: var(--dr-ink);
+  box-shadow: inset 0 -2px var(--dr-green);
+}
+
+.data-room .dr-nav button:focus-visible {
+  outline-offset: -3px;
+  border-radius: 6px;
+}
+
+.data-room .dr-badge {
+  font-size: 11px;
+  font-weight: 500;
+  background: var(--dr-soft);
+  color: #66755f;
+  border-radius: 5px;
+  padding: 1px 6px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-room .dr-badge-warm {
+  background: var(--dr-warm-bg);
+  color: var(--dr-warm-text);
+}
+
+.data-room .dr-panel {
+  min-width: 0;
+}
+
+/* ---------- boxes ---------- */
+
+.data-room .dr-box {
+  background: var(--dr-paper);
+  border: 1px solid var(--dr-line);
+  border-radius: var(--dr-radius);
+  min-width: 0;
+}
+
+.data-room .dr-box + .dr-box {
+  margin-top: 18px;
+}
+
+.data-room .dr-box-head {
+  padding: 16px 18px 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px 16px;
+  flex-wrap: wrap;
+}
+
+.data-room .dr-box-head > div > small {
+  display: block;
+  margin-top: 3px;
+}
+
+.data-room .dr-titleline {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.data-room .dr-titleline small {
+  margin-top: 0;
+}
+
+.data-room .dr-top {
+  display: grid;
+  grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+  gap: 18px;
+  margin-bottom: 18px;
+  align-items: start;
+}
+
+.data-room .dr-top > .dr-box + .dr-box {
+  margin-top: 0;
+}
+
+/* ---------- Dropbox queue ---------- */
+
+.data-room .dr-file-list {
+  padding: 0 18px;
+}
+
+.data-room .dr-file {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 11px 0;
+  border-top: 1px solid var(--dr-line);
+}
+
+.data-room .dr-file-glyph {
+  flex: none;
+  width: 32px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.4px;
+  color: #6f8a5f;
+  background: #f4f7ee;
+  border: 1px solid #d8dfcf;
+  border-radius: 6px;
+  position: relative;
+}
+
+.data-room .dr-file-glyph::after {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 9px;
+  height: 9px;
+  background: linear-gradient(225deg, var(--dr-paper) 50%, #d8dfcf 50%);
+  border-bottom-left-radius: 3px;
+}
+
+.data-room .dr-file-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.data-room .dr-file-info strong,
+.data-room .dr-event strong,
+.data-room .dr-history-info strong {
+  display: block;
+  font-size: 13px;
+  overflow-wrap: anywhere;
+}
+
+.data-room .dr-file-info small,
+.data-room .dr-history-info small {
+  display: block;
+  margin-top: 2px;
+}
+
+.data-room .dr-error-text {
+  color: var(--dr-error-text);
+}
+
+.data-room .dr-chip {
+  flex: none;
+  font-size: 11px;
+  font-weight: 500;
+  border-radius: 6px;
+  padding: 3px 7px;
+  white-space: nowrap;
+  background: var(--dr-soft);
+  color: #66755f;
+}
+
+.data-room .dr-chip-ok {
+  background: var(--dr-ok-bg);
+  color: var(--dr-ok-text);
+}
+
+.data-room .dr-chip-warm {
+  background: var(--dr-warm-bg);
+  color: var(--dr-warm-text);
+}
+
+.data-room .dr-chip-error {
+  background: var(--dr-error-bg);
+  color: var(--dr-error-text);
+}
+
+.data-room .dr-chip-muted {
+  background: #f1f2ee;
+  color: #8a9384;
+}
+
+.data-room .dr-working {
+  padding: 0 18px 12px;
+  font-size: 12px;
+  color: var(--dr-muted);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.data-room .dr-working::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--dr-green);
+  opacity: 0.7;
+}
+
+.data-room .dr-inbox-foot {
+  padding: 13px 18px;
+  border-top: 1px solid var(--dr-line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.data-room .dr-inbox-foot .dr-actions small {
+  max-width: 220px;
+}
+
+.data-room .dr-confirm {
+  background: var(--dr-warm-bg);
+  border-radius: 0 0 var(--dr-radius) var(--dr-radius);
+  color: #5d4d27;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.data-room .dr-confirm > span {
+  flex: 1;
+  min-width: 200px;
+}
+
+/* ---------- empty states ---------- */
+
+.data-room .dr-empty {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 18px 22px;
+  color: var(--dr-muted);
+  flex-wrap: wrap;
+}
+
+.data-room .dr-empty strong {
+  display: block;
+  color: var(--dr-ink);
+  font-size: 13px;
+}
+
+.data-room .dr-empty small {
+  display: block;
+  margin-top: 2px;
+}
+
+.data-room .dr-empty-mark {
+  flex: none;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: var(--dr-ok-bg);
+  color: var(--dr-ok-text);
+  font-size: 14px;
+}
+
+.data-room .dr-empty-quiet {
+  padding-top: 4px;
+}
+
+.data-room .dr-empty-pad {
+  padding: 6px 18px 22px;
+  justify-content: space-between;
+}
+
+/* ---------- recently filed ---------- */
+
+.data-room .dr-event-list {
+  padding: 0 18px;
+}
+
+.data-room .dr-event {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 11px 0;
+  border-top: 1px solid var(--dr-line);
+}
+
+.data-room .dr-event > div {
+  flex: 1;
+  min-width: 0;
+}
+
+.data-room .dr-event small {
+  display: block;
+  margin-top: 2px;
+}
+
+.data-room .dr-event-mark {
+  flex: none;
+  color: var(--dr-ok-text);
+  font-size: 13px;
+  margin-top: 2px;
+}
+
+.data-room .dr-event time {
+  font-size: 11px;
+  color: var(--dr-muted);
+  white-space: nowrap;
+  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
+}
+
+.data-room .dr-archive-strip {
+  margin: 4px 18px 0;
+  padding: 13px 0 15px;
+  border-top: 1px solid var(--dr-line);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.data-room .dr-archive-strip strong,
+.data-room .dr-archive-strip small {
+  display: block;
+  font-size: 13px;
+}
+
+.data-room .dr-archive-strip small {
+  font-size: 12px;
+  margin-top: 1px;
+}
+
+/* ---------- snapshot map ---------- */
+
+.data-room .dr-years {
+  display: flex;
+  gap: 4px;
+  background: #eaf0e5;
+  border-radius: 9px;
+  padding: 3px;
+}
+
+.data-room .dr-years button {
+  border: 0;
+  background: transparent;
+  font-size: 12px;
+  min-height: 30px;
+  padding: 5px 10px;
+  color: #66755f;
+}
+
+.data-room .dr-years button[aria-pressed="true"] {
+  background: var(--dr-paper);
+  color: #2b5738;
+  box-shadow: 0 1px 3px #2c402018;
+}
+
+.data-room .dr-map-wrap {
+  padding: 0 18px 16px;
+}
+
+.data-room .dr-map-scroll {
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  padding-bottom: 2px;
+}
+
+.data-room table.dr-grid {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 4px;
+  font-size: 12px;
+}
+
+.data-room table.dr-grid th,
+.data-room table.dr-grid td {
+  background: transparent;
+  border: 0;
+  padding: 0;
+}
+
+.data-room table.dr-grid thead th {
+  font-weight: 400;
+  font-size: 11px;
+  text-align: center;
+  color: var(--dr-muted);
+  padding: 2px 0 5px;
+  min-width: 38px;
+}
+
+.data-room table.dr-grid thead th:first-child {
+  text-align: left;
+  min-width: 140px;
+  width: 26%;
+}
+
+.data-room table.dr-grid thead th.dr-out {
+  color: #aab3a4;
+}
+
+.data-room table.dr-grid th.dr-row-label {
+  text-align: left;
+  color: var(--dr-ink);
+  font-weight: 500;
+  font-size: 13px;
+  padding: 6px 10px 6px 0;
+  line-height: 1.35;
+  white-space: nowrap;
+}
+
+.data-room table.dr-grid th.dr-row-label small {
+  display: block;
+  font-size: 11px;
+  font-weight: 400;
+}
+
+.data-room table.dr-grid tbody tr:hover {
+  background: transparent;
+}
+
+.data-room .dr-cell {
+  display: flex;
+  width: 100%;
+  min-width: 38px;
+  min-height: 40px;
+  padding: 4px;
+  border: 0;
+  border-radius: 7px;
+  font-size: 12px;
+  font-weight: 500;
+  background: var(--dr-tint-1);
+  color: #2f4c3a;
+  font-variant-numeric: tabular-nums;
+  transition:
+    background 0.16s,
+    box-shadow 0.16s;
+}
+
+.data-room .dr-cell[data-count="2"] {
+  background: var(--dr-tint-2);
+}
+
+.data-room .dr-cell[data-count="3"],
+.data-room .dr-cell[data-count="4"] {
+  background: var(--dr-tint-3);
+}
+
+.data-room .dr-cell:hover:not(:disabled) {
+  background: #cfe0c3;
+}
+
+.data-room .dr-cell.dr-missing {
+  background: transparent;
+  color: #a4ae9f;
+  font-weight: 400;
+  box-shadow: inset 0 0 0 1px var(--dr-line);
+}
+
+.data-room .dr-cell.dr-missing:hover:not(:disabled) {
+  background: #f4f7ef;
+}
+
+.data-room .dr-cell.dr-cell-out {
+  opacity: 0.75;
+}
+
+.data-room .dr-cell[aria-pressed="true"] {
+  box-shadow:
+    0 0 0 2px var(--dr-paper),
+    0 0 0 4px var(--dr-green);
+  opacity: 1;
+}
+
+.data-room .dr-cell:focus-visible {
+  outline: 3px solid var(--dr-focus);
+  outline-offset: 1px;
+}
+
+.data-room .dr-legend {
+  display: flex;
+  justify-content: space-between;
+  gap: 6px 14px;
+  flex-wrap: wrap;
+  margin: 12px 4px 0;
+  font-size: 11px;
+  color: var(--dr-muted);
+}
+
+/* selected cell details */
+
+.data-room .dr-selected {
+  border-top: 1px solid var(--dr-line);
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 20px;
+  padding: 18px;
+  background: #f4f6ef;
+  border-radius: 0 0 var(--dr-radius) var(--dr-radius);
+}
+
+.data-room .dr-selected-summary > small {
+  display: block;
+}
+
+.data-room .dr-selected-summary .dr-sub {
+  margin-top: 12px;
+}
+
+.data-room .dr-versions {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+
+.data-room .dr-versions button {
+  font-size: 12px;
+  min-height: 30px;
+  padding: 4px 10px;
+}
+
+.data-room .dr-versions button[aria-pressed="true"] {
+  color: #fff;
+  background: var(--dr-green);
+  border-color: var(--dr-green);
+}
+
+.data-room .dr-selected-detail {
+  background: var(--dr-paper);
+  border: 1px solid var(--dr-line);
+  border-radius: 9px;
+  padding: 14px 16px 15px;
+  min-width: 0;
+}
+
+.data-room .dr-selected-detail > strong {
+  display: block;
+  font-size: 14px;
+}
+
+.data-room .dr-selected-detail p {
+  font-size: 12px;
+  margin: 4px 0 10px;
+}
+
+.data-room .dr-selected-detail .dr-label {
+  margin: 12px 0 4px;
+}
+
+.data-room .dr-source-list {
+  margin-bottom: 12px;
+}
+
+.data-room .dr-source-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 0;
+  border-top: 1px solid #eef1e8;
+  font-size: 12px;
+}
+
+.data-room .dr-source-list li:first-child {
+  border-top: 0;
+}
+
+.data-room .dr-source-list li > span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.data-room .dr-selected-detail .dr-actions {
+  margin-top: 4px;
+}
+
+/* ---------- upload history ---------- */
+
+.data-room .dr-history-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto auto;
+  gap: 8px 12px;
+  align-items: center;
+  padding: 13px 18px;
+  border-top: 1px solid var(--dr-line);
+}
+
+.data-room .dr-history-info {
+  min-width: 0;
+}
+
+.data-room .dr-status-mark {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 12px;
+  font-weight: 600;
+  background: var(--dr-soft);
+  color: var(--dr-muted);
+}
+
+.data-room .dr-status-ok {
+  background: var(--dr-ok-bg);
+  color: var(--dr-ok-text);
+}
+
+.data-room .dr-status-warm {
+  background: var(--dr-warm-bg);
+  color: var(--dr-warm-text);
+}
+
+.data-room .dr-status-error {
+  background: var(--dr-error-bg);
+  color: var(--dr-error-text);
+}
+
+.data-room .dr-no-source {
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.data-room .dr-pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 12px 18px;
+  border-top: 1px solid var(--dr-line);
+}
+
+/* ---------- archive ---------- */
+
+.data-room .dr-folders {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.data-room .dr-folder-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 18px 20px 17px;
+  border-radius: var(--dr-radius);
+  white-space: normal;
+  align-items: flex-start;
+}
+
+.data-room .dr-folder-card strong {
+  display: block;
+  margin-top: 14px;
+  font-size: 15px;
+}
+
+.data-room .dr-folder-card small {
+  display: block;
+  margin-top: 4px;
+  font-weight: 400;
+}
+
+.data-room .dr-folder-shape {
+  display: block;
+  width: 34px;
+  height: 26px;
+  border-radius: 4px;
+  background: var(--dr-sand);
+  border: 1px solid #d9d2bf;
+  position: relative;
+}
+
+.data-room .dr-folder-shape::before {
+  content: "";
+  position: absolute;
+  left: -1px;
+  top: -6px;
+  width: 14px;
+  height: 7px;
+  background: var(--dr-sand);
+  border: 1px solid #d9d2bf;
+  border-bottom: 0;
+  border-radius: 3px 3px 0 0;
+}
+
+.data-room .dr-table-scroll {
+  overflow-x: auto;
+  border-top: 1px solid var(--dr-line);
+}
+
+.data-room table.dr-files {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+  min-width: 520px;
+}
+
+.data-room table.dr-files th {
+  background: #f5f7f0;
+  color: #8b9683;
+  font-weight: 500;
+  font-size: 10px;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  text-align: left;
+  padding: 10px 14px;
+  border: 0;
+}
+
+.data-room table.dr-files td {
+  padding: 11px 14px;
+  border: 0;
+  border-top: 1px solid #eaf0e5;
+  vertical-align: middle;
+}
+
+.data-room table.dr-files tbody tr:first-child td {
+  border-top: 0;
+}
+
+.data-room table.dr-files tbody tr:hover {
+  background: #fbfcf8;
+}
+
+.data-room table.dr-files .dr-file-name {
+  overflow-wrap: anywhere;
+  font-weight: 500;
+}
+
+.data-room table.dr-files .dr-num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.data-room table.dr-files .dr-row-action {
+  text-align: right;
+  white-space: nowrap;
+}
+
+/* ---------- narrow layouts (content ~620px at the 900px window minimum) ---------- */
+
+@container dr (max-width: 760px) {
+  .data-room .dr-top {
+    grid-template-columns: 1fr;
+  }
+  .data-room .dr-heading {
+    align-items: flex-start;
+  }
+  .data-room .dr-heading-side {
+    align-items: flex-start;
+  }
+}
+
+@container dr (max-width: 640px) {
+  .data-room .dr-selected {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+  .data-room .dr-history-row {
+    grid-template-columns: 22px minmax(0, 1fr) auto;
+  }
+  .data-room .dr-history-row > button,
+  .data-room .dr-history-row > .dr-no-source {
+    grid-column: 2 / -1;
+    justify-self: start;
+  }
+  .data-room .dr-folders {
+    grid-template-columns: 1fr;
+  }
+  .data-room .dr-file {
+    flex-wrap: wrap;
+  }
+  .data-room .dr-file-info {
+    flex-basis: calc(100% - 43px);
+  }
+  .data-room .dr-file > .dr-chip {
+    margin-left: 43px;
+  }
+}
+
+@media (max-width: 1100px) {
+  .data-room .dr-box-head,
+  .data-room .dr-map-wrap,
+  .data-room .dr-inbox-foot,
+  .data-room .dr-history-row,
+  .data-room .dr-pager {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  .data-room .dr-file-list,
+  .data-room .dr-event-list {
+    padding-left: 15px;
+    padding-right: 15px;
+  }
+  .data-room .dr-archive-strip {
+    margin-left: 15px;
+    margin-right: 15px;
+  }
+  .data-room .dr-selected {
+    padding: 15px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .data-room button,
+  .data-room .dr-cell {
+    transition: none;
+  }
+}

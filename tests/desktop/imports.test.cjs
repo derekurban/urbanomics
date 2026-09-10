@@ -273,3 +273,126 @@ test("folder intake ignores non-CSV files and subfolders, and coalesces queued d
   assert.deepEqual(f.store.enqueue([f.root]).ids, batch.ids);
   assert.equal(f.store.state().jobs.length, 1);
 });
+
+test("Dropbox stages, survives restart, and processes only when requested", (t) => {
+  const f = setup(t),
+    input = f.file("staged", [row()]);
+  const id = f.store.enqueue([input], { stage: true, process: false }).ids[0];
+  f.store.resolveAccount(id, f.account, true, { process: false });
+  assert.equal(f.store.job(id).status, "queued");
+  assert.equal(f.store.transactions("2026-08").length, 0);
+  f.reopen();
+  assert.equal(f.store.job(id).status, "queued");
+  assert.equal(fs.readdirSync(path.join(f.store.root, "dropbox")).length, 1);
+  assert.deepEqual(f.store.processReady(), { attempted: 1, completed: 1 });
+  assert.equal(fs.readdirSync(path.join(f.store.root, "dropbox")).length, 0);
+  assert.equal(f.store.transactions("2026-08").length, 1);
+  assert.ok(fs.existsSync(input));
+  f.store.enqueue([input], { stage: true, process: false });
+  assert.equal(f.store.transactions("2026-08").length, 1);
+  f.store.processReady();
+  assert.equal(f.store.state().sources.length, 1);
+  assert.equal(f.store.state().activity.length, 2);
+  assert.equal(f.store.state().snapshotIndex.length, 1);
+});
+
+test("clearing Dropbox archives external CSVs and preserves non-CSV files and snapshots", (t) => {
+  const f = setup(t);
+  f.ingest(f.file("accepted", [row()]));
+  const originalSnapshot = f.store.snapshot(f.store.state().snapshots[0].id);
+  fs.copyFileSync(
+    f.file("external", [row("Different")]),
+    path.join(f.store.root, "dropbox/external.csv"),
+  );
+  fs.writeFileSync(
+    path.join(f.store.root, "dropbox/notes.txt"),
+    "Leave me alone",
+  );
+  assert.deepEqual(f.store.clearDropbox(), { cleared: 1 });
+  assert.deepEqual(fs.readdirSync(path.join(f.store.root, "dropbox")), [
+    "notes.txt",
+  ]);
+  assert.equal(f.store.state().sources.length, 2);
+  assert.equal(f.store.state().activity[0].status, "dismissed");
+  assert.deepEqual(f.store.snapshot(originalSnapshot.id), originalSnapshot);
+});
+
+test("cleanup never deletes a file changed after staging or an unarchived original", (t) => {
+  const f = setup(t),
+    input = f.file("changed", [row()]);
+  const id = f.store.enqueue([input], { stage: true, process: false }).ids[0];
+  f.store.resolveAccount(id, f.account, false, { process: false });
+  const drop = path.join(f.store.root, "dropbox/changed.csv");
+  fs.writeFileSync(drop, "new contents written after staging");
+  f.store.process(id);
+  assert.equal(
+    fs.readFileSync(drop, "utf8"),
+    "new contents written after staging",
+  );
+  const next = f.store.enqueue([f.file("keep", [row("Other")])], {
+    stage: true,
+    process: false,
+  }).ids[0];
+  const source = f.store.job(next).source_hash;
+  fs.writeFileSync(
+    path.join(f.store.root, "archive/sources", source + ".csv"),
+    "Synthetic corruption",
+  );
+  assert.throws(() => f.store.dismiss(next), /integrity/);
+  assert.ok(fs.existsSync(path.join(f.store.root, "dropbox/keep.csv")));
+  assert.equal(f.store.job(next).status, "routing");
+});
+
+test("same-named exports are staged independently without overwriting", (t) => {
+  const f = setup(t),
+    input = f.file("same", [row()]);
+  f.store.enqueue([input], { stage: true, process: false });
+  const first = fs.readFileSync(path.join(f.store.root, "dropbox/same.csv"));
+  f.file("same", [row("Different")]);
+  f.store.enqueue([input], { stage: true, process: false });
+  assert.ok(
+    fs.readFileSync(path.join(f.store.root, "dropbox/same.csv")).equals(first),
+  );
+  assert.equal(fs.readdirSync(path.join(f.store.root, "dropbox")).length, 2);
+  assert.equal(f.store.state().jobs.length, 2);
+});
+
+test("account snapshot versions count only changes to that account and preserve links", (t) => {
+  const f = setup(t),
+    other = f.store.addAccount("Another synthetic card", "pc", "credit");
+  f.ingest(f.file("first", [row()]));
+  f.ingest(f.file("second", [row("Different")]), other);
+  let index = f.store.state().snapshotIndex;
+  assert.equal(index.length, 2);
+  assert.equal(
+    index.find((s) => s.accountId === f.account).workspaceRevision,
+    1,
+  );
+  assert.equal(index.find((s) => s.accountId === other).revision, 1);
+  f.ingest(f.file("third", [row("Brand new")]));
+  index = f.store.state().snapshotIndex;
+  assert.equal(index.length, 3);
+  const changed = index.find(
+    (s) => s.accountId === f.account && s.revision === 2,
+  );
+  assert.equal(changed.workspaceRevision, 3);
+  assert.equal(changed.rowCount, 2);
+  assert.equal(changed.sourceHashes.length, 2);
+  assert.equal(index.filter((s) => s.accountId === other).length, 1);
+});
+
+test("staged files remain when publication fails and are cleared on recovery", (t) => {
+  const f = setup(t),
+    input = f.file("archive-retry", [row()]);
+  const id = f.store.enqueue([input], { stage: true, process: false }).ids[0];
+  f.store.resolveAccount(id, f.account, false, { process: false });
+  f.store.materialize = () => {
+    throw new Error("Synthetic publication failure");
+  };
+  f.store.process(id);
+  assert.equal(f.store.job(id).status, "finalizing");
+  assert.equal(fs.readdirSync(path.join(f.store.root, "dropbox")).length, 1);
+  f.reopen();
+  assert.equal(f.store.job(id).status, "complete");
+  assert.equal(fs.readdirSync(path.join(f.store.root, "dropbox")).length, 0);
+});

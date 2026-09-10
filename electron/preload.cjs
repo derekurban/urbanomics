@@ -6,6 +6,14 @@ async function invoke(channel, ...args) {
 }
 contextBridge.exposeInMainWorld("urbanomics", {
   state: () => invoke("workspace:state"),
+  scan: () => invoke("workspace:scan"),
+  process: () => invoke("workspace:process"),
+  clear: () => invoke("workspace:clear"),
+  onChanged: (callback) => {
+    const listener = (_event, error) => callback(error);
+    ipcRenderer.on("workspace:changed", listener);
+    return () => ipcRenderer.removeListener("workspace:changed", listener);
+  },
   drop: (files) =>
     invoke(
       "workspace:ingest",

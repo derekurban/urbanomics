@@ -13,7 +13,9 @@ npm ci
 npm start
 ```
 
-Drop CSV files or a folder onto the Import desk, or use the file/folder buttons. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
+The Data section brings Dropbox intake, upload history and archives together. Drop CSV files or a folder onto it, or use Upload CSVs / Choose folder. Files wait in the local Dropbox until you press Process. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
+
+The account-by-month map shows saved versions for each account. Select a cell to inspect versions, their source uploads, or the underlying transactions. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Files added directly to Dropbox are discovered on app focus, Scan folder, or Process. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
 The Accounts screen controls the completed-month range. Rows outside that range remain in the original archive. Re-drop the original after extending the range to import earlier or newly completed months. Successful imports leave the intake queue automatically; files in Downloads are never deleted.
 

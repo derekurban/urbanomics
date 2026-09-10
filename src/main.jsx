@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
+import { DataWorkspace } from "./DataWorkspace.jsx";
+import "./data-workspace.css";
 
 const api = window.urbanomics;
 const banks = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
@@ -27,7 +29,7 @@ const initials = (name) =>
 
 function App() {
   const [data, setData] = useState(null),
-    [page, setPage] = useState("inbox"),
+    [page, setPage] = useState("data"),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
   const [notice, setNotice] = useState(""),
@@ -44,10 +46,7 @@ function App() {
   async function refresh() {
     const next = await api.state();
     setData(next);
-    const selected =
-      month && next.months.some((m) => m.month === month)
-        ? month
-        : next.months[0]?.month || next.scope.throughMonth;
+    const selected = month || next.months[0]?.month || next.scope.throughMonth;
     setMonth(selected);
     setRows(await api.transactions(selected));
   }
@@ -63,7 +62,6 @@ function App() {
           if (current) setRows(rows);
         })
         .catch((e) => setError(e.message));
-      setRevision(null);
     }
     return () => {
       current = false;
@@ -102,6 +100,14 @@ function App() {
       previous?.focus();
     };
   }, [selectedJob, detail]);
+  useEffect(
+    () =>
+      api?.onChanged((message) => {
+        if (message) setError(message);
+        refresh().catch((e) => setError(e.message));
+      }),
+    [month],
+  );
   async function run(fn, message) {
     if (running.current) return false;
     running.current = true;
@@ -114,6 +120,7 @@ function App() {
         setNotice(typeof message === "function" ? message(result) : message);
       return result;
     } catch (e) {
+      await refresh().catch(() => {});
       setError(e.message);
       return false;
     } finally {
@@ -122,7 +129,7 @@ function App() {
     }
   }
   async function intake(method) {
-    setPage("inbox");
+    setPage("data");
     await run(method, (result) =>
       result.ids.length
         ? `${result.ids.length} CSV${result.ids.length === 1 ? "" : "s"} received${result.skipped ? `. ${result.skipped} non-CSV, subfolder, or oversized item(s) skipped` : ""}. Originals stay where they are.`
@@ -165,9 +172,8 @@ function App() {
     setChoices({});
   };
   const tabs = [
-    ["inbox", "↓", "Import desk"],
-    ["months", "▦", "Monthly snapshots"],
-    ["archive", "◷", "Archive"],
+    ["data", "▤", "Data"],
+    ["months", "▦", "Transactions"],
     ["accounts", "◎", "Accounts"],
   ];
   return (
@@ -200,7 +206,7 @@ function App() {
             >
               <span aria-hidden="true">{icon}</span>
               {label}
-              {id === "inbox" && data.jobs.length > 0 && (
+              {id === "data" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
               )}
             </button>
@@ -219,6 +225,8 @@ function App() {
                 }
                 key={m.month}
                 onClick={() => {
+                  setRevision(null);
+                  setAccountFilter("");
                   setMonth(m.month);
                   setPage("months");
                 }}
@@ -268,170 +276,62 @@ function App() {
               </button>
             </div>
           )}
-          {page === "inbox" && (
-            <>
-              <div className="page-heading">
-                <div className="eyebrow">MAKE ROOM FOR THE BIG PICTURE</div>
-                <h1>Everything starts with a drop.</h1>
-                <p>
-                  Bring your bank exports together. We’ll put each month in its
-                  place.
-                </p>
-              </div>
-              <section
-                className={"drop-zone " + (dragging ? "drag-active" : "")}
-                aria-label="Drop bank CSV files here"
-              >
-                <div className="file-stack" aria-hidden="true">
-                  <div />
-                  <div />
-                  <div>
-                    <span>CSV</span>
-                    <i>↓</i>
-                  </div>
-                </div>
-                <h2>
-                  {busy ? "Putting things in place…" : "Drop your CSVs here"}
-                </h2>
-                <p>A few files, or your whole Downloads folder.</p>
-                <div className="button-row">
-                  <button
-                    className="primary"
-                    disabled={busy}
-                    onClick={() => intake(() => api.choose(false))}
-                  >
-                    Choose CSV files <span>↗</span>
-                  </button>
-                  <button
-                    disabled={busy}
-                    onClick={() => intake(() => api.choose(true))}
-                  >
-                    Choose folder
-                  </button>
-                </div>
-                <div className="drop-foot">
-                  PC Financial <span>·</span> EQ Bank <span>·</span> Simplii{" "}
-                  <span className="supported">
-                    CSV only · up to 20 MB per file
-                  </span>
-                </div>
-              </section>
-              <div className="import-settings">
-                <div>
-                  <strong>Completed months only</strong>
-                  <p>
-                    {monthName(data.scope.startMonth)} –{" "}
-                    {monthName(data.scope.throughMonth)}. Later rows stay in the
-                    original archive.
-                  </p>
-                </div>
-                <button onClick={() => setPage("accounts")}>
-                  Change range
-                </button>
-              </div>
-              {data.jobs.length > 0 ? (
-                <section className="section">
-                  <div className="section-heading">
-                    <h2>A little attention</h2>
-                    <span className="count">{data.jobs.length} waiting</span>
-                  </div>
-                  <p className="muted">
-                    Successful imports leave this list automatically.
-                  </p>
-                  <div className="job-list">
-                    {data.jobs.map((job) => (
-                      <button
-                        className="job-row"
-                        key={job.id}
-                        onClick={() => openJob(job)}
-                      >
-                        <span className="file-icon">CSV</span>
-                        <span className="job-name">
-                          <strong>{job.filename}</strong>
-                          <small>
-                            {job.error ||
-                              (job.status === "routing"
-                                ? "Choose the account this export belongs to"
-                                : job.status === "overlap"
-                                  ? `${job.conflicts.length} possible overlap${job.conflicts.length === 1 ? "" : "s"} to check`
-                                  : job.status === "finalizing"
-                                    ? "Finishing the archive. Retry to complete."
-                                    : "Ready to import")}
-                          </small>
-                        </span>
-                        <span className={"status-pill " + job.status}>
-                          {job.status === "routing"
-                            ? "Account needed"
-                            : job.status === "overlap"
-                              ? "Review matches"
-                              : job.status === "error"
-                                ? "Check file"
-                                : "Finish saving"}
-                        </span>
-                        <span>→</span>
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              ) : (
-                <div className="clear-inbox">
-                  <span>✓</span>
-                  <div>
-                    <strong>
-                      {imports.length
-                        ? "All sorted. Your intake is clear."
-                        : "Ready when you are."}
-                    </strong>
-                    <p>
-                      {imports.length
-                        ? "Originals archived. Monthly snapshots saved."
-                        : "Each successful import becomes a saved monthly snapshot."}
-                    </p>
-                  </div>
-                </div>
-              )}
-              <section className="section">
-                <div className="section-heading">
-                  <h2>Recently put away</h2>
-                  <button
-                    className="text-button"
-                    onClick={() => setPage("archive")}
-                  >
-                    See archive →
-                  </button>
-                </div>
-                {imports.length ? (
-                  <div className="recent-grid">
-                    {imports.slice(0, 3).map((job) => (
-                      <div className="recent-card" key={job.id}>
-                        <div className="recent-top">
-                          <span className="bank-avatar">
-                            {initials(job.account || "CSV")}
-                          </span>
-                          <span className="check-mark">✓</span>
-                        </div>
-                        <h3>{job.account}</h3>
-                        <p className="filename">{job.filename}</p>
-                        <div className="receipt-counts">
-                          <strong>+{job.result.added}</strong> new{" "}
-                          <span>·</span> {job.result.matched} already here{" "}
-                          {job.result.excluded > 0 && (
-                            <>
-                              <span>·</span> −{job.result.excluded} outside
-                              range
-                            </>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="empty-text">
-                    Your import receipts will appear here.
-                  </p>
-                )}
-              </section>
-            </>
+          {page === "data" && (
+            <DataWorkspace
+              data={data}
+              busy={busy}
+              onUpload={() => intake(() => api.choose(false))}
+              onChooseFolder={() => intake(() => api.choose(true))}
+              onScan={() =>
+                run(
+                  () => api.scan(),
+                  (r) =>
+                    r.skipped
+                      ? "Dropbox refreshed. Non-CSV, oversized items and subfolders were left in place."
+                      : "Dropbox refreshed.",
+                )
+              }
+              onProcess={() =>
+                run(
+                  () => api.process(),
+                  (r) =>
+                    r.attempted
+                      ? r.completed +
+                        " of " +
+                        r.attempted +
+                        " ready uploads processed. Any remaining items need attention."
+                      : "No ready uploads. Assign accounts or review waiting files.",
+                )
+              }
+              onClear={() =>
+                run(
+                  () => api.clear(),
+                  (r) =>
+                    r.cleared +
+                    " intake copies cleared. Originals remain archived; other folder contents stay in place.",
+                )
+              }
+              onReview={openJob}
+              onDismiss={(id) =>
+                run(
+                  () => api.dismiss(id),
+                  "Intake copy removed. Original remains archived.",
+                )
+              }
+              onReveal={(kind, id) => run(() => api.reveal(kind, id))}
+              onOpenSnapshot={async (target) => {
+                try {
+                  const saved = await api.snapshot(target.id);
+                  setMonth(target.month);
+                  setAccountFilter(target.accountId);
+                  setRevision(saved);
+                  setPage("months");
+                } catch (e) {
+                  setError(e.message);
+                }
+              }}
+              onRange={() => setPage("accounts")}
+            />
           )}
           {page === "months" && (
             <>
@@ -575,60 +475,6 @@ function App() {
               </div>
             </>
           )}
-          {page === "archive" && (
-            <>
-              <div className="page-heading split-heading">
-                <div>
-                  <div className="eyebrow">A RECORD OF EVERYTHING</div>
-                  <h1>Filed, never forgotten.</h1>
-                  <p>Original exports and every saved snapshot revision.</p>
-                </div>
-                <button onClick={() => run(() => api.reveal("archive"))}>
-                  Open archive ↗
-                </button>
-              </div>
-              <section className="section">
-                <h2>Import receipts</h2>
-                <div className="archive-list">
-                  {imports.map((job) => (
-                    <div className="archive-row" key={job.id}>
-                      <span className="file-icon">CSV</span>
-                      <div className="job-name">
-                        <strong>{job.filename}</strong>
-                        <small>
-                          {job.account} ·{" "}
-                          {new Date(job.created).toLocaleString()}
-                        </small>
-                      </div>
-                      <div className="archive-numbers">
-                        <span>+{job.result.added} new</span>
-                        <small>
-                          {job.result.matched} matched · {job.result.excluded}{" "}
-                          outside range
-                        </small>
-                      </div>
-                      <button
-                        onClick={() =>
-                          run(() => api.reveal("source", job.source_hash))
-                        }
-                      >
-                        Original ↗
-                      </button>
-                    </div>
-                  ))}
-                </div>
-                {!imports.length && (
-                  <p className="empty-text">
-                    No imports yet. Drop your first CSV at the Import desk.
-                  </p>
-                )}
-              </section>
-              <p className="footnote">
-                Repeat files keep one exact original copy. Each changed month
-                gets a new revision. Older snapshots stay intact.
-              </p>
-            </>
-          )}
           {page === "accounts" && <Accounts data={data} run={run} />}
         </main>
         <footer>
@@ -641,7 +487,7 @@ function App() {
           <div>
             <span>↓</span>
             <h1>Let’s put these in order.</h1>
-            <p>Release to import your CSVs.</p>
+            <p>Release to add CSVs to Dropbox.</p>
           </div>
         </div>
       )}
@@ -846,7 +692,7 @@ function Route({ job, data, run, done }) {
   async function choose(id) {
     const result = await run(
       () => api.route(job.id, id, remember),
-      "Account assigned.",
+      "Account assigned. Ready to process from Dropbox.",
     );
     if (result !== false) done();
   }
@@ -899,7 +745,7 @@ function Route({ job, data, run, done }) {
           if (id) await choose(id);
         }}
       >
-        Add account & import
+        Add account & queue
       </button>
     </>
   );

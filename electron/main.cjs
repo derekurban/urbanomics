@@ -36,7 +36,7 @@ else {
     .whenReady()
     .then(async () => {
       store = new ImportStore(privateRoot);
-      store.processPending();
+      store.scanDropbox();
       session.defaultSession.setPermissionRequestHandler(
         (_wc, _permission, respond) => respond(false),
       );
@@ -66,7 +66,12 @@ else {
           }
         });
       handle("workspace:state", () => store.state());
-      handle("workspace:ingest", (files) => store.enqueue(files));
+      handle("workspace:ingest", (files) =>
+        store.enqueue(files, { stage: true, process: false }),
+      );
+      handle("workspace:scan", () => store.scanDropbox());
+      handle("workspace:process", () => store.processReady());
+      handle("workspace:clear", () => store.clearDropbox());
       handle("workspace:choose", async (folder) => {
         const response = await dialog.showOpenDialog(window, {
           title: folder
@@ -81,13 +86,15 @@ else {
         });
         return response.canceled
           ? { ids: [], skipped: 0 }
-          : store.enqueue(response.filePaths);
+          : store.enqueue(response.filePaths, { stage: true, process: false });
       });
       handle("workspace:account", (name, schema, kind) =>
         store.addAccount(name, schema, kind),
       );
       handle("workspace:route", (id, account, remember) =>
-        store.resolveAccount(id, account, remember === true),
+        store.resolveAccount(id, account, remember === true, {
+          process: false,
+        }),
       );
       handle("workspace:resolve", (id, choices) => {
         if (!choices || typeof choices !== "object" || Array.isArray(choices))
@@ -96,7 +103,7 @@ else {
       });
       handle("workspace:dismiss", (id) => store.dismiss(id));
       handle("workspace:scope", (start, through) =>
-        store.setScope(start, through),
+        store.setScope(start, through, { process: false }),
       );
       handle("workspace:transactions", (month) => store.transactions(month));
       handle("workspace:detail", (id) => store.detail(id));
@@ -115,10 +122,39 @@ else {
           shell.showItemInFolder(
             path.join(privateRoot, "archive", "sources", `${id}.csv`),
           );
-        } else if (kind === "archive")
-          await shell.openPath(path.join(privateRoot, "archive"));
-        else if (kind === "private") await shell.openPath(privateRoot);
-        else throw new Error("Unknown location.");
+        } else {
+          const folders = {
+            private: privateRoot,
+            dropbox: path.join(privateRoot, "dropbox"),
+            archive: path.join(privateRoot, "archive"),
+            sources: path.join(privateRoot, "archive/sources"),
+            snapshots: path.join(privateRoot, "archive/snapshots"),
+          };
+          let location = folders[kind];
+          if (kind === "month") {
+            if (typeof id !== "string" || !/^20\d{2}-(0[1-9]|1[0-2])$/.test(id))
+              throw new Error("Invalid archive month.");
+            location = path.join(privateRoot, "archive/snapshots", id);
+          } else if (kind === "snapshot-file") {
+            const snapshot = store.db
+              .prepare("SELECT * FROM snapshots WHERE id=?")
+              .get(id);
+            if (!snapshot) throw new Error("Snapshot not found.");
+            shell.showItemInFolder(
+              path.join(
+                privateRoot,
+                "archive/snapshots",
+                snapshot.month,
+                `r${String(snapshot.revision).padStart(4, "0")}-${snapshot.id}.json`,
+              ),
+            );
+            return;
+          }
+          if (!location || !fs.existsSync(location))
+            throw new Error("Archive folder not found.");
+          const error = await shell.openPath(location);
+          if (error) throw new Error(error);
+        }
       });
       window = new BrowserWindow({
         title: "Urbanomics",
@@ -138,6 +174,14 @@ else {
         },
       });
       window.setMenu(null);
+      window.on("focus", () => {
+        try {
+          store.scanDropbox();
+          window.webContents.send("workspace:changed");
+        } catch (error) {
+          window.webContents.send("workspace:changed", error.message);
+        }
+      });
       window.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
       window.webContents.on("will-navigate", (event, url) => {
         if (url !== appURL) event.preventDefault();
