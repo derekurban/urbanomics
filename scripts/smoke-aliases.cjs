@@ -314,7 +314,7 @@ async function newRule(name, pattern) {
     await pending.locator(".al-unaliased-list > button").click();
     assert.equal(
       await d.getByLabel("Description regex", { exact: true }).inputValue(),
-      "^ACME \\[SUPPLIES\\] \\(A\\+B\\) \\$2\\.00$",
+      "^ACME \\[SUPPLIES\\] \\(A\\+B\\) \\$2\\.00",
     );
     await d.getByLabel("Readable name", { exact: true }).fill("Acme supplies");
     await d

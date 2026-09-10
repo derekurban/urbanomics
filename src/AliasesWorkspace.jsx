@@ -95,21 +95,20 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
   const pendingPages = Math.max(1, Math.ceil(pending.length / 10)),
     pendingCurrent = Math.min(pendingPage, pendingPages - 1);
   function useTransaction(row) {
-    const exact =
+    const prefix =
       "^" +
       row.description
         .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
         .replace(/\n/g, "\\n")
         .replace(/\r/g, "\\r")
-        .replace(/\t/g, "\\t") +
-      "$";
-    if (exact.length > 256) {
+        .replace(/\t/g, "\\t");
+    if (prefix.length > 256) {
       setError(
-        "This description is too long for an exact-match rule. Enter a shorter regex using its distinctive text.",
+        "This description is too long for a prefix rule. Enter a shorter regex using its distinctive text.",
       );
       return;
     }
-    setDraft({ ...draft, pattern: exact });
+    setDraft({ ...draft, pattern: prefix });
     setPicked(row.id);
     setError("");
     setNotice("");

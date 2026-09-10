@@ -4,6 +4,8 @@ Updated: 2026-09-10
 
 ## Current request
 
+Suggested transaction alias regexes now keep the leading `^` and escape bank text, but omit the trailing `$` so suffixes can match. Saved rules are unchanged.
+
 The user reversed transfer matching to start from money in, with outgoing candidates shown alongside it. Alias management and the unaliased transaction picker now use compact rows with less padding; names, rules, account context, amounts and edit actions remain available.
 
 The user settled the transfer linker: incoming pending entries on the left, outgoing candidates on the right within a configurable plus/minus percentage band, checkmarked selections and an explicit Link action. Linked pairs leave the pending view, and are available under Linked with month/search filtering and Unlink. Shortfalls default to fees. Implementation starts the band at 2% of the outgoing amount; the user can set 0–100% in 0.01% increments. Candidates search across imported months without a hidden date cutoff. Additional incoming money is retained as an unexplained difference, not inferred income. Existing financial decisions and repayment reservations remain protected.
