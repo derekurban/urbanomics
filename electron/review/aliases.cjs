@@ -171,6 +171,27 @@ class AliasStore {
         ).length,
       })),
       conflicts: rows.filter((t) => t.aliasConflicts?.length),
+      unaliased: rows
+        .filter((t) => !t.aliasId && !t.aliasConflicts?.length)
+        .map(
+          ({
+            id,
+            description,
+            accountId,
+            account,
+            date,
+            amountCents,
+            deleted,
+          }) => ({
+            id,
+            description,
+            accountId,
+            account,
+            date,
+            amountCents,
+            deleted,
+          }),
+        ),
     };
   }
 }

@@ -88,6 +88,7 @@ async function newRule(name, pattern) {
   try {
     await launch();
     let d = await newRule("Walmart", "^WALMART\\s+#\\d+");
+    assert.equal(await d.locator(".al-unaliased-list > button").count(), 3);
     assert.ok(
       await d
         .getByRole("button", { name: "Save alias", exact: true })
@@ -249,6 +250,14 @@ async function newRule(name, pattern) {
           "12:00 AM",
           "-10",
         ],
+        [
+          "ACME [SUPPLIES] (A+B) $2.00",
+          "SYNTHETIC",
+          "SAMPLE PERSON",
+          "08/30/2026",
+          "12:00 AM",
+          "-2",
+        ],
       ]),
     );
     futureStore.resolveAccount(
@@ -283,6 +292,75 @@ async function newRule(name, pattern) {
       ).description,
       "Store",
     );
+    d = await newRule("", "");
+    const pending = d.getByRole("complementary", {
+      name: "Transactions without aliases",
+    });
+    assert.equal(
+      await pending.locator(".al-unaliased-list > button").count(),
+      3,
+    );
+    await pending.getByRole("textbox").fill("SUPPLIES");
+    await pending.locator(".al-unaliased-list > button").click();
+    assert.equal(
+      await d.getByLabel("Description regex", { exact: true }).inputValue(),
+      "^ACME \\[SUPPLIES\\] \\(A\\+B\\) \\$2\\.00$",
+    );
+    await d.getByLabel("Readable name", { exact: true }).fill("Acme supplies");
+    await d
+      .getByRole("button", { name: "Test against transactions", exact: true })
+      .click();
+    await d.getByText("1 match", { exact: true }).waitFor();
+    await shot("unaliased-picker");
+    await d
+      .getByRole("button", { name: "Save & create another", exact: true })
+      .click();
+    await d
+      .getByText("Alias saved. Choose another transaction.", { exact: true })
+      .waitFor();
+    assert.equal(
+      await d.getByLabel("Readable name", { exact: true }).inputValue(),
+      "",
+    );
+    assert.equal(
+      await d.getByLabel("Description regex", { exact: true }).inputValue(),
+      "",
+    );
+    await pending.getByRole("textbox").fill("");
+    assert.equal(
+      await pending.locator(".al-unaliased-list > button").count(),
+      2,
+    );
+    await pending.locator(".al-unaliased-list > button").first().click();
+    await d.getByLabel("Readable name", { exact: true }).fill("Walmart");
+    await d.getByLabel("Description regex", { exact: true }).fill("^WALMART");
+    await d
+      .getByRole("button", { name: "Test against transactions", exact: true })
+      .click();
+    await d.getByText("2 matches", { exact: true }).waitFor();
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(900, 760),
+    );
+    await shot("unaliased-narrow");
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
+    assert.ok(await d.evaluate((el) => el.scrollWidth <= el.clientWidth));
+    await d
+      .getByRole("button", { name: "Save & create another", exact: true })
+      .click();
+    await pending
+      .getByText("No transactions without aliases in this scope.", {
+        exact: true,
+      })
+      .waitFor();
+    assert.equal(
+      (await page.evaluate(() => window.urbanomics.aliases())).unaliased.length,
+      0,
+    );
+    await d.getByRole("button", { name: "Cancel", exact: true }).click();
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({

@@ -7,6 +7,99 @@
   margin: 0;
   min-width: 0;
 }
+.workspace-dialog.al-editor-dialog {
+  width: min(1120px, calc(100vw - 50px));
+}
+.al-editor-layout {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.85fr) minmax(0, 1.65fr);
+  gap: 26px;
+  align-items: start;
+}
+.al-unaliased {
+  min-width: 0;
+  padding: 16px;
+  background: #edf2e9;
+  border-radius: 14px;
+}
+.al-unaliased h3 {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+.al-unaliased h3 span {
+  color: var(--muted);
+}
+.al-unaliased > input {
+  width: 100%;
+  font-size: 12px;
+}
+.al-unaliased-list {
+  display: grid;
+  gap: 7px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 5px;
+  margin: 10px -5px;
+  scrollbar-width: thin;
+}
+.al-unaliased-list button {
+  text-align: left;
+  padding: 12px;
+}
+.al-unaliased-list strong,
+.al-unaliased-list small,
+.al-unaliased-list span {
+  display: block;
+  overflow-wrap: anywhere;
+}
+.al-unaliased-list strong {
+  font-size: 12px;
+}
+.al-unaliased-list small {
+  font-size: 11px;
+  margin: 6px 0;
+}
+.al-unaliased-list span {
+  font-size: 12px;
+}
+.al-unaliased .al-pages {
+  gap: 8px;
+  font-size: 11px;
+}
+.al-unaliased .al-pages button {
+  padding: 6px 8px;
+  font-size: 11px;
+}
+.al-editor-main {
+  min-width: 0;
+}
+.al-saved-notice {
+  padding: 10px 12px;
+  border-radius: 9px;
+  background: #e3eddd;
+  color: var(--green);
+}
+.al-editor-dialog .rv-modal-actions {
+  flex-wrap: wrap;
+}
+@media (max-width: 1000px) {
+  .al-editor-layout {
+    gap: 16px;
+    grid-template-columns: 230px minmax(0, 1fr);
+  }
+  .al-editor-main .al-fields {
+    grid-template-columns: minmax(0, 1fr) 150px;
+  }
+}
+@media (max-width: 800px) {
+  .al-editor-layout {
+    grid-template-columns: 1fr;
+  }
+  .al-unaliased-list {
+    max-height: 190px;
+  }
+}
 .al-fields > label:nth-child(1) {
   grid-column: 1;
   grid-row: 1;

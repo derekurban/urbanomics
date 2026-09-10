@@ -4,7 +4,12 @@ import { money } from "./review-model.js";
 import "./aliases-workspace.css";
 const api = window.urbanomics;
 
-function AliasEditor({ rule, accounts, act, onClose }) {
+function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
+  const [pendingQuery, setPendingQuery] = useState(""),
+    [pendingPage, setPendingPage] = useState(0),
+    [picked, setPicked] = useState(""),
+    [notice, setNotice] = useState("");
+  const nameInput = useRef(null);
   const [draft, setDraft] = useState({
     name: "",
     pattern: "",
@@ -45,13 +50,24 @@ function AliasEditor({ rule, accounts, act, onClose }) {
       setWorking(false);
     }
   }
-  async function mutate(fn) {
+  async function mutate(fn, keepOpen = false) {
     if (saving.current) return;
     saving.current = true;
     setWorking(true);
     setError("");
     try {
-      if ((await act(fn)) !== false) onClose();
+      if ((await act(fn)) !== false) {
+        if (!keepOpen) onClose();
+        else {
+          setDraft({ name: "", pattern: "", accountId: draft.accountId });
+          setPreview(null);
+          setTested("");
+          setPicked("");
+          setConfirm(false);
+          setNotice("Alias saved. Choose another transaction.");
+          nameInput.current?.focus();
+        }
+      }
     } catch (e) {
       setError(e.message);
       setTested("");
@@ -69,8 +85,40 @@ function AliasEditor({ rule, accounts, act, onClose }) {
     : [];
   const pages = Math.max(1, Math.ceil(results.length / 25)),
     current = Math.min(page, pages - 1);
+  const pending = unaliased.filter(
+    (r) =>
+      (!draft.accountId || r.accountId === draft.accountId) &&
+      `${r.description} ${r.account} ${r.date}`
+        .toLowerCase()
+        .includes(pendingQuery.toLowerCase()),
+  );
+  const pendingPages = Math.max(1, Math.ceil(pending.length / 10)),
+    pendingCurrent = Math.min(pendingPage, pendingPages - 1);
+  function useTransaction(row) {
+    const exact =
+      "^" +
+      row.description
+        .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+        .replace(/\n/g, "\\n")
+        .replace(/\r/g, "\\r")
+        .replace(/\t/g, "\\t") +
+      "$";
+    if (exact.length > 256) {
+      setError(
+        "This description is too long for an exact-match rule. Enter a shorter regex using its distinctive text.",
+      );
+      return;
+    }
+    setDraft({ ...draft, pattern: exact });
+    setPicked(row.id);
+    setError("");
+    setNotice("");
+    setTested("");
+    nameInput.current?.focus();
+  }
   return (
     <WorkspaceModal
+      className="al-editor-dialog"
       title={rule.id ? "Edit transaction alias" : "New transaction alias"}
       onClose={close}
       footer={
@@ -87,6 +135,14 @@ function AliasEditor({ rule, accounts, act, onClose }) {
           <button disabled={working} onClick={close}>
             Cancel
           </button>
+          {!rule.id && (
+            <button
+              disabled={working || blocked}
+              onClick={() => mutate(() => api.saveAlias(draft), true)}
+            >
+              Save & create another
+            </button>
+          )}
           <button
             className="primary"
             disabled={working || blocked}
@@ -97,173 +153,258 @@ function AliasEditor({ rule, accounts, act, onClose }) {
         </div>
       }
     >
-      <fieldset disabled={working} className="al-fields">
-        <label>
-          Readable name
-          <input
-            maxLength={80}
-            placeholder="e.g. Juniper"
-            value={draft.name}
-            onChange={(e) => update("name", e.target.value)}
-          />
-        </label>
-        <label>
-          Description regex
-          <input
-            className="al-regex"
-            maxLength={256}
-            spellCheck={false}
-            placeholder={"e.g. ^JUNIPER(?:\\s|$)"}
-            value={draft.pattern}
-            onChange={(e) => update("pattern", e.target.value)}
-          />
-        </label>
-        <label>
-          Apply in
-          <select
-            value={draft.accountId}
-            onChange={(e) => update("accountId", e.target.value)}
-          >
-            <option value="">All accounts</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-                {a.deletedAt ? " (deleted)" : ""}
-              </option>
-            ))}
-          </select>
-        </label>
-        <p className="rv-help">
-          Matches original bank descriptions, ignoring capitalization. Use ^ and
-          $ to anchor a match. RE2 syntax; no / delimiters, lookarounds or
-          backreferences.
-        </p>
-        <button
-          onClick={test}
-          disabled={working || !draft.name.trim() || !draft.pattern.trim()}
+      <div className="al-editor-layout">
+        <aside
+          className="al-unaliased"
+          aria-label="Transactions without aliases"
         >
-          {working && !saving.current
-            ? "Checking…"
-            : "Test against transactions"}
-        </button>
-      </fieldset>
-      {error && (
-        <p role="alert" className="dr-error-text">
-          {error}
-        </p>
-      )}
-      {fresh && (
-        <section className="al-preview" aria-label="Alias preview">
-          <div className="al-summary" role="status">
-            <strong>
-              {preview.matches.length}{" "}
-              {preview.matches.length === 1 ? "match" : "matches"}
-            </strong>
-            <span>{preview.conflicts.length} conflicting transactions</span>
-            <small>
-              {preview.checked} checked · all months, including deleted accounts
-            </small>
-          </div>
-          {!!preview.duplicates.length && (
-            <p className="dr-error-text" role="alert">
-              Name or pattern already used in this account scope:{" "}
-              {preview.duplicates.map((r) => r.name).join(", ")}.
-            </p>
-          )}
-          {preview.conflicts.length > 0 && (
-            <p className="dr-error-text">
-              Refine the pattern or account scope to remove competing matches
-              before saving.
-            </p>
-          )}
-          {!preview.matches.length && (
-            <p>
-              No existing transactions match. You can save this rule for future
-              imports.
-            </p>
-          )}
-          {!!preview.matches.length && (
-            <>
-              <input
-                aria-label="Search matched transactions"
-                placeholder="Find a match…"
-                value={query}
-                onChange={(e) => {
-                  setQuery(e.target.value);
-                  setPage(0);
-                }}
-              />
-              <div className="al-results">
-                {results.slice(current * 25, current * 25 + 25).map((r) => (
-                  <article
-                    key={r.id}
-                    className={r.conflicts.length ? "al-conflict" : ""}
-                  >
-                    <div>
-                      <strong>{r.description}</strong>
-                      <small>
-                        {r.account}
-                        {r.deleted ? " (deleted)" : ""} · {r.date}
-                      </small>
-                      <span className="al-after">→ {draft.name}</span>
-                      {r.conflicts.map((c) => (
-                        <span key={c.id} className="al-competing">
-                          Also matches {c.name} · <code>{c.pattern}</code>
-                        </span>
-                      ))}
-                    </div>
-                    <span>{money(r.amountCents)}</span>
-                  </article>
-                ))}
-              </div>
-              {pages > 1 && (
-                <div className="al-pages">
-                  <button
-                    disabled={!current}
-                    onClick={() => setPage(current - 1)}
-                  >
-                    Previous
-                  </button>
-                  <span>
-                    {current + 1} / {pages}
-                  </span>
-                  <button
-                    disabled={current === pages - 1}
-                    onClick={() => setPage(current + 1)}
-                  >
-                    Next
-                  </button>
-                </div>
-              )}
-            </>
-          )}
-          <p className="rv-help">
-            This checks existing transactions. Future overlaps are flagged and
-            keep the original name until resolved.
-          </p>
-        </section>
-      )}
-      {!fresh && preview && (
-        <p className="rv-help">Test your changes again before saving.</p>
-      )}
-      {confirm && (
-        <div className="rv-confirm">
+          <h3>
+            Without an alias <span>{pending.length}</span>
+          </h3>
           <p>
-            Delete this alias? Its transactions will show their original names,
-            or another unique matching alias. Financial decisions stay intact.
+            Choose a transaction to start a rule. All months, in the selected
+            account scope.
           </p>
-          <button
-            disabled={working}
-            className="danger"
-            onClick={() => mutate(() => api.removeAlias(rule.id, rule.version))}
-          >
-            Confirm deletion
-          </button>
-          <button disabled={working} onClick={() => setConfirm(false)}>
-            Keep alias
-          </button>
+          <input
+            aria-label="Search transactions without aliases"
+            placeholder="Search bank text, account or date…"
+            value={pendingQuery}
+            onChange={(e) => {
+              setPendingQuery(e.target.value);
+              setPendingPage(0);
+            }}
+          />
+          <div className="al-unaliased-list">
+            {pending
+              .slice(pendingCurrent * 10, pendingCurrent * 10 + 10)
+              .map((r) => (
+                <button
+                  key={r.id}
+                  disabled={working}
+                  aria-pressed={picked === r.id}
+                  onClick={() => useTransaction(r)}
+                >
+                  <strong>{r.description}</strong>
+                  <small>
+                    {r.account}
+                    {r.deleted ? " (deleted)" : ""} · {r.date}
+                  </small>
+                  <span>{money(r.amountCents)}</span>
+                </button>
+              ))}
+            {!pending.length && (
+              <p>
+                {pendingQuery
+                  ? "No matches. Try another search."
+                  : "No transactions without aliases in this scope."}
+              </p>
+            )}
+          </div>
+          {pendingPages > 1 && (
+            <div className="al-pages">
+              <button
+                aria-label="Previous unaliased transactions"
+                disabled={pendingCurrent === 0}
+                onClick={() => setPendingPage(pendingCurrent - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                {pendingCurrent + 1} / {pendingPages}
+              </span>
+              <button
+                aria-label="Next unaliased transactions"
+                disabled={pendingCurrent === pendingPages - 1}
+                onClick={() => setPendingPage(pendingCurrent + 1)}
+              >
+                Next
+              </button>
+            </div>
+          )}
+          <small>
+            Transactions with competing rules are listed under alias conflicts.
+          </small>
+        </aside>
+        <div className="al-editor-main">
+          {notice && (
+            <p role="status" className="al-saved-notice">
+              {notice}
+            </p>
+          )}
+          <fieldset disabled={working} className="al-fields">
+            <label>
+              Readable name
+              <input
+                ref={nameInput}
+                maxLength={80}
+                placeholder="e.g. Juniper"
+                value={draft.name}
+                onChange={(e) => update("name", e.target.value)}
+              />
+            </label>
+            <label>
+              Description regex
+              <input
+                className="al-regex"
+                maxLength={256}
+                spellCheck={false}
+                placeholder={"e.g. ^JUNIPER(?:\\s|$)"}
+                value={draft.pattern}
+                onChange={(e) => update("pattern", e.target.value)}
+              />
+            </label>
+            <label>
+              Apply in
+              <select
+                value={draft.accountId}
+                onChange={(e) => update("accountId", e.target.value)}
+              >
+                <option value="">All accounts</option>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                    {a.deletedAt ? " (deleted)" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="rv-help">
+              Matches original bank descriptions, ignoring capitalization. Use ^
+              and $ to anchor a match. RE2 syntax; no / delimiters, lookarounds
+              or backreferences.
+            </p>
+            <button
+              onClick={test}
+              disabled={working || !draft.name.trim() || !draft.pattern.trim()}
+            >
+              {working && !saving.current
+                ? "Checking…"
+                : "Test against transactions"}
+            </button>
+          </fieldset>
+          {error && (
+            <p role="alert" className="dr-error-text">
+              {error}
+            </p>
+          )}
+          {fresh && (
+            <section className="al-preview" aria-label="Alias preview">
+              <div className="al-summary" role="status">
+                <strong>
+                  {preview.matches.length}{" "}
+                  {preview.matches.length === 1 ? "match" : "matches"}
+                </strong>
+                <span>{preview.conflicts.length} conflicting transactions</span>
+                <small>
+                  {preview.checked} checked · all months, including deleted
+                  accounts
+                </small>
+              </div>
+              {!!preview.duplicates.length && (
+                <p className="dr-error-text" role="alert">
+                  Name or pattern already used in this account scope:{" "}
+                  {preview.duplicates.map((r) => r.name).join(", ")}.
+                </p>
+              )}
+              {preview.conflicts.length > 0 && (
+                <p className="dr-error-text">
+                  Refine the pattern or account scope to remove competing
+                  matches before saving.
+                </p>
+              )}
+              {!preview.matches.length && (
+                <p>
+                  No existing transactions match. You can save this rule for
+                  future imports.
+                </p>
+              )}
+              {!!preview.matches.length && (
+                <>
+                  <input
+                    aria-label="Search matched transactions"
+                    placeholder="Find a match…"
+                    value={query}
+                    onChange={(e) => {
+                      setQuery(e.target.value);
+                      setPage(0);
+                    }}
+                  />
+                  <div className="al-results">
+                    {results.slice(current * 25, current * 25 + 25).map((r) => (
+                      <article
+                        key={r.id}
+                        className={r.conflicts.length ? "al-conflict" : ""}
+                      >
+                        <div>
+                          <strong>{r.description}</strong>
+                          <small>
+                            {r.account}
+                            {r.deleted ? " (deleted)" : ""} · {r.date}
+                          </small>
+                          <span className="al-after">→ {draft.name}</span>
+                          {r.conflicts.map((c) => (
+                            <span key={c.id} className="al-competing">
+                              Also matches {c.name} · <code>{c.pattern}</code>
+                            </span>
+                          ))}
+                        </div>
+                        <span>{money(r.amountCents)}</span>
+                      </article>
+                    ))}
+                  </div>
+                  {pages > 1 && (
+                    <div className="al-pages">
+                      <button
+                        disabled={!current}
+                        onClick={() => setPage(current - 1)}
+                      >
+                        Previous
+                      </button>
+                      <span>
+                        {current + 1} / {pages}
+                      </span>
+                      <button
+                        disabled={current === pages - 1}
+                        onClick={() => setPage(current + 1)}
+                      >
+                        Next
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+              <p className="rv-help">
+                This checks existing transactions. Future overlaps are flagged
+                and keep the original name until resolved.
+              </p>
+            </section>
+          )}
+          {!fresh && preview && (
+            <p className="rv-help">Test your changes again before saving.</p>
+          )}
+          {confirm && (
+            <div className="rv-confirm">
+              <p>
+                Delete this alias? Its transactions will show their original
+                names, or another unique matching alias. Financial decisions
+                stay intact.
+              </p>
+              <button
+                disabled={working}
+                className="danger"
+                onClick={() =>
+                  mutate(() => api.removeAlias(rule.id, rule.version))
+                }
+              >
+                Confirm deletion
+              </button>
+              <button disabled={working} onClick={() => setConfirm(false)}>
+                Keep alias
+              </button>
+            </div>
+          )}
         </div>
-      )}
+      </div>
     </WorkspaceModal>
   );
 }
@@ -418,6 +559,7 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
           key={editing.id || "new"}
           rule={editing}
           accounts={accounts}
+          unaliased={state?.unaliased || []}
           act={act}
           onClose={() => setEditing(null)}
         />

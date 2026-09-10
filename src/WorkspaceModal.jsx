@@ -1,6 +1,12 @@
 import React, { useEffect, useId, useRef } from "react";
 
-export function WorkspaceModal({ title, onClose, children, footer }) {
+export function WorkspaceModal({
+  title,
+  onClose,
+  children,
+  footer,
+  className = "",
+}) {
   const ref = useRef(null),
     titleId = useId();
   useEffect(() => {
@@ -15,7 +21,7 @@ export function WorkspaceModal({ title, onClose, children, footer }) {
   return (
     <dialog
       ref={ref}
-      className="workspace-dialog"
+      className={`workspace-dialog ${className}`}
       aria-labelledby={titleId}
       onCancel={(e) => {
         e.preventDefault();

@@ -80,6 +80,8 @@ test("aliases preview all months and archived accounts, preserve raw data, and a
     );
   const before = raw();
   c.store.deleteAccount(c.b);
+  assert.equal(c.store.aliases.state().unaliased.length, 5);
+  assert.ok(c.store.aliases.state().unaliased.some((r) => r.deleted));
   const preview = c.store.aliases.preview(value);
   assert.equal(preview.checked, 5);
   assert.equal(preview.matches.length, 3);
@@ -87,6 +89,7 @@ test("aliases preview all months and archived accounts, preserve raw data, and a
   assert.ok(preview.matches.some((r) => r.deleted));
   assert.ok(preview.matches.some((r) => r.date.startsWith("2026-01")));
   const id = c.store.aliases.save(value);
+  assert.equal(c.store.aliases.state().unaliased.length, 2);
   const shown = c.store.review.records().filter((r) => r.aliasId === id);
   assert.equal(shown.length, 3);
   assert.ok(
@@ -169,6 +172,10 @@ test("account scopes can separate identical patterns and later imports expose am
   assert.equal(conflict.description, "ACME STORE");
   assert.equal(conflict.aliasId, "");
   assert.equal(conflict.aliasConflicts.length, 2);
+  assert.ok(
+    !c.store.aliases.state().unaliased.some((r) => r.id === conflict.id),
+    "competing aliases are not unassigned",
+  );
   assert.equal(
     c.store.review.records().find((r) => r.id === conflict.id).review.reviewed,
     false,
