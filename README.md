@@ -29,7 +29,7 @@ Upload history uses compact account-first rows with the account color, upload ti
 
 Delete on an account card removes it and its transactions from active views and stops its filename rules. The confirmation describes the impact; local records, original files and snapshots are retained. Restore it from Deleted accounts to recover its transactions and rules. Pending uploads return to account selection. This is recoverable deletion, not permanent erasure of financial files.
 
-Organize → Accounts also controls the completed-month range and remembered filenames. The snapshot range shortcut opens this section directly. Rows outside that range remain in the original archive. Re-drop the original after extending the range to import earlier or newly completed months. Successful imports leave the intake queue automatically; files in Downloads are never deleted.
+In Dropbox, **Change month** opens a month/year picker directly on Snapshots. Choose a completed month, then upload or drop CSVs and press Process. Each queued file shows included and excluded row counts. Selecting a month does not process files or hide existing snapshots. Organize → Accounts retains advanced multi-month ranges and remembered filenames. Re-drop an original to import another selected month; successful imports leave the intake queue automatically and Downloads files stay intact.
 
 Exact repeated or reordered-equivalent files do not add transactions. Different overlapping exports ask for match decisions because the bank files lack reliable transaction IDs. Partial exports add or match rows without replacing the existing month. Monthly snapshots show unreviewed cash movements, not settled spending or income.
 
@@ -38,6 +38,8 @@ Open **Review** (or **Organize transactions** on Snapshots) to sort an imported 
 Click a selected category to remove it and stay on that card. Remaining categories absorb its amount; removing the final category makes the transaction uncategorized again.
 
 The review inbox separates money in and money out. Save an expense, income, repayment, zero-value record, or paired own-account transfer to remove it from the inbox. Show reviewed lets you inspect and reopen decisions. Add people for agreed expense shares and repayments; a unified searchable picker selects individual expenses or all expenses in a group, including earlier months. Excess repayment amounts remain unassigned e-transfer income. Saving a repayment leaves target expense reviews untouched. Categories, groups and reviews persist across restarts and matching amendments; new rows arrive unreviewed.
+
+**Review → Transfers** pairs pending outgoing and incoming entries in two lists. Set an amount tolerance (default ±2% of the outgoing amount), select both entries, and press Link transfer. Candidates use other accounts in the same currency across all imported months. Shortfalls become transfer fees; extra received stays an unexplained difference. Linked pairs leave Pending and appear under Linked, where they can be inspected or unlinked. Existing completed financial reviews must be reopened before pairing, and repayments cannot lose their target expenses. Transfer principal stays separate from fees and unexplained differences in Overview.
 
 Overview shows gross categorized cash flows, with unreviewed amounts and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by category, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
 
@@ -50,6 +52,7 @@ npm run test:review     # Synthetic categorization, grouping, financial review a
 npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
 npm run test:aliases    # Regex previews, conflicts, readable names, persistence and visual checks
+npm run test:transfers  # Pair matching, fees, linked history, month selection and scoped imports
 npm run package:win     # Windows application in release/win-unpacked/
 ```
 

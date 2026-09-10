@@ -201,12 +201,24 @@ export function DataWorkspace({
   onReveal,
   onOpenSnapshot,
   onRange,
+  onImportMonth,
   onResults,
   onOrganize,
 }) {
   const [modal, setModal] = useState(null),
     [selected, setSelected] = useState(null),
     [confirmClear, setConfirmClear] = useState(false);
+  const [importMonth, setImportMonth] = useState(data.scope.throughMonth),
+    [monthError, setMonthError] = useState("");
+  const validMonth =
+    /^20\d{2}-(0[1-9]|1[0-2])$/.test(importMonth) &&
+    importMonth <= data.lastCompleteMonth;
+  async function saveMonth() {
+    if (!validMonth || busy) return;
+    const result = await onImportMonth(importMonth);
+    if (result !== false) setModal(null);
+    else setMonthError("The import month could not be saved. Try again.");
+  }
   const months = recentMonths(data.lastCompleteMonth);
   const queued = data.jobs.filter((job) => job.status === "queued");
   const attention = data.jobs.filter((job) => job.status !== "queued");
@@ -399,8 +411,16 @@ export function DataWorkspace({
               {data.scope.startMonth !== data.scope.throughMonth &&
                 ` — ${monthName(data.scope.throughMonth, true)}`}
             </span>
-            <button className="dr-link" disabled={busy} onClick={onRange}>
-              Change range
+            <button
+              className="dr-link"
+              disabled={busy}
+              onClick={() => {
+                setImportMonth(data.scope.throughMonth);
+                setMonthError("");
+                setModal("month");
+              }}
+            >
+              Change month
             </button>
           </div>
           {data.jobs.length ? (
@@ -415,7 +435,8 @@ export function DataWorkspace({
                       <strong>{job.filename}</strong>
                       <small>
                         {accountById[job.accountId]?.name || "Account needed"}
-                        {job.rowCount != null && ` · ${job.rowCount} rows`}
+                        {job.includedCount != null &&
+                          ` · +${job.includedCount} included · −${job.excludedCount} outside ${data.scope.startMonth === data.scope.throughMonth ? "month" : "range"}`}
                       </small>
                       {job.error && (
                         <small className="dr-error-text">{job.error}</small>
@@ -536,6 +557,60 @@ export function DataWorkspace({
           </section>
         </aside>
       </div>
+      {modal === "month" && (
+        <WorkspaceModal
+          title="Choose import month"
+          onClose={() => {
+            if (!busy) setModal(null);
+          }}
+          footer={
+            <div className="dr-month-actions">
+              <button disabled={busy} onClick={() => setModal(null)}>
+                Cancel
+              </button>
+              <button
+                className="primary"
+                disabled={busy || !validMonth}
+                onClick={saveMonth}
+              >
+                Use this month
+              </button>
+            </div>
+          }
+        >
+          <label className="dr-month-picker">
+            Month and year
+            <input
+              type="month"
+              aria-label="Import month and year"
+              min="2000-01"
+              max={data.lastCompleteMonth}
+              value={importMonth}
+              disabled={busy}
+              onChange={(e) => {
+                setImportMonth(e.target.value);
+                setMonthError("");
+              }}
+            />
+          </label>
+          <p className="dr-month-help">
+            Queued CSVs will include only records dated in this month.
+            Processing starts when you press Process. Existing snapshots and
+            original files stay in the archive.
+          </p>
+          {!validMonth && (
+            <p role="alert">
+              Choose a completed month, up to{" "}
+              {monthName(data.lastCompleteMonth)}.
+            </p>
+          )}
+          {monthError && (
+            <p className="dr-error-text" role="alert">
+              {monthError}
+            </p>
+          )}
+        </WorkspaceModal>
+      )}
       {modal === "history" && (
         <WorkspaceModal title="Upload history" onClose={() => setModal(null)}>
           <History data={data} onReveal={onReveal} />

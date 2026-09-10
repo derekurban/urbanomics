@@ -920,16 +920,21 @@ class ImportStore {
       .all()
       .map((j) => {
         let plan,
-          rowCount = null;
+          rowCount = null,
+          includedCount = null;
         try {
           if (j.account_id && j.status !== "error") plan = this.plan(j);
-          rowCount =
-            plan?.parsed.rows.length ??
+          const parsed =
+            plan?.parsed ??
             parseExport(
               fs.readFileSync(
                 path.join(this.root, "archive/sources", `${j.source_hash}.csv`),
               ),
-            ).rows.length;
+            );
+          rowCount = parsed.rows.length;
+          includedCount = parsed.rows.filter(
+            (r) => r.month >= scope.startMonth && r.month <= scope.throughMonth,
+          ).length;
         } catch {
           /* explicit job error remains visible */
         }
@@ -941,6 +946,8 @@ class ImportStore {
           status: j.status,
           error: j.error,
           rowCount,
+          includedCount,
+          excludedCount: rowCount === null ? null : rowCount - includedCount,
           created: j.created,
           conflicts:
             plan?.conflicts.map((c) => ({
@@ -956,9 +963,9 @@ class ImportStore {
       });
     const months = this.db
       .prepare(
-        "SELECT month,COUNT(*) AS count FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE month>=? AND month<=? AND a.deletedAt IS NULL GROUP BY month ORDER BY month DESC",
+        "SELECT month,COUNT(*) AS count FROM transactions t JOIN accounts a ON a.id=t.account_id WHERE a.deletedAt IS NULL GROUP BY month ORDER BY month DESC",
       )
-      .all(scope.startMonth, scope.throughMonth)
+      .all()
       .map((m) => ({
         ...m,
         revision: this.db

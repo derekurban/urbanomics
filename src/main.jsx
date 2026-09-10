@@ -373,6 +373,14 @@ function App() {
                 setOrganizeSection("accounts");
                 setPage("organize");
               }}
+              onImportMonth={async (selected) => {
+                const result = await run(
+                  () => api.setScope(selected, selected),
+                  `Importing ${monthName(selected)}. Files are ready for processing.`,
+                );
+                if (result !== false) setMonth(selected);
+                return result;
+              }}
             />
           )}
           {page === "review" && (

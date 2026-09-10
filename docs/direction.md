@@ -4,6 +4,10 @@ Updated: 2026-09-10
 
 ## Current request
 
+The user settled the transfer linker: outgoing pending entries on the left, incoming candidates on the right within a configurable plus/minus percentage band, checkmarked selections and an explicit Link action. Linked pairs leave the pending view, and are available under Linked with month/search filtering and Unlink. Shortfalls default to fees. Implementation starts the band at 2% of the outgoing amount; the user can set 0–100% in 0.01% increments. Candidates search across imported months without a hidden date cutoff. Additional incoming money is retained as an unexplained difference, not inferred income. Existing financial decisions and repayment reservations remain protected.
+
+Dropbox now opens a month/year picker directly on Snapshots through Change month. It applies the chosen completed month to queued CSVs, with compact included/excluded counts. Explicit processing is unchanged; prior imported months stay visible even when choosing another import month. Advanced ranges remain available in Accounts.
+
 Alias creation now includes a searchable preview of transactions without aliases. A row can seed an exact-match rule, and Save & create another keeps the editor open while removing newly covered transactions from the list. This queue is independent of category assignment and financial review.
 
 The latest request adds regex-based transaction aliases in Organize alongside a shortcut to existing account-name/prefix management. Preview all historical imported matches and competing rules before saving. Retain source text, flag future ambiguous matches without guessing, and keep financial decisions independent. Clicking a selected category now removes it and stays on the same card; dropping retains quick-save-and-advance. Chevron alignment is corrected with centered SVG icons and square controls.

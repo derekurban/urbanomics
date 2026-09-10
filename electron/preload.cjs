@@ -16,6 +16,10 @@ contextBridge.exposeInMainWorld("urbanomics", {
   organize: (changes) => invoke("review:organize", changes),
   saveFinancial: (id, version, values) =>
     invoke("review:financial", id, version, values),
+  linkTransfer: (outId, outVersion, inId, inVersion, band) =>
+    invoke("review:transfer-link", outId, outVersion, inId, inVersion, band),
+  unlinkTransfer: (id, version, counterpartVersion) =>
+    invoke("review:transfer-unlink", id, version, counterpartVersion),
   scan: () => invoke("workspace:scan"),
   process: () => invoke("workspace:process"),
   onProgress: (callback) => {

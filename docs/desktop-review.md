@@ -1,6 +1,6 @@
 # Desktop organization and review
 
-The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months. Every stage is accessible: Categories, Events, Review, and Overview. No sample entities or decisions are inserted into personal workspaces.
+The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months. Every stage is accessible: Categories, Events, Transfers, Review, and Overview. No sample entities or decisions are inserted into personal workspaces.
 
 ## Sorting
 
@@ -28,7 +28,13 @@ An expense can have no agreed split, in which case received repayments reduce th
 
 A repayment records a selected person and canonical expense transaction IDs. The searchable list includes groups and individual expenses across imported months. Selecting a group selects its member expenses once; partially selected groups are marked. Only expenses in the same currency are eligible. Selection suggests an even allocation bounded by remaining capacity; dividers can adjust that suggestion. Unallocated excess is retained as **Unassigned e-transfer income**. A saved group selection is an explicit set of expenses: later group changes do not silently change an existing payment allocation. Saving a repayment does not mark its expenses reviewed, add people to their agreed splits, or change their categories.
 
-Own-account transfers and credit-card payments pair equal opposite movements in different accounts and the same currency. Both sides are reviewed atomically and remain separate from spending/income. Existing unrelated reviewed rows require reopening before pairing. Changing a pair unlinks the old counterpart and returns it to the inbox. Import a missing counterpart before completing transfer review; no fuzzy matching or automatic pairing is inferred.
+Own-account transfers and credit-card payments use **Transfers** for percentage-band matching. Pending outgoing entries appear on the left; selecting one finds all eligible positive entries in other active accounts and the same currency across imported months. The symmetric amount band is relative to the absolute outgoing amount, defaults to 2%, and accepts 0–100% in 0.01% increments. Integer basis points and whole cents are compared using exact integer arithmetic. Dates are visible and help order equally close amounts; there is no hidden date cutoff. Amount similarity supplies candidates only: select both checkmarks and press Link transfer to save.
+
+Both row versions are checked and both reviews change atomically. Linked pairs leave Pending and appear under Linked, filtered by the review month and search (either side can match). Linking advances to the next outgoing entry. Unlink returns both entries to pending and removes the difference metadata. Existing unrelated completed financial reviews require reopening; repayment records and expenses reserved by repayments cannot be paired. The existing financial editor still allows exact pairs and editing/reopening a previously linked unequal pair.
+
+When the incoming amount is smaller, the shortfall defaults to a fee stored once on the outgoing review as `transferFeeCents`. When it is larger, the excess is stored once on the incoming review as `transferExcessCents` and labeled unexplained extra received. It is not earned income. Principal is the smaller of the two amounts; no synthetic bank row or duplicate fee transaction is created. Original entries, category portions and event memberships stay intact. Changing either side's financial purpose also clears the former counterpart and its difference metadata. These optional payload fields default to zero for existing reviews; no database migration rewrites historical decisions.
+
+Overview separates transfer principal, fees, and unexplained differences. When a transaction spans categories, its fee or excess is distributed proportionally over its existing portions using integer cents and largest-remainder rounding. Selecting all categories recovers the exact total; selecting subsets does not double-count principal or fees. Uncategorized entries remain outside this category-based report, as before. Explaining excess incoming money beyond unlinking/reviewing the pair remains future work.
 
 Category totals are **gross categorized cash flow**, with pending rows, transfers, expenses, general income and repayments separated. Mixed repayments remain one gross repayment bucket, avoiding an invented allocation of reimbursements to categories. The exact excess is shown in the repayment editor. These are not net personal-spending reports or proof of complete month coverage.
 
@@ -45,5 +51,7 @@ Review records live only in the private SQLite workspace, excluded from Git and 
 ## Verification
 
 `npm test` checks import safety, exact-cent conservation, atomic/stale writes, schema 5→6 conversion (including name collisions and deleted-account decisions), repayment caps, transfer pairs, amendments and restart persistence.
+
+`npm run test:transfers` checks the two-list linker in Electron: percentage bounds, explicit checkmarks, cross-month candidates, fees, extra received, competing matches, removal from Pending, Linked/Unlink, narrow layout, and persistence. It also exercises the local import-month picker, cancellation, invalid future months, and a multi-month CSV filtered to the selected month. All fixtures are synthetic.
 
 After building, `npm run test:orbit` exercises the real Electron card interactions: single-write drag saves and advance, searchable multi-category settings, cent splits, Cancel/Escape and keyboard access, stale-save rejection, event drafts/No event, responsive screenshots and restart. `npm run test:review` covers category splitting, events, people, repayments, income, transfers, zero records, reopening and gross category totals. `npm run test:organize` covers all four management sections, shared records, guarded deletion and focused/narrow layouts. `npm run test:desktop` retains import, account and archive regression coverage. All mutation tests use synthetic data; screenshots stay under ignored `private/validation/`.

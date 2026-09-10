@@ -117,6 +117,8 @@ export function flowSummary(records, tagIds) {
     unreviewedOut: 0,
     transferIn: 0,
     transferOut: 0,
+    transferFees: 0,
+    transferExcess: 0,
   };
   for (const t of records) {
     const included = t.review.tags.filter((p) => selected.has(p.id));
@@ -125,9 +127,18 @@ export function flowSummary(records, tagIds) {
     let bucket;
     if (!t.review.reviewed || t.review.kind === "unreviewed")
       bucket = t.amountCents < 0 ? "unreviewedOut" : "unreviewedIn";
-    else if (t.review.kind === "transfer")
+    else if (t.review.kind === "transfer") {
       bucket = t.amountCents < 0 ? "transferOut" : "transferIn";
-    else if (t.review.kind === "expense") bucket = "out";
+      const fees = transferPortion(t, t.review.transferFeeCents || 0, selected);
+      const excess = transferPortion(
+        t,
+        t.review.transferExcessCents || 0,
+        selected,
+      );
+      totals.transferFees += fees;
+      totals.transferExcess += excess;
+      totals[bucket] -= fees + excess;
+    } else if (t.review.kind === "expense") bucket = "out";
     else if (t.review.kind === "income") bucket = "income";
     else
       bucket = t.review.allocations.some((p) => p.cents)
@@ -138,4 +149,28 @@ export function flowSummary(records, tagIds) {
     rows.push({ ...t, portion: amount, bucket });
   }
   return { totals, rows };
+}
+
+function transferPortion(row, cents, selected) {
+  if (!cents || !row.amountCents) return 0;
+  const gross = BigInt(Math.abs(row.amountCents));
+  const portions = row.review.tags.map((p, index) => ({
+    id: p.id,
+    index,
+    cents: Number((BigInt(p.cents) * BigInt(cents)) / gross),
+    remainder: (BigInt(p.cents) * BigInt(cents)) % gross,
+  }));
+  let remaining = cents - sum(portions);
+  const ordered = [...portions].sort((a, b) =>
+    a.remainder === b.remainder
+      ? a.index - b.index
+      : a.remainder > b.remainder
+        ? -1
+        : 1,
+  );
+  for (const p of ordered) {
+    if (remaining-- <= 0) break;
+    p.cents++;
+  }
+  return sum(portions.filter((p) => selected.has(p.id)));
 }

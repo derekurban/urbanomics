@@ -3,6 +3,7 @@ import { TransactionSettings } from "./TransactionSettings.jsx";
 import { SplitEditor } from "./SplitEditor.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { OrbitSorter } from "./OrbitSorter.jsx";
+import { TransferWorkspace } from "./TransferWorkspace.jsx";
 import {
   money,
   sum,
@@ -86,7 +87,7 @@ function FinanceEditor({
     (t) =>
       !t.deleted &&
       t.accountId !== row.accountId &&
-      t.amountCents === -row.amountCents &&
+      (t.amountCents === -row.amountCents || t.review.transferId === row.id) &&
       t.currency === row.currency &&
       (t.review.transferId === row.id ||
         (!t.review.reviewed &&
@@ -371,9 +372,19 @@ function FinanceEditor({
       {kind === "transfer" && (
         <>
           <p>
-            Match both sides of a transfer or credit-card payment. Neither side
-            counts as spending or income.
+            Match both sides of a transfer or credit-card payment. The principal
+            stays separate from spending and income. Use Transfers for
+            percentage-band matching.
           </p>
+          {!!row.review.transferFeeCents && (
+            <p>Included transfer fee: {money(row.review.transferFeeCents)}</p>
+          )}
+          {!!row.review.transferExcessCents && (
+            <p>
+              Unexplained extra received:{" "}
+              {money(row.review.transferExcessCents)}
+            </p>
+          )}
           <input
             className="rv-search"
             aria-label="Search transfer counterpart"
@@ -555,6 +566,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
         {[
           ["organize", "1 · Categories"],
           ["groups", "2 · Events"],
+          ["transfers", "Transfers"],
           ["review", "3 · Review"],
           ["categories", "4 · Overview"],
         ].map(([id, label]) => (
@@ -584,11 +596,14 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           {scoped.filter((t) => !t.review.tags.length).length} need categories
         </span>
       </div>
-      {error && !editor && !tagRow && stage !== "review" && (
-        <p className="dr-error-text" role="alert">
-          {error}
-        </p>
-      )}
+      {error &&
+        !editor &&
+        !tagRow &&
+        !["review", "transfers"].includes(stage) && (
+          <p className="dr-error-text" role="alert">
+            {error}
+          </p>
+        )}
       {["organize", "groups"].includes(stage) && (
         <>
           <div className="rv-sort-controls">
@@ -618,6 +633,16 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             }
           />
         </>
+      )}
+      {stage === "transfers" && (
+        <TransferWorkspace
+          records={records}
+          visible={visible}
+          busy={busy}
+          act={act}
+          error={error}
+          onSource={onSource}
+        />
       )}
       {stage === "review" && (
         <>
@@ -760,6 +785,8 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
               ["unreviewedIn", "Unreviewed money in"],
               ["transferOut", "Own transfers out"],
               ["transferIn", "Own transfers in"],
+              ["transferFees", "Transfer fees"],
+              ["transferExcess", "Unexplained transfer differences"],
             ].map(([key, label]) => (
               <div key={key}>
                 <small>{label}</small>

@@ -1328,3 +1328,22 @@ button.danger:hover {
     gap: 9px;
   }
 }
+.dr-month-picker {
+  display: grid;
+  gap: 10px;
+  margin: 6px 0 18px;
+  max-width: 300px;
+}
+.dr-month-picker input {
+  width: 100%;
+}
+.dr-month-help {
+  color: #64715f;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.dr-month-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}

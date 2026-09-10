@@ -99,6 +99,14 @@ else {
       handle("review:financial", (id, version, values) =>
         store.review.financial(id, version, values),
       );
+      handle(
+        "review:transfer-link",
+        (outId, outVersion, inId, inVersion, band) =>
+          store.review.linkTransfer(outId, outVersion, inId, inVersion, band),
+      );
+      handle("review:transfer-unlink", (id, version, counterpartVersion) =>
+        store.review.unlinkTransfer(id, version, counterpartVersion),
+      );
       handle("workspace:ingest", (files) =>
         store.enqueue(files, { stage: true, process: false }),
       );

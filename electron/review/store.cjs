@@ -1,4 +1,10 @@
 const { randomUUID } = require("node:crypto");
+const {
+  validBand,
+  withinBand,
+  pendingTransfers,
+  transferParts,
+} = require("./transfer-model.mjs");
 const empty = () => ({
   tags: [],
   groups: [],
@@ -10,6 +16,8 @@ const empty = () => ({
   allocations: [],
   remainder: 0,
   transferId: "",
+  transferFeeCents: 0,
+  transferExcessCents: 0,
 });
 const sum = (rows) => rows.reduce((n, r) => n + r.cents, 0);
 function ids(value, label, max = 100) {
@@ -228,161 +236,221 @@ class ReviewStore {
     });
   }
   financial(id, version, draft) {
+    return this.atomic(() => this.financialWrite(id, version, draft));
+  }
+  linkTransfer(outId, outVersion, inId, inVersion, basisPoints) {
+    return this.atomic(() => {
+      if (!validBand(basisPoints))
+        throw new Error(
+          "Choose a percentage band from 0 to 100%, with up to two decimal places.",
+        );
+      const outgoing = this.current(outId, outVersion),
+        incoming = this.current(inId, inVersion);
+      const pending = new Set(
+        pendingTransfers(this.records()).map((t) => t.id),
+      );
+      if (!pending.has(outId) || !pending.has(inId))
+        throw new Error(
+          "Both entries must be pending and free of repayment allocations. Reopen their reviews first.",
+        );
+      if (!withinBand(outgoing.amountCents, incoming.amountCents, basisPoints))
+        throw new Error("The selected pair is outside the percentage band.");
+      this.financialWrite(
+        outId,
+        outVersion,
+        { kind: "transfer", reviewed: true, transferId: inId },
+        basisPoints,
+      );
+    });
+  }
+  unlinkTransfer(id, version, counterpartVersion) {
     return this.atomic(() => {
       const row = this.current(id, version),
-        review = {
-          ...row.review,
-          kind: draft.kind,
-          reviewed: draft.reviewed === true,
-          shares:
-            draft.shares === null
-              ? null
-              : portions(draft.shares || [], "shares"),
-          personId: draft.personId || "",
-          allocations: portions(draft.allocations || [], "repayments"),
-          remainder: draft.remainder ?? 0,
-          transferId: draft.transferId || "",
-        };
-      const people = new Set(
-        this.entities()
-          .filter((e) => e.kind === "person")
-          .map((e) => e.id),
-      );
-      if (
-        ![
-          "unreviewed",
-          "expense",
-          "income",
-          "repayment",
-          "transfer",
-          "zero",
-        ].includes(review.kind) ||
-        (review.reviewed && review.kind === "unreviewed")
-      )
-        throw new Error("Choose a financial purpose before completing review.");
-      if (
-        (review.kind === "zero" && row.amountCents !== 0) ||
-        (review.kind === "expense" && row.amountCents >= 0) ||
-        (["income", "repayment"].includes(review.kind) && row.amountCents <= 0)
-      )
-        throw new Error(
-          "Purpose does not match the direction of this transaction.",
+        counterpart = this.current(row.review.transferId, counterpartVersion);
+      if (counterpart.review.transferId !== id)
+        throw new Error("This pair changed. Refresh before unlinking.");
+      for (const item of [row, counterpart])
+        this.write(
+          item.id,
+          {
+            ...item.review,
+            kind: "unreviewed",
+            reviewed: false,
+            transferId: "",
+            transferFeeCents: 0,
+            transferExcessCents: 0,
+          },
+          item.version,
         );
-      if (review.kind !== "expense") review.shares = null;
-      if (
-        review.shares &&
-        (sum(review.shares) !== Math.abs(row.amountCents) ||
-          review.shares.some((p) => p.id !== "me" && !people.has(p.id)) ||
-          !review.shares.some((p) => p.id === "me"))
-      )
-        throw new Error("Shares must include you and total the full expense.");
-      if (review.kind !== "repayment") {
-        review.allocations = [];
-        review.personId = "";
-        review.remainder = 0;
-      } else if (
-        !people.has(review.personId) ||
-        !Number.isSafeInteger(review.remainder) ||
-        review.remainder < 0 ||
-        sum(review.allocations) + review.remainder !== row.amountCents
-      )
-        throw new Error(
-          "Choose a person and allocate the full payment, including any unassigned e-transfer income.",
-        );
-      if (review.kind !== "transfer") review.transferId = "";
-      const records = this.records();
-      // Unlink the prior pair before applying a changed transfer decision.
-      const previousPair =
-        row.review.transferId &&
-        records.find((t) => t.id === row.review.transferId);
-      if (previousPair && review.transferId !== previousPair.id) {
-        const next = {
-          ...previousPair.review,
-          kind: "unreviewed",
-          reviewed: false,
-          transferId: "",
-        };
-        this.write(previousPair.id, next, previousPair.version);
-        previousPair.review = next;
-      }
-      if (review.kind === "transfer") {
-        const target = records.find(
-          (t) => t.id === review.transferId && !t.deleted,
-        );
-        if (
-          !target ||
-          target.id === id ||
-          target.accountId === row.accountId ||
-          target.amountCents !== -row.amountCents ||
-          target.currency !== row.currency ||
-          !row.amountCents
-        )
-          throw new Error(
-            "Choose an equal, opposite transaction in another account.",
-          );
-        if (
-          (target.review.transferId && target.review.transferId !== id) ||
-          target.review.kind === "repayment" ||
-          (target.review.reviewed && target.review.transferId !== id)
-        )
-          throw new Error(
-            "The other transaction is already reviewed. Reopen it first.",
-          );
-        const next = {
-          ...target.review,
-          kind: "transfer",
-          reviewed: review.reviewed,
-          transferId: id,
-          shares: null,
-          allocations: [],
-          personId: "",
-          remainder: 0,
-        };
-        this.write(target.id, next, target.version);
-        target.review = next;
-      }
-      const projected = records.map((t) =>
-        t.id === id ? { ...t, review } : t,
-      );
-      // Validate every existing allocation too: expense edits cannot invalidate repayments.
-      const byExpense = new Map();
-      for (const payment of projected.filter(
-        (t) => t.review.kind === "repayment",
-      )) {
-        for (const p of payment.review.allocations) {
-          const expense = projected.find((t) => t.id === p.id);
-          if (
-            !expense ||
-            expense.amountCents >= 0 ||
-            !["expense", "unreviewed"].includes(expense.review.kind) ||
-            expense.currency !== payment.currency
-          )
-            throw new Error(
-              "Repayments must target expenses in the same currency.",
-            );
-          const totals = byExpense.get(p.id) || { total: 0, people: {} };
-          totals.total += p.cents;
-          totals.people[payment.review.personId] =
-            (totals.people[payment.review.personId] || 0) + p.cents;
-          if (totals.total > Math.abs(expense.amountCents))
-            throw new Error("Repayments exceed the expense amount.");
-          if (
-            expense.review.shares &&
-            Object.entries(totals.people).some(
-              ([person, cents]) =>
-                cents >
-                (expense.review.shares.find((s) => s.id === person)?.cents ||
-                  0),
-            )
-          )
-            throw new Error(
-              "Repayment exceeds an agreed share. Adjust the expense split or payment allocation.",
-            );
-          byExpense.set(p.id, totals);
-        }
-      }
-      this.write(id, review, row.version);
     });
+  }
+  financialWrite(id, version, draft, basisPoints = 0) {
+    const row = this.current(id, version),
+      review = {
+        ...row.review,
+        kind: draft.kind,
+        reviewed: draft.reviewed === true,
+        shares:
+          draft.shares === null ? null : portions(draft.shares || [], "shares"),
+        personId: draft.personId || "",
+        allocations: portions(draft.allocations || [], "repayments"),
+        remainder: draft.remainder ?? 0,
+        transferId: draft.transferId || "",
+      };
+    const people = new Set(
+      this.entities()
+        .filter((e) => e.kind === "person")
+        .map((e) => e.id),
+    );
+    if (
+      ![
+        "unreviewed",
+        "expense",
+        "income",
+        "repayment",
+        "transfer",
+        "zero",
+      ].includes(review.kind) ||
+      (review.reviewed && review.kind === "unreviewed")
+    )
+      throw new Error("Choose a financial purpose before completing review.");
+    if (
+      (review.kind === "zero" && row.amountCents !== 0) ||
+      (review.kind === "expense" && row.amountCents >= 0) ||
+      (["income", "repayment"].includes(review.kind) && row.amountCents <= 0)
+    )
+      throw new Error(
+        "Purpose does not match the direction of this transaction.",
+      );
+    if (review.kind !== "expense") review.shares = null;
+    if (
+      review.shares &&
+      (sum(review.shares) !== Math.abs(row.amountCents) ||
+        review.shares.some((p) => p.id !== "me" && !people.has(p.id)) ||
+        !review.shares.some((p) => p.id === "me"))
+    )
+      throw new Error("Shares must include you and total the full expense.");
+    if (review.kind !== "repayment") {
+      review.allocations = [];
+      review.personId = "";
+      review.remainder = 0;
+    } else if (
+      !people.has(review.personId) ||
+      !Number.isSafeInteger(review.remainder) ||
+      review.remainder < 0 ||
+      sum(review.allocations) + review.remainder !== row.amountCents
+    )
+      throw new Error(
+        "Choose a person and allocate the full payment, including any unassigned e-transfer income.",
+      );
+    review.transferFeeCents = 0;
+    review.transferExcessCents = 0;
+    if (review.kind !== "transfer") review.transferId = "";
+    const records = this.records();
+    // Unlink the prior pair before applying a changed transfer decision.
+    const previousPair =
+      row.review.transferId &&
+      records.find((t) => t.id === row.review.transferId);
+    if (previousPair && review.transferId !== previousPair.id) {
+      const next = {
+        ...previousPair.review,
+        kind: "unreviewed",
+        reviewed: false,
+        transferId: "",
+        transferFeeCents: 0,
+        transferExcessCents: 0,
+      };
+      this.write(previousPair.id, next, previousPair.version);
+      previousPair.review = next;
+    }
+    if (review.kind === "transfer") {
+      const target = records.find(
+        (t) => t.id === review.transferId && !t.deleted,
+      );
+      if (
+        !target ||
+        target.id === id ||
+        target.accountId === row.accountId ||
+        Math.sign(target.amountCents) === Math.sign(row.amountCents) ||
+        !target.amountCents ||
+        target.currency !== row.currency ||
+        !row.amountCents
+      )
+        throw new Error(
+          "Choose an opposite transaction in another account and the same currency.",
+        );
+      const outgoing = row.amountCents < 0 ? row : target,
+        incoming = row.amountCents > 0 ? row : target;
+      if (
+        !(
+          row.review.transferId === target.id && target.review.transferId === id
+        ) &&
+        !withinBand(outgoing.amountCents, incoming.amountCents, basisPoints)
+      )
+        throw new Error(
+          "Choose an equal, opposite transaction, or use the Transfers percentage band.",
+        );
+      Object.assign(review, transferParts(row, target));
+      if (
+        (target.review.transferId && target.review.transferId !== id) ||
+        target.review.kind === "repayment" ||
+        (target.review.reviewed && target.review.transferId !== id)
+      )
+        throw new Error(
+          "The other transaction is already reviewed. Reopen it first.",
+        );
+      const next = {
+        ...target.review,
+        kind: "transfer",
+        reviewed: review.reviewed,
+        transferId: id,
+        shares: null,
+        allocations: [],
+        personId: "",
+        remainder: 0,
+        ...transferParts(target, row),
+      };
+      this.write(target.id, next, target.version);
+      target.review = next;
+    }
+    const projected = records.map((t) => (t.id === id ? { ...t, review } : t));
+    // Validate every existing allocation too: expense edits cannot invalidate repayments.
+    const byExpense = new Map();
+    for (const payment of projected.filter(
+      (t) => t.review.kind === "repayment",
+    )) {
+      for (const p of payment.review.allocations) {
+        const expense = projected.find((t) => t.id === p.id);
+        if (
+          !expense ||
+          expense.amountCents >= 0 ||
+          !["expense", "unreviewed"].includes(expense.review.kind) ||
+          expense.currency !== payment.currency
+        )
+          throw new Error(
+            "Repayments must target expenses in the same currency.",
+          );
+        const totals = byExpense.get(p.id) || { total: 0, people: {} };
+        totals.total += p.cents;
+        totals.people[payment.review.personId] =
+          (totals.people[payment.review.personId] || 0) + p.cents;
+        if (totals.total > Math.abs(expense.amountCents))
+          throw new Error("Repayments exceed the expense amount.");
+        if (
+          expense.review.shares &&
+          Object.entries(totals.people).some(
+            ([person, cents]) =>
+              cents >
+              (expense.review.shares.find((s) => s.id === person)?.cents || 0),
+          )
+        )
+          throw new Error(
+            "Repayment exceeds an agreed share. Adjust the expense split or payment allocation.",
+          );
+        byExpense.set(p.id, totals);
+      }
+    }
+    this.write(id, review, row.version);
   }
 }
 module.exports = { ReviewStore, empty };
