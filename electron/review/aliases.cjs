@@ -17,7 +17,6 @@ function pattern(value) {
   }
 }
 const matches = (rule, row) =>
-  (!rule.accountId || rule.accountId === row.accountId) &&
   rule.regex.test(row.originalDescription ?? row.description);
 
 class AliasStore {
@@ -91,21 +90,14 @@ class AliasStore {
     const name = typeof values.name === "string" ? values.name.trim() : "";
     if (!name || name.length > 80)
       throw new Error("Enter a readable name of 1–80 characters.");
-    const regex = this.regex(values.pattern),
-      accountId = values.accountId || "";
-    if (
-      typeof accountId !== "string" ||
-      (accountId &&
-        !this.db.prepare("SELECT id FROM accounts WHERE id=?").get(accountId))
-    )
-      throw new Error("Account no longer exists.");
+    const regex = this.regex(values.pattern);
     if (values.id && !this.rules().some((r) => r.id === values.id))
       throw new Error("This alias no longer exists. Reopen the editor.");
     return {
       id: values.id || "",
       name,
       pattern: values.pattern.trim(),
-      accountId,
+      accountId: "",
       regex,
     };
   }
@@ -130,9 +122,8 @@ class AliasStore {
     const duplicates = others
       .filter(
         (r) =>
-          (!r.accountId || !rule.accountId || r.accountId === rule.accountId) &&
-          (r.name.toLowerCase() === rule.name.toLowerCase() ||
-            r.pattern === rule.pattern),
+          r.name.toLowerCase() === rule.name.toLowerCase() ||
+          r.pattern === rule.pattern,
       )
       .map(({ id, name, pattern }) => ({ id, name, pattern }));
     return {
@@ -152,7 +143,7 @@ class AliasStore {
       const preview = this.preview(values);
       if (preview.conflicts.length || preview.duplicates.length)
         throw new Error(
-          "This rule competes with another alias. Refine its regex or account scope before saving.",
+          "This rule competes with another alias. Refine its regex before saving.",
         );
       const id = existing?.id || randomUUID();
       this.db

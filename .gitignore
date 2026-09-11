@@ -38,3 +38,8 @@ Thumbs.db
 /release/
 /test-results/
 /playwright-report/
+
+# Only the explicitly approved configuration SQL and its documentation are tracked.
+/configuration/*
+!/configuration/workspace.sql
+!/configuration/README.md

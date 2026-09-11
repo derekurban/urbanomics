@@ -19,11 +19,11 @@ Snapshots is one page with a compact calendar of the last 12 months through the 
 
 **Organize** manages Categories, Events, Accounts and People through searchable lists with transaction usage counts. Create, rename, recolor and delete shared items through their editors. Categories and people already used by transactions are protected from deletion.
 
-Its **Aliases** section turns bank descriptions into readable transaction names using regex rules. Preview matches across all imported months, check competing rules, optionally scope to an account, then save. Existing overlaps block saving; future ambiguous matches keep their original names and appear in a conflict list. Original bank text and financial decisions stay intact. Account aliases link to the existing account-name and filename-prefix settings. See [transaction alias behavior](docs/transaction-aliases.md).
+Its **Aliases** section turns bank descriptions into readable transaction names using regex rules. Preview matches across all imported months, check competing rules, then save across all accounts. Existing overlaps block saving; future ambiguous matches keep their original names and appear in a conflict list. Original bank text and financial decisions stay intact. Account aliases link to the existing account-name and filename-prefix settings. See [transaction alias behavior](docs/transaction-aliases.md).
 
 Inside the alias editor, **Without an alias** shows searchable transactions still needing a readable name. Click one to start an exact-match rule, then use **Save & create another** to keep working through the list without reopening the editor.
 
-Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors stay private and local.
+Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors are included in the tracked configuration SQL.
 
 Upload history uses compact account-first rows with the account color, upload time and status. Expand a row to see the source filename and import counts. Search supports account names, filenames and status.
 
@@ -43,7 +43,7 @@ The review inbox separates money in and money out. Save an expense, income, repa
 
 Overview shows gross categorized cash flows, with unreviewed amounts and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by category, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
 
-Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. None of this is bundled or committed. These local files are not encrypted by the app.
+Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. Transactions, snapshots, source archives and runtime SQLite are never bundled or committed. These local files are not encrypted by the app.
 
 ```sh
 npm test                # Import, deduplication, date, and recovery checks
@@ -57,6 +57,12 @@ npm run package:win     # Windows application in release/win-unpacked/
 ```
 
 See [desktop architecture and import behavior](docs/desktop-imports.md) for archive layout, matching rules, limits, and recovery. For live development, run `npm run dev` and `npm run desktop:dev` in separate terminals.
+
+## Configuration in Git
+
+Use `Launch Urbanomics.cmd` in the repository to open the packaged app with configuration sync enabled.
+
+`configuration/workspace.sql` contains accounts and filename rules, global transaction aliases, categories, events and people. App edits update this file automatically when connected to the repository configuration directory. These definitions are included in this private GitHub repository at your request; financial rows, assignments, reviews, sources and snapshots remain ignored. The app does not automatically commit or push: SQL changes are ready for the next Git commit. A fresh workspace loads these definitions without importing financial data. See [configuration setup](configuration/README.md).
 
 ## Starting direction
 
@@ -85,4 +91,4 @@ The overall sixth-trial experience is accepted. Detailed accounting defaults rem
 
 Run the current prototype's calculation checks with `node --test tests/insights-prototype.test.cjs`. See [the current trial notes](docs/insights-trial.md) for interaction decisions, evidence, and limits. Earlier trials keep their own tests, such as `node --test tests/board-prototype.test.cjs`.
 
-Only synthetic examples belong in this repository. Personal imports, configuration, financial decisions, generated reports, and agent proposals belong under the ignored `private/` directory.
+The explicitly approved configuration definitions and synthetic examples belong in this repository. Personal imports, financial decisions, snapshots, generated reports and agent proposals remain under ignored `private/`.

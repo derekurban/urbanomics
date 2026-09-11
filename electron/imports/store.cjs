@@ -41,7 +41,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 7) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 8) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -136,6 +136,11 @@ class ImportStore {
       this.db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS transaction_aliases (id TEXT PRIMARY KEY,name TEXT NOT NULL,pattern TEXT NOT NULL,accountId TEXT NOT NULL DEFAULT '',version INTEGER NOT NULL);
         PRAGMA user_version=7; COMMIT;`);
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 8) {
+      this.db.exec(`BEGIN IMMEDIATE;
+        UPDATE transaction_aliases SET accountId='',version=version+1 WHERE accountId<>'';
+        PRAGMA user_version=8; COMMIT;`);
     }
     this.aliases = new AliasStore(this);
     this.review = new ReviewStore(this);

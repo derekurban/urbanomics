@@ -6,6 +6,7 @@ files:
   - dist/**/*
   - electron/**/*
   - package.json
+  - configuration/workspace.sql
 asar: true
 win:
   target: dir

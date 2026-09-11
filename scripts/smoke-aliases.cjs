@@ -46,7 +46,11 @@ fs.writeFileSync(
 );
 store.resolveAccount(store.enqueue([file]).ids[0], account, false);
 store.close();
-const env = { ...process.env, URBANOMICS_DATA_DIR: dataDir };
+const env = {
+  ...process.env,
+  URBANOMICS_DATA_DIR: dataDir,
+  URBANOMICS_CONFIG_DIR: path.join(root, "configuration"),
+};
 delete env.ELECTRON_RUN_AS_NODE;
 let app, page;
 const errors = [];
@@ -88,6 +92,7 @@ async function newRule(name, pattern) {
   try {
     await launch();
     let d = await newRule("Walmart", "^WALMART\\s+#\\d+");
+    assert.equal(await d.getByLabel("Apply in", { exact: true }).count(), 0);
     assert.equal(await d.locator(".al-unaliased-list > button").count(), 3);
     assert.ok(
       await d
@@ -362,7 +367,7 @@ async function newRule(name, pattern) {
       .getByRole("button", { name: "Save & create another", exact: true })
       .click();
     await pending
-      .getByText("No transactions without aliases in this scope.", {
+      .getByText("No transactions without aliases.", {
         exact: true,
       })
       .waitFor();
@@ -371,6 +376,13 @@ async function newRule(name, pattern) {
       0,
     );
     await d.getByRole("button", { name: "Cancel", exact: true }).click();
+    const configSQL = fs.readFileSync(
+      path.join(root, "configuration/workspace.sql"),
+      "utf8",
+    );
+    assert.ok(configSQL.includes("Acme supplies"));
+    assert.ok(!configSQL.includes('INSERT INTO "transactions"'));
+    assert.ok(!configSQL.includes('INSERT INTO "snapshots"'));
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({

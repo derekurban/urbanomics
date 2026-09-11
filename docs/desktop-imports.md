@@ -1,6 +1,6 @@
 # Desktop imports
 
-The application has a single Snapshots page with a rolling 12-month calendar, Dropbox queue, processing feedback and latest-run results. Upload history and archive inspection open in native HTML dialogs, with keyboard focus containment and Escape dismissal. Accounts have editable names, colors and filename-prefix regex rules. React renders this alongside the transaction browser. Electron owns file access and SQLite. The renderer has no Node access and calls a narrow sandboxed preload bridge. Production web requests, new windows, and permission requests are denied. No financial data is sent to a service.
+The application has a single Snapshots page with a rolling 12-month calendar, Dropbox queue, processing feedback and latest-run results. Upload history and archive inspection open in native HTML dialogs, with keyboard focus containment and Escape dismissal. Accounts have editable names, colors and filename-prefix regex rules. React renders this alongside the transaction browser. Electron owns file access and SQLite. The renderer has no Node access and calls a narrow sandboxed preload bridge. Production web requests, new windows, and permission requests are denied. Import and transaction data is not sent to a service. The user-approved configuration SQL is committed to the private GitHub repository separately.
 
 ## Workflow
 

@@ -286,9 +286,9 @@ function App() {
           </div>
         </header>
         <main>
-          {(error || data.archiveError) && (
+          {(error || data.archiveError || data.configurationError) && (
             <div className="alert error" role="alert">
-              {error || data.archiveError}
+              {error || data.archiveError || data.configurationError}
               <button onClick={() => setError("")}>Dismiss</button>
             </div>
           )}
@@ -754,9 +754,10 @@ function Route({ job, data, run, done }) {
   async function choose(id) {
     const result = await run(
       () => api.route(job.id, id, remember),
-      (r) => r.result.completed
-        ? "Account assigned and import processed."
-        : "Account assigned. Check Dropbox for the import issue.",
+      (r) =>
+        r.result.completed
+          ? "Account assigned and import processed."
+          : "Account assigned. Check Dropbox for the import issue.",
     );
     if (result !== false) done();
   }

@@ -4,7 +4,7 @@ import { money } from "./review-model.js";
 import "./aliases-workspace.css";
 const api = window.urbanomics;
 
-function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
+function AliasEditor({ rule, unaliased, act, onClose }) {
   const [pendingQuery, setPendingQuery] = useState(""),
     [pendingPage, setPendingPage] = useState(0),
     [picked, setPicked] = useState(""),
@@ -13,7 +13,6 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
   const [draft, setDraft] = useState({
     name: "",
     pattern: "",
-    accountId: "",
     ...rule,
   });
   const [preview, setPreview] = useState(null),
@@ -59,7 +58,7 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
       if ((await act(fn)) !== false) {
         if (!keepOpen) onClose();
         else {
-          setDraft({ name: "", pattern: "", accountId: draft.accountId });
+          setDraft({ name: "", pattern: "" });
           setPreview(null);
           setTested("");
           setPicked("");
@@ -85,12 +84,10 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
     : [];
   const pages = Math.max(1, Math.ceil(results.length / 25)),
     current = Math.min(page, pages - 1);
-  const pending = unaliased.filter(
-    (r) =>
-      (!draft.accountId || r.accountId === draft.accountId) &&
-      `${r.description} ${r.account} ${r.date}`
-        .toLowerCase()
-        .includes(pendingQuery.toLowerCase()),
+  const pending = unaliased.filter((r) =>
+    `${r.description} ${r.account} ${r.date}`
+      .toLowerCase()
+      .includes(pendingQuery.toLowerCase()),
   );
   const pendingPages = Math.max(1, Math.ceil(pending.length / 10)),
     pendingCurrent = Math.min(pendingPage, pendingPages - 1);
@@ -161,8 +158,8 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
             Without an alias <span>{pending.length}</span>
           </h3>
           <p>
-            Choose a transaction to start a rule. All months, in the selected
-            account scope.
+            Choose a transaction to start a rule. Across all months and
+            accounts.
           </p>
           <input
             aria-label="Search transactions without aliases"
@@ -195,7 +192,7 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
               <p>
                 {pendingQuery
                   ? "No matches. Try another search."
-                  : "No transactions without aliases in this scope."}
+                  : "No transactions without aliases."}
               </p>
             )}
           </div>
@@ -252,21 +249,6 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
                 onChange={(e) => update("pattern", e.target.value)}
               />
             </label>
-            <label>
-              Apply in
-              <select
-                value={draft.accountId}
-                onChange={(e) => update("accountId", e.target.value)}
-              >
-                <option value="">All accounts</option>
-                {accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                    {a.deletedAt ? " (deleted)" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
             <p className="rv-help">
               Matches original bank descriptions, ignoring capitalization. Use ^
               and $ to anchor a match. RE2 syntax; no / delimiters, lookarounds
@@ -301,14 +283,13 @@ function AliasEditor({ rule, accounts, unaliased, act, onClose }) {
               </div>
               {!!preview.duplicates.length && (
                 <p className="dr-error-text" role="alert">
-                  Name or pattern already used in this account scope:{" "}
+                  Name or pattern already used:{" "}
                   {preview.duplicates.map((r) => r.name).join(", ")}.
                 </p>
               )}
               {preview.conflicts.length > 0 && (
                 <p className="dr-error-text">
-                  Refine the pattern or account scope to remove competing
-                  matches before saving.
+                  Refine the pattern to remove competing matches before saving.
                 </p>
               )}
               {!preview.matches.length && (
@@ -442,7 +423,6 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
     if (failure) throw failure;
     return result;
   }
-  const accounts = [...data.accounts, ...(data.deletedAccounts || [])];
   const rules = (state?.rules || []).filter((r) =>
     `${r.name} ${r.pattern}`.toLowerCase().includes(query.toLowerCase()),
   );
@@ -536,9 +516,7 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
                 <h3 title={r.name}>{r.name}</h3>
                 <code title={r.pattern}>{r.pattern}</code>
                 <small className="al-rule-info">
-                  {accounts.find((a) => a.id === r.accountId)?.name ||
-                    "All accounts"}{" "}
-                  · {r.matched} matched
+                  {r.matched} matched
                   {r.conflicts ? ` · ${r.conflicts} conflicts` : ""}
                 </small>
               </div>
@@ -557,7 +535,6 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
         <AliasEditor
           key={editing.id || "new"}
           rule={editing}
-          accounts={accounts}
           unaliased={state?.unaliased || []}
           act={act}
           onClose={() => setEditing(null)}

@@ -30,7 +30,11 @@ fs.writeFileSync(
 );
 store.resolveAccount(store.enqueue([file]).ids[0], account, false);
 store.close();
-const env = { ...process.env, URBANOMICS_DATA_DIR: dataDir };
+const env = {
+  ...process.env,
+  URBANOMICS_DATA_DIR: dataDir,
+  URBANOMICS_CONFIG_DIR: path.join(root, "configuration"),
+};
 delete env.ELECTRON_RUN_AS_NODE;
 let app, page;
 const errors = [];
@@ -205,6 +209,12 @@ async function create(kind, name, selected = []) {
     app = null;
     await launch();
     assert.deepEqual(await state(), saved);
+    const configSQL = fs.readFileSync(
+      path.join(root, "configuration/workspace.sql"),
+      "utf8",
+    );
+    assert.ok(configSQL.includes("Food"));
+    assert.ok(!configSQL.includes("Synthetic dinner"));
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({

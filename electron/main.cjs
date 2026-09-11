@@ -10,12 +10,47 @@ const path = require("node:path");
 const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const { ImportStore } = require("./imports/store.cjs");
+const {
+  exportConfiguration,
+  seedConfiguration,
+} = require("./configuration.cjs");
 
 const privateRoot =
   process.env.URBANOMICS_DATA_DIR ||
   (app.isPackaged
     ? path.join(app.getPath("appData"), "Urbanomics", "private")
     : path.join(__dirname, "..", "private", "desktop"));
+const configurationDir =
+  process.env.URBANOMICS_CONFIG_DIR ||
+  (!process.env.URBANOMICS_DATA_DIR
+    ? app.isPackaged
+      ? path.join(app.getPath("appData"), "Urbanomics", "configuration")
+      : path.join(__dirname, "..", "configuration")
+    : null);
+let configurationError = "";
+function syncConfiguration() {
+  if (!configurationDir) return;
+  try {
+    exportConfiguration(store.db, configurationDir);
+    configurationError = "";
+  } catch (error) {
+    configurationError =
+      "Configuration saved locally, but its SQL copy could not be updated. Use Refresh to retry. " +
+      error.message;
+  }
+}
+const configurationChanges = new Set([
+  "aliases:save",
+  "aliases:remove",
+  "review:entity",
+  "review:entity-remove",
+  "workspace:account",
+  "workspace:account-update",
+  "workspace:account-delete",
+  "workspace:account-restore",
+  "workspace:route",
+  "workspace:scan",
+]);
 fs.mkdirSync(privateRoot, { recursive: true });
 app.setPath("userData", path.join(privateRoot, "electron"));
 app.setPath("logs", path.join(privateRoot, "logs"));
@@ -38,7 +73,34 @@ else {
   app
     .whenReady()
     .then(async () => {
+      const freshWorkspace = !fs.existsSync(
+        path.join(privateRoot, "urbanomics.sqlite"),
+      );
       store = new ImportStore(privateRoot);
+      const emptyWorkspace = [
+        "accounts",
+        "rules",
+        "review_entities",
+        "transaction_aliases",
+        "transactions",
+        "sources",
+        "review_items",
+      ].every(
+        (table) =>
+          store.db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get().n === 0,
+      );
+      if ((freshWorkspace || emptyWorkspace) && configurationDir) {
+        const localSeed = path.join(configurationDir, "workspace.sql"),
+          bundledSeed = path.join(
+            __dirname,
+            "..",
+            "configuration",
+            "workspace.sql",
+          );
+        const seed = fs.existsSync(localSeed) ? localSeed : bundledSeed;
+        if (fs.existsSync(seed)) seedConfiguration(store.db, seed);
+      }
+      syncConfiguration();
       store.scanDropbox();
       session.defaultSession.setPermissionRequestHandler(
         (_wc, _permission, respond) => respond(false),
@@ -78,12 +140,17 @@ else {
               ].includes(channel)
             )
               throw new Error("Wait for Dropbox processing to finish.");
-            return { ok: true, value: await fn(...args) };
+            const value = await fn(...args);
+            if (configurationChanges.has(channel)) syncConfiguration();
+            return { ok: true, value };
           } catch (error) {
             return { ok: false, error: error.message };
           }
         });
-      handle("workspace:state", () => store.state());
+      handle("workspace:state", () => ({
+        ...store.state(),
+        configurationError,
+      }));
       handle("review:state", () => store.review.state());
       handle("aliases:state", () => store.aliases.state());
       handle("aliases:preview", (values) => store.aliases.preview(values));

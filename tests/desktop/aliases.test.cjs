@@ -157,10 +157,14 @@ test("overlaps, duplicate rules/names, and unsupported patterns cannot create co
   assert.equal(c.store.aliases.rules().length, 2);
 });
 
-test("account scopes can separate identical patterns and later imports expose ambiguity without guessing", (t) => {
+test("aliases apply globally and later imports expose ambiguity without guessing", (t) => {
   const c = setup(t);
   c.store.aliases.save(rule("Walmart", "^WALMART", c.a));
-  c.store.aliases.save(rule("Walmart", "^WALMART", c.b));
+  assert.equal(c.store.aliases.state().rules[0].matched, 3);
+  assert.throws(
+    () => c.store.aliases.save(rule("Walmart", "^WALMART", c.b)),
+    /competes/,
+  );
   assert.throws(
     () => c.store.aliases.save(rule("All Walmart", "^WALMART")),
     /competes/,

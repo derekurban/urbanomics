@@ -1,8 +1,10 @@
 # Direction note
 
-Updated: 2026-09-10
+Updated: 2026-09-11
 
 ## Current request
+
+Aliases now apply globally across accounts. The user explicitly approved committing configuration definitions (aliases, accounts, filename rules, categories, events and people) as SQL in the GitHub repository. Live SQLite, transactions, snapshots, raw CSVs and financial review decisions remain private. The app keeps the SQL export current; Git commits remain an explicit repository workflow. Fresh empty workspaces can seed definitions from the tracked SQL.
 
 Suggested transaction alias regexes now keep the leading `^` and escape bank text, but omit the trailing `$` so suffixes can match. Saved rules are unchanged.
 
