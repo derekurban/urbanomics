@@ -40,6 +40,8 @@ function syncConfiguration() {
   }
 }
 const configurationChanges = new Set([
+  "transaction-rules:save",
+  "transaction-rules:remove",
   "aliases:save",
   "aliases:remove",
   "review:entity",
@@ -82,6 +84,7 @@ else {
         "rules",
         "review_entities",
         "transaction_aliases",
+        "transaction_rules",
         "transactions",
         "sources",
         "review_items",
@@ -133,6 +136,8 @@ else {
                 "review:state",
                 "aliases:state",
                 "aliases:preview",
+                "transaction-rules:state",
+                "transaction-rules:preview",
                 "workspace:transactions",
                 "workspace:detail",
                 "workspace:snapshot",
@@ -154,6 +159,22 @@ else {
       }));
       handle("review:state", () => store.review.state());
       handle("aliases:state", () => store.aliases.state());
+      handle("transaction-rules:state", () => store.transactionRules.state());
+      handle("transaction-rules:preview", (values) =>
+        store.transactionRules.preview(values),
+      );
+      handle("transaction-rules:save", (values) =>
+        store.transactionRules.save(values),
+      );
+      handle("transaction-rules:remove", (id, version) =>
+        store.transactionRules.remove(id, version),
+      );
+      handle("transaction-rules:apply", (token) =>
+        store.transactionRules.apply(token),
+      );
+      handle("transaction-rules:person", (id, version, personId) =>
+        store.transactionRules.assignPerson(id, version, personId),
+      );
       handle("aliases:preview", (values) => store.aliases.preview(values));
       handle("aliases:save", (values) => store.aliases.save(values));
       handle("aliases:remove", (id, version) =>

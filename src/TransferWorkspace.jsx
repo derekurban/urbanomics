@@ -59,8 +59,9 @@ export function TransferWorkspace({
   act,
   error,
   onSource,
+  initialFilter = "pending",
 }) {
-  const [filter, setFilter] = useState("pending"),
+  const [filter, setFilter] = useState(initialFilter),
     [band, setBand] = useState("2"),
     [selected, setSelected] = useState(""),
     [target, setTarget] = useState(""),

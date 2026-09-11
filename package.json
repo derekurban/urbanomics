@@ -18,6 +18,7 @@
     "test:review": "node scripts/smoke-review.cjs",
     "test:orbit": "node scripts/smoke-orbit.cjs",
     "test:organize": "node scripts/smoke-organize.cjs",
+    "test:rules": "node scripts/smoke-rules.cjs",
     "test:aliases": "node scripts/smoke-aliases.cjs",
     "test:transfers": "node scripts/smoke-transfers.cjs",
     "package:win": "npm run build && electron-builder --win dir"

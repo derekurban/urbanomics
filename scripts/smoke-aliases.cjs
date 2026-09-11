@@ -206,7 +206,7 @@ async function newRule(name, pattern) {
     await shot("alias-list");
     assert.ok(
       await page
-        .locator(".al-rule-list .og-item")
+        .locator(".al-rule-list .og-row")
         .first()
         .evaluate((el) => el.getBoundingClientRect().height <= 78),
     );

@@ -14,6 +14,7 @@ const complete = (row, events) =>
 export function OrbitSorter({
   rows,
   entities,
+  people,
   events,
   drafts,
   setDrafts,
@@ -538,6 +539,7 @@ export function OrbitSorter({
         <TransactionSettings
           row={editing}
           categories={entities}
+          people={people}
           onSave={onSave}
           onClose={() => setEditing(null)}
           onSaved={() => finishSave(editing)}

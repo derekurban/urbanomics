@@ -441,7 +441,7 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
           + New transaction alias
         </button>
       </div>
-      <div className="al-account-link">
+      <div className="og-callout">
         <div>
           <strong>Account aliases</strong>
           <small>
@@ -498,7 +498,9 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
         onChange={(e) => setQuery(e.target.value)}
       />
       {!state ? (
-        <p>Loading aliases…</p>
+        <p className="og-empty">
+          {error ? "Unable to load aliases." : "Loading aliases…"}
+        </p>
       ) : !rules.length ? (
         <div className="og-empty">
           <h3>
@@ -509,10 +511,10 @@ export function AliasesWorkspace({ data, run, busy, onAccounts }) {
           <p>Create a regex rule and preview its matches before saving.</p>
         </div>
       ) : (
-        <div className="og-list al-rule-list">
+        <div className="og-rows al-rule-list">
           {rules.map((r) => (
-            <article className="og-item" key={r.id}>
-              <div className="og-item-body">
+            <article className="og-row" key={r.id}>
+              <div className="og-row-body">
                 <h3 title={r.name}>{r.name}</h3>
                 <code title={r.pattern}>{r.pattern}</code>
                 <small className="al-rule-info">

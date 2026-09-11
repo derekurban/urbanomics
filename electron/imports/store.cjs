@@ -5,6 +5,7 @@ const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const { ReviewStore } = require("../review/store.cjs");
 const { AliasStore } = require("../review/aliases.cjs");
+const { TransactionRuleStore } = require("../review/transaction-rules.cjs");
 const { parseExport, hash, routingKey, csv } = require("./parsers.cjs");
 
 function lastCompleteMonth(now = new Date()) {
@@ -41,7 +42,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 10) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 11) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -166,6 +167,13 @@ class ImportStore {
     }
     this.aliases = new AliasStore(this);
     this.review = new ReviewStore(this);
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 11) {
+      this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE IF NOT EXISTS transaction_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,pattern TEXT NOT NULL,categoryId TEXT NOT NULL DEFAULT '',personId TEXT NOT NULL DEFAULT '',direction TEXT NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),version INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS transaction_rule_applications(id TEXT PRIMARY KEY,transaction_id TEXT NOT NULL REFERENCES transactions(id),created TEXT NOT NULL,payload TEXT NOT NULL);
+        PRAGMA user_version=11; COMMIT;`);
+    }
+    this.transactionRules = new TransactionRuleStore(this);
     this.recover();
   }
   close() {
@@ -636,6 +644,7 @@ class ImportStore {
             matches.set(conflict.rows[n].record, conflict.existing[n]);
         }
       const affected = new Set();
+      const addedIds = [];
       const result = {
         added: 0,
         matched: 0,
@@ -660,6 +669,7 @@ class ImportStore {
                 JSON.stringify(row),
               );
             result.added++;
+            addedIds.push(txId);
             affected.add(row.month);
           } else result.matched++;
           this.db
@@ -668,6 +678,7 @@ class ImportStore {
             )
             .run(job.source_hash, job.account_id, row.record, txId);
         }
+        this.transactionRules.applyNew(addedIds);
         result.months = [...affected].sort();
         this.db
           .prepare("INSERT INTO imports VALUES (?,?,?,?,?,?,?)")

@@ -1,5 +1,12 @@
 # Direction note
 
+## Current Organize direction — September 11, 2026
+
+The user requested a full Organize overhaul delegated to Fable 5.1, preserving existing management while adding regex-driven category/person rules. Fable 5.1 designed the Overview, compact management lists and Rules UI through Claude Code using source-only files; the parent integrated the persistence and verified the Electron workflow.
+
+Organize now opens with a management Overview and sections for Categories, Events, People, Accounts, Aliases and Rules. Cleanup items link to their management tools; transfer differences open linked pairs. Rule previews separate ready, conflicting, protected and unchanged matches. Implementation choices: saved rules fill gaps on new imports, with an explicit apply step for existing transactions; they never overwrite current assignments. People are associations, independently editable, without inferring repayment purpose. Definitions are versioned configuration; applications stay private. See `docs/transaction-rules.md` for the current behavior. Historical prototype notes below remain design history where superseded.
+
+
 Updated: 2026-09-11
 
 ## Current request

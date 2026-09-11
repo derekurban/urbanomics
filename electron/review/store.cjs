@@ -14,6 +14,7 @@ const empty = () => ({
   reviewed: false,
   shares: null,
   personId: "",
+  assignedPersonId: "",
   incomeType: "",
   incomeSource: "",
   allocations: [],
@@ -180,6 +181,16 @@ class ReviewStore {
   removeEntity(id) {
     const entity = this.entities().find((e) => e.id === id);
     if (!entity) throw new Error("Item not found.");
+    if (
+      this.db
+        .prepare(
+          "SELECT id FROM transaction_rules WHERE categoryId=? OR personId=?",
+        )
+        .get(id, id)
+    )
+      throw new Error(
+        "This item is mapped by a transaction rule. Update or delete that rule first.",
+      );
     const records = this.records();
     if (
       entity.kind === "category" &&
@@ -192,10 +203,14 @@ class ReviewStore {
       entity.kind === "person" &&
       records.some(
         (t) =>
-          t.review.personId === id || t.review.shares?.some((p) => p.id === id),
+          t.review.personId === id ||
+          t.review.assignedPersonId === id ||
+          t.review.shares?.some((p) => p.id === id),
       )
     )
-      throw new Error("This person is used by a split or repayment.");
+      throw new Error(
+        "This person is used by a split, repayment, or transaction association.",
+      );
     return this.atomic(() => {
       if (entity.kind === "group")
         for (const t of records.filter((t) => t.review.groups.includes(id)))
@@ -330,6 +345,17 @@ class ReviewStore {
       for (const change of changes) {
         const row = this.current(change.id, change.version),
           review = { ...row.review };
+        if (change.assignedPersonId !== undefined) {
+          if (
+            typeof change.assignedPersonId !== "string" ||
+            (change.assignedPersonId &&
+              !entities.some(
+                (e) => e.id === change.assignedPersonId && e.kind === "person",
+              ))
+          )
+            throw new Error("Choose an existing person.");
+          review.assignedPersonId = change.assignedPersonId;
+        }
         if (change.tags !== undefined) {
           review.tags = portions(change.tags, "category portions");
           if (

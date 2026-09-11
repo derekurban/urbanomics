@@ -1,0 +1,541 @@
+/* Rules section of Organize. Every selector is scoped under .rules-workspace
+   or the rule editor dialog (rl-*). Shared og-* pieces come from
+   organize-workspace.css. */
+.rules-workspace,
+.rl-editor-dialog {
+  --rl-ready: #2f6b47;
+  --rl-ready-bg: #e1efe4;
+  --rl-ready-line: #8fc2a2;
+  --rl-conflict: #8a4b1f;
+  --rl-conflict-bg: #fdeedd;
+  --rl-conflict-line: #e3b27f;
+  --rl-protected: #3f5a86;
+  --rl-protected-bg: #e5ecf5;
+  --rl-protected-line: #a9bbd8;
+  --rl-unchanged: #6a746a;
+  --rl-unchanged-bg: #eef0ec;
+  --rl-unchanged-line: #d3d8d0;
+  --rl-person: #66507a;
+  --rl-person-bg: #ece6f2;
+  --rl-off: #7d6533;
+  --rl-off-bg: #f3eddc;
+}
+
+/* How rules behave, in three short facts. */
+.rl-facts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.rl-fact {
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--soft);
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.rl-fact strong {
+  display: block;
+  color: var(--ink);
+  font-size: 12px;
+  margin-bottom: 2px;
+}
+
+/* Status chips shared by the apply panel, rule rows and match rows. */
+.rl-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  line-height: 1.3;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: var(--rl-unchanged-bg);
+  color: var(--rl-unchanged);
+  white-space: nowrap;
+}
+.rl-status b {
+  font-weight: 600;
+}
+.rl-status.is-ready {
+  background: var(--rl-ready-bg);
+  color: var(--rl-ready);
+}
+.rl-status.is-conflict {
+  background: var(--rl-conflict-bg);
+  color: var(--rl-conflict);
+}
+.rl-status.is-protected {
+  background: var(--rl-protected-bg);
+  color: var(--rl-protected);
+}
+.rl-muted {
+  color: var(--muted);
+  font-size: 12px;
+  margin: 0;
+}
+
+/* Explicit "apply to existing transactions" panel, visually separate from
+   the save flow. */
+.rl-apply {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px 16px;
+  align-items: center;
+  padding: 12px 14px;
+  border: 1px solid #cfe0d4;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #f2f7f0, #e6f0e6);
+  margin-bottom: 18px;
+}
+.rl-apply-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+}
+.rl-apply-counts small {
+  width: 100%;
+  font-size: 11px;
+}
+.rl-apply-actions {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  justify-self: end;
+}
+.rl-apply-actions .primary {
+  font-size: 12.5px;
+  padding: 8px 12px;
+  min-height: 36px;
+  white-space: nowrap;
+}
+.rl-apply > p {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 11.5px;
+}
+.rl-apply > .rl-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  color: var(--rl-ready);
+  background: white;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+.rl-result .text-button {
+  padding: 0;
+  min-height: 0;
+  font-size: 12px;
+}
+
+/* Rule rows. */
+.rl-rules {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  margin-bottom: 22px;
+}
+.rl-rule {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 4px 12px;
+  align-items: center;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.rl-rule:first-child {
+  border-top: 0;
+}
+.rl-rule.is-off {
+  background: #fafbf8;
+}
+.rl-rule.is-off h3,
+.rl-rule.is-off code {
+  color: var(--muted);
+}
+.rl-rule.is-off .rl-map {
+  opacity: 0.7;
+}
+.rl-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5d9a72;
+  box-shadow: 0 0 0 3px var(--rl-ready-bg);
+}
+.rl-rule.is-off .rl-dot {
+  background: #c2c8bf;
+  box-shadow: 0 0 0 3px var(--rl-unchanged-bg);
+}
+.rl-rule-body {
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.rl-rule-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+.rl-rule-title h3 {
+  margin: 0;
+  font-size: 13px;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rl-rule code,
+.rl-regex {
+  font-family: Consolas, "Cascadia Mono", monospace;
+}
+.rl-rule code {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.rl-rule-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 3px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+.rl-rule > button {
+  padding: 6px 10px;
+  font-size: 12px;
+  min-height: 32px;
+}
+.rl-badge {
+  flex-shrink: 0;
+  font-size: 10px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--rl-unchanged-bg);
+  color: var(--rl-unchanged);
+  white-space: nowrap;
+}
+.rl-badge.is-off {
+  background: var(--rl-off-bg);
+  color: var(--rl-off);
+}
+
+/* Mapping chips: category (colour dot) and person (lilac). */
+.rl-maps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 6px;
+}
+.rl-map {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  line-height: 1.4;
+  padding: 2px 8px;
+  border-radius: 12px;
+  background: var(--soft);
+  color: #3f5a45;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.rl-map i {
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #9db39a;
+}
+.rl-map em {
+  font-style: normal;
+  font-size: 9.5px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+.rl-map.is-person {
+  background: var(--rl-person-bg);
+  color: var(--rl-person);
+}
+.rl-map.is-missing {
+  background: var(--rl-conflict-bg);
+  color: var(--rl-conflict);
+}
+.rl-map.is-none {
+  background: var(--rl-unchanged-bg);
+  color: var(--rl-unchanged);
+}
+
+/* Match list with status filter, search and paging. */
+.rl-matches {
+  margin-bottom: 10px;
+}
+.rl-list-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 10px;
+}
+.rl-filters button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.rl-filters button small {
+  font-size: 10px;
+  color: inherit;
+  opacity: 0.75;
+}
+.rl-list-tools input {
+  flex: 1 1 180px;
+  padding: 8px 10px;
+  font-size: 12px;
+}
+.rl-candidates {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.rl-candidate {
+  display: flex;
+  gap: 12px;
+  padding: 9px 12px 9px 10px;
+  border-top: 1px solid var(--line);
+  border-left: 3px solid var(--rl-unchanged-line);
+}
+.rl-candidate:first-child {
+  border-top: 0;
+  border-top-left-radius: 12px;
+}
+.rl-candidate:last-child {
+  border-bottom-left-radius: 12px;
+}
+.rl-candidate.is-ready {
+  border-left-color: var(--rl-ready-line);
+}
+.rl-candidate.is-conflict {
+  border-left-color: var(--rl-conflict-line);
+  background: #fffaf4;
+}
+.rl-candidate.is-protected {
+  border-left-color: var(--rl-protected-line);
+}
+.rl-candidate-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: 3px;
+}
+.rl-candidate-body > strong {
+  font-size: 12.5px;
+  overflow-wrap: anywhere;
+}
+.rl-candidate-body > small {
+  font-size: 11px;
+}
+.rl-reason {
+  font-size: 11px;
+}
+.rl-rulenames {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 2px;
+}
+.rl-rulenames button,
+.rl-rulenames span {
+  font-size: 11px;
+  line-height: 1.3;
+  min-height: 24px;
+  padding: 2px 8px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: white;
+  color: var(--ink);
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.rl-rulenames span {
+  display: inline-flex;
+  align-items: center;
+}
+.rl-rulenames .is-conflict {
+  border-color: var(--rl-conflict-line);
+  background: var(--rl-conflict-bg);
+  color: var(--rl-conflict);
+}
+.rl-candidate-side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.rl-amount {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.rl-pages {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 0;
+  font-size: 12px;
+}
+.rl-pages button {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 32px;
+}
+.rl-none {
+  padding: 18px;
+  margin: 0;
+  font-size: 12.5px;
+  text-align: center;
+  border: 1px dashed #c4d0be;
+  border-radius: 12px;
+  background: #f6f8f3;
+}
+.rl-empty .primary {
+  margin-top: 4px;
+}
+
+/* Editor dialog. Save and Cancel live in the modal footer, outside the
+   scrolling body. */
+.workspace-dialog.rl-editor-dialog {
+  width: min(820px, calc(100vw - 50px));
+}
+.rl-editor {
+  padding: 3px;
+  min-width: 0;
+}
+.rl-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px 16px;
+  border: 0;
+  padding: 0;
+  margin: 0 0 8px;
+  min-width: 0;
+}
+.rl-fields label {
+  display: grid;
+  gap: 6px;
+  font-size: 12.5px;
+  min-width: 0;
+}
+.rl-fields input:not([type="checkbox"]),
+.rl-fields select {
+  width: 100%;
+}
+.rl-fields select {
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: white;
+  color: var(--ink);
+}
+.rl-fields select:focus-visible {
+  outline: 3px solid #95bea2;
+  outline-offset: 3px;
+}
+.rl-span {
+  grid-column: 1 / -1;
+}
+.rl-fields .rl-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.rl-fields .rv-help {
+  margin: -4px 0 0;
+}
+.rl-hint {
+  color: var(--rl-conflict) !important;
+}
+.rl-preview {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.rl-preview-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+.rl-preview-head h3 {
+  margin: 0;
+  font-size: 14px;
+}
+.rl-preview-head button {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 32px;
+}
+.rl-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 10px 12px;
+  background: var(--soft);
+  border-radius: 10px;
+  margin-bottom: 10px;
+  font-size: 12px;
+}
+.rl-summary small {
+  width: 100%;
+  font-size: 11px;
+}
+.rl-editor-dialog .rl-actions {
+  flex-wrap: wrap;
+}
+
+@media (max-width: 1000px) {
+  .rl-apply {
+    grid-template-columns: 1fr;
+  }
+  .rl-apply-actions {
+    justify-self: start;
+  }
+}
+@media (max-width: 760px) {
+  .rl-facts {
+    grid-template-columns: 1fr;
+  }
+  .rl-rule {
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+  .rl-rule-stats {
+    grid-column: 2;
+    flex-direction: row;
+    align-items: center;
+    flex-wrap: wrap;
+    white-space: normal;
+  }
+  .rl-fields {
+    grid-template-columns: 1fr;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rules-workspace *,
+  .rl-editor-dialog * {
+    transition: none !important;
+  }
+}

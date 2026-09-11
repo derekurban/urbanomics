@@ -1,95 +1,236 @@
+/* Organize workspace. Shared og-* pieces (heading, toolbar, rows, empty
+   state, callout, panel) are reused by the Aliases and Rules sections.
+   Everything is scoped under .organize-workspace. */
+.organize-workspace {
+  --og-sage: #dbe7d3;
+  --og-sage-ink: #3f6b45;
+  --og-mint: #e2efe6;
+  --og-mint-ink: #2f6b47;
+  --og-sand: #f3eddc;
+  --og-sand-ink: #7d6533;
+  --og-peach: #fdeedd;
+  --og-peach-ink: #8a4b1f;
+  --og-sky: #e5ecf5;
+  --og-sky-ink: #3f5a86;
+  --og-lilac: #ece6f2;
+  --og-lilac-ink: #66507a;
+  --og-gray: #eef0ec;
+  --og-gray-ink: #6a746a;
+  min-width: 0;
+}
+
+/* Compact page heading: title and one-line intro share a row. */
+.organize-workspace .page-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin-bottom: 14px;
+}
+.organize-workspace .page-heading h1 {
+  font-size: 26px;
+  letter-spacing: -0.8px;
+  margin: 0;
+}
+.organize-workspace .page-heading p {
+  font-size: 12px;
+}
+
+/* Section switcher. */
 .og-sections {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
-  padding: 6px;
-  border-radius: 14px;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
   background: #e9eee5;
-  margin-bottom: 28px;
+  margin-bottom: 20px;
 }
 .og-sections button {
+  flex: 1 1 auto;
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  gap: 12px;
+  gap: 7px;
+  min-width: 0;
+  min-height: 32px;
+  padding: 6px 10px;
   border: 0;
+  border-radius: 9px;
   background: transparent;
-  min-width: 100px;
+  font-size: 12px;
+  color: #5b6c58;
 }
 .og-sections button[aria-pressed="true"] {
   background: white;
-  box-shadow: 0 2px 5px #243d2e0c;
+  color: #244e34;
+  box-shadow: 0 1px 3px #243d2e14;
 }
 .og-sections small {
-  font-size: 11px;
-  background: #e8eee2;
-  color: #526d48;
-  padding: 2px 6px;
+  font-size: 10.5px;
+  line-height: 1.4;
+  min-width: 18px;
+  text-align: center;
+  padding: 1px 6px;
   border-radius: 5px;
+  background: #e0e7da;
+  color: #526d48;
 }
+.og-sections button[aria-pressed="true"] small {
+  background: var(--og-mint);
+}
+
+/* Section heading, search and filters. */
 .og-heading {
   display: flex;
   justify-content: space-between;
-  align-items: start;
-  gap: 18px;
-  margin-bottom: 20px;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 14px;
 }
 .og-heading h2 {
-  margin-bottom: 7px;
+  margin-bottom: 4px;
 }
 .og-heading p {
   margin: 0;
+  font-size: 12.5px;
 }
 .og-heading > button {
   flex-shrink: 0;
 }
-.og-search {
-  width: min(100%, 380px);
-  margin-bottom: 20px;
-}
-.og-list {
-  display: grid;
-  gap: 10px;
-}
-.og-item {
+.og-toolbar {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
   align-items: center;
-  padding: 18px;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.og-search {
+  width: min(100%, 340px);
+  padding: 9px 12px;
+  font-size: 13px;
+}
+.og-filter {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 36px;
+  padding: 7px 11px;
+  font-size: 12px;
+}
+.og-filter small {
+  font-size: 10.5px;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--og-gray);
+  color: var(--og-gray-ink);
+}
+.og-filter[aria-pressed="true"] {
+  background: var(--og-mint);
+  border-color: #b9d3c1;
+  color: var(--og-mint-ink);
+}
+.og-filter[aria-pressed="true"] small {
   background: white;
+}
+.og-stat {
+  margin-left: auto;
+  font-size: 11.5px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* Dense entity rows. */
+.og-rows {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 12px;
+  background: white;
+}
+.og-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 12px;
+  border-top: 1px solid var(--line);
+}
+.og-row:first-child {
+  border-top: 0;
+}
+.og-row-body {
+  flex: 1;
+  min-width: 0;
+}
+.og-row h3 {
+  margin: 0;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.og-row-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px 10px;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.og-row > button {
+  flex-shrink: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  min-height: 32px;
 }
 .og-symbol {
   flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 5px;
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
   background: var(--item-color);
 }
 .og-avatar {
   display: grid;
   place-items: center;
-  width: 42px;
-  height: 42px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   color: #203023;
-  font-size: 12px;
+  font-size: 11px;
+  font-weight: 550;
   background: color-mix(in srgb, var(--item-color) 35%, white);
 }
-.og-item-body {
-  min-width: 0;
-  flex: 1;
-}
-.og-item h3 {
-  margin: 0 0 5px;
-  font-size: 15px;
-  overflow-wrap: anywhere;
-}
-.og-item > button {
+.og-usage-bar {
   flex-shrink: 0;
+  width: 56px;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--og-gray);
+  overflow: hidden;
 }
+.og-usage-bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  width: var(--fill, 0%);
+  border-radius: 2px;
+  background: #8fb89c;
+}
+.og-badge {
+  font-size: 10px;
+  line-height: 1.4;
+  padding: 1px 6px;
+  border-radius: 5px;
+  background: var(--og-sand);
+  color: var(--og-sand-ink);
+  white-space: nowrap;
+}
+.og-badge.is-warn {
+  background: var(--og-peach);
+  color: var(--og-peach-ink);
+}
+
+/* Chips used by shared editors. */
 .og-chips {
   display: flex;
   flex-wrap: wrap;
@@ -114,21 +255,311 @@
   border-radius: 50%;
   margin-right: 6px;
 }
+
+/* Empty and loading states. */
 .og-empty {
   border: 1px dashed #c4d0be;
-  padding: 30px;
-  border-radius: 14px;
+  padding: 20px 22px;
+  border-radius: 12px;
   background: #edf2e9;
+  color: var(--muted);
+  font-size: 13px;
+}
+.og-empty h3 {
+  margin: 0 0 4px;
+  color: var(--ink);
 }
 .og-empty p {
+  margin: 0 0 10px;
+  font-size: 12.5px;
+}
+.og-empty p:last-child {
+  margin-bottom: 0;
+}
+
+/* Cross-link callout ("this lives in Accounts"). */
+.og-callout {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 10px 14px;
+  background: var(--soft);
+  border-radius: 12px;
+  margin-bottom: 14px;
+}
+.og-callout > div:first-child {
+  min-width: 0;
+}
+.og-callout strong {
+  display: block;
+  font-size: 13px;
+}
+.og-callout small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+}
+.og-callout > button,
+.og-callout-actions {
+  flex-shrink: 0;
+  display: flex;
+  gap: 6px;
+}
+.og-callout button {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 32px;
+}
+
+/* Panels with a small heading row. */
+.og-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin-bottom: 10px;
+}
+.og-panel-head h3 {
   margin: 0;
+  font-size: 14px;
+}
+.og-panel-head small {
+  font-size: 11px;
+}
+.og-panel > p {
+  font-size: 12px;
+  margin-bottom: 10px;
+}
+
+/* Overview: toolkit tiles. */
+.og-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin-bottom: 20px;
+}
+.og-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+  padding: 11px 13px;
+  text-align: left;
+  min-height: 0;
+  border-radius: 12px;
+  background: white;
+  border: 1px solid var(--line);
+}
+.og-tile i {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  margin-bottom: 7px;
+  background: var(--tile-bg, var(--og-mint));
+  color: var(--tile-ink, var(--og-mint-ink));
+}
+.og-tile b {
+  font-size: 20px;
+  font-weight: 550;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+}
+.og-tile > span {
+  font-size: 12px;
+  color: var(--muted);
+}
+.og-tile small {
+  font-size: 11px;
+  color: var(--og-sand-ink);
+}
+.og-tile.is-sage i {
+  --tile-bg: var(--og-sage);
+  --tile-ink: var(--og-sage-ink);
+}
+.og-tile.is-sand i {
+  --tile-bg: var(--og-sand);
+  --tile-ink: var(--og-sand-ink);
+}
+.og-tile.is-lilac i {
+  --tile-bg: var(--og-lilac);
+  --tile-ink: var(--og-lilac-ink);
+}
+.og-tile.is-sky i {
+  --tile-bg: var(--og-sky);
+  --tile-ink: var(--og-sky-ink);
+}
+.og-tile.is-mint i {
+  --tile-bg: var(--og-mint);
+  --tile-ink: var(--og-mint-ink);
+}
+.og-tile.is-peach i {
+  --tile-bg: var(--og-peach);
+  --tile-ink: var(--og-peach-ink);
+}
+
+/* Overview: attention list and Review links. */
+.og-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+.og-attention {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+}
+.og-attention-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  border-top: 1px solid var(--line);
+}
+.og-attention-row:first-child {
+  border-top: 0;
+}
+.og-attention-row > div:not(.og-attention-actions) {
+  flex: 1;
+  min-width: 0;
+}
+.og-attention-row strong {
+  display: block;
+  font-size: 13px;
+}
+.og-attention-row small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  line-height: 1.45;
+}
+.og-count {
+  flex-shrink: 0;
+  min-width: 34px;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  padding: 3px 7px;
+  border-radius: 7px;
+  background: var(--og-gray);
+  color: var(--og-gray-ink);
+}
+.og-attention-row.is-warn .og-count {
+  background: var(--og-peach);
+  color: var(--og-peach-ink);
+}
+.og-attention-row.is-ok .og-count {
+  background: var(--og-mint);
+  color: var(--og-mint-ink);
+}
+.og-attention-row.is-info .og-count {
+  background: var(--og-sky);
+  color: var(--og-sky-ink);
+}
+.og-attention-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 4px;
+}
+.og-attention-actions button {
+  font-size: 12px;
+  padding: 6px 10px;
+  min-height: 32px;
+}
+.og-clear {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px;
+  border-radius: 12px;
+  background: var(--og-mint);
+  color: var(--og-mint-ink);
+}
+.og-clear .og-glyph {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+}
+.og-clear strong {
+  display: block;
+  font-size: 13px;
+}
+.og-clear small {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: #4f7a5f;
+}
+.og-pending {
+  margin: 8px 0 0;
+  font-size: 11.5px;
+}
+.og-pending.is-error {
+  color: #925a45;
+}
+.og-links {
+  display: grid;
+  gap: 6px;
+}
+.og-links button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-align: left;
+  padding: 9px 12px;
+}
+.og-links .og-glyph {
+  flex-shrink: 0;
+  color: #6f9a7c;
+}
+.og-links span {
+  min-width: 0;
+}
+.og-links strong {
+  display: block;
+  font-size: 13px;
+}
+.og-links small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+}
+
+@media (min-width: 1240px) {
+  .og-tiles {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
 }
 @media (max-width: 1000px) {
   .og-heading {
     flex-wrap: wrap;
   }
-  .og-item {
-    padding: 14px;
-    gap: 12px;
+  .og-overview-grid {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 700px) {
+  .og-usage-bar {
+    display: none;
+  }
+  .og-attention-row {
+    flex-wrap: wrap;
+  }
+  .og-attention-actions {
+    width: 100%;
+    justify-content: flex-start;
+    padding-left: 46px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .organize-workspace * {
+    transition: none !important;
   }
 }

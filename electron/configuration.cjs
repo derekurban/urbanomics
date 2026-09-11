@@ -25,6 +25,16 @@ const tables = {
     "endDate",
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
+  transaction_rules: [
+    "id",
+    "name",
+    "pattern",
+    "categoryId",
+    "personId",
+    "direction",
+    "enabled",
+    "version",
+  ],
 };
 const quote = (value) =>
   value === null
@@ -36,7 +46,7 @@ const quote = (value) =>
 function configurationSQL(db) {
   const lines = [
     "-- Urbanomics configuration v1. Apply only to an empty, initialized workspace.",
-    "-- Accounts, filename rules, categories, events, people and global aliases only.",
+    "-- Accounts, filename rules, categories, events, people, aliases and transaction rules only.",
     "BEGIN IMMEDIATE;",
   ];
   for (const [table, columns] of Object.entries(tables)) {

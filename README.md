@@ -21,11 +21,13 @@ The Snapshots section brings Dropbox intake, upload history and archives togethe
 
 Snapshots is one page with a compact calendar of the last 12 months through the latest imported month (or last completed month, whichever is later). Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
-**Organize** manages Categories, Events, Accounts and People through searchable lists with transaction usage counts. Create, rename, recolor and delete shared items through their editors. Categories and people already used by transactions are protected from deletion.
+**Organize** is the management hub for Categories, Events, People, Accounts, Aliases and Rules. Its Overview highlights uncategorized transactions, alias/rule conflicts, events missing dates, transfer differences and unused definitions, with links to the relevant tools. Compact searchable rows show transaction and rule usage; shared editors keep names, colors and dates consistent. Categories and people referenced by transactions or rules are protected from deletion.
+
+**Rules** maps original bank-description regexes to a category, a person, or both, optionally limited to money in or money out. Live previews show matching transactions, conflicting mappings and protected existing choices. Saving enables automation for newly imported transactions; **Apply to ready transactions** separately fills gaps in existing records. Compatible rules combine; conflicting mappings apply nothing to that transaction. Person associations can be edited in Transaction settings and never create repayments or shared expenses automatically. See [Rules behavior](docs/transaction-rules.md).
 
 Its **Aliases** section turns bank descriptions into readable transaction names using regex rules. Preview matches across all imported months, check competing rules, then save across all accounts. Existing overlaps block saving; future ambiguous matches keep their original names and appear in a conflict list. Original bank text and financial decisions stay intact. Account aliases link to the existing account-name and filename-prefix settings. See [transaction alias behavior](docs/transaction-aliases.md).
 
-Inside the alias editor, **Without an alias** shows searchable transactions still needing a readable name. Click one to start an exact-match rule, then use **Save & create another** to keep working through the list without reopening the editor.
+Inside the alias editor, **Without an alias** shows searchable transactions still needing a readable name. Click one to start a description-prefix rule, then use **Save & create another** to keep working through the list without reopening the editor.
 
 Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors are included in the tracked configuration SQL.
 
@@ -49,7 +51,7 @@ Click a selected category to remove it and stay on that card. Remaining categori
 
 Events → **Costs & repayments** shows cash paid, friends’ repayments, cash still fronted, agreed personal shares and outstanding reimbursements. Open an incoming event payment to allocate it to expenses; exact amount inputs and dollar/cent dividers adjust the allocation. Event selection counts each expense once, with excess left as unassigned e-transfer income. Unknown expense splits stay identified, and currencies are shown separately.
 
-Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. Dashboard adds category costs after received repayments; finalized personal-share reporting, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
+Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. Dashboard adds category costs after received repayments; finalized personal-share reporting and backup/restore UI remain future work. Regex rules now provide explicit person recognition and automatic categorization. See [review behavior and persistence](docs/desktop-review.md).
 
 Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. Transactions, snapshots, source archives and runtime SQLite are never bundled or committed. These local files are not encrypted by the app.
 
@@ -62,6 +64,7 @@ npm run test:events     # Event dates/calendar, shared costs, cross-month repaym
 npm run test:review     # Synthetic categorization, grouping, financial review and restart checks
 npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
+npm run test:rules      # Rule previews, conflicts, new/repeat imports and person mappings
 npm run test:aliases    # Regex previews, conflicts, readable names, persistence and visual checks
 npm run test:transfers  # Pair matching, fees, linked history, automatic multi-month imports
 npm run package:win     # Windows application in release/win-unpacked/
@@ -73,7 +76,7 @@ See [desktop architecture and import behavior](docs/desktop-imports.md) for arch
 
 Use `Launch Urbanomics.cmd` in the repository to open the packaged app with configuration sync enabled.
 
-`configuration/workspace.sql` contains accounts and filename rules, global transaction aliases, categories, events and people. App edits update this file automatically when connected to the repository configuration directory. These definitions are included in this private GitHub repository at your request; financial rows, assignments, reviews, sources and snapshots remain ignored. The app does not automatically commit or push: SQL changes are ready for the next Git commit. A fresh workspace loads these definitions without importing financial data. See [configuration setup](configuration/README.md).
+`configuration/workspace.sql` contains accounts and filename rules, global transaction aliases, category/person mapping rules, categories, events and people. App edits update this file automatically when connected to the repository configuration directory. These definitions are included in this private GitHub repository at your request; financial rows, assignments, reviews, sources and snapshots remain ignored. The app does not automatically commit or push: SQL changes are ready for the next Git commit. A fresh workspace loads these definitions without importing financial data. See [configuration setup](configuration/README.md).
 
 ## Starting direction
 

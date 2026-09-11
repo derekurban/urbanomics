@@ -7,6 +7,15 @@ async function invoke(channel, ...args) {
 contextBridge.exposeInMainWorld("urbanomics", {
   state: () => invoke("workspace:state"),
   reviewState: () => invoke("review:state"),
+  transactionRulesState: () => invoke("transaction-rules:state"),
+  previewTransactionRule: (values) =>
+    invoke("transaction-rules:preview", values),
+  saveTransactionRule: (values) => invoke("transaction-rules:save", values),
+  removeTransactionRule: (id, version) =>
+    invoke("transaction-rules:remove", id, version),
+  applyTransactionRules: (token) => invoke("transaction-rules:apply", token),
+  assignTransactionPerson: (id, version, personId) =>
+    invoke("transaction-rules:person", id, version, personId),
   aliases: () => invoke("aliases:state"),
   previewAlias: (values) => invoke("aliases:preview", values),
   saveAlias: (values) => invoke("aliases:save", values),

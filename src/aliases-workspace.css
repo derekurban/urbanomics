@@ -146,23 +146,9 @@
 .al-competing code {
   overflow-wrap: anywhere;
 }
-.al-account-link {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 20px;
-  padding: 10px 14px;
-  background: #edf2e9;
-  border-radius: 14px;
-  margin-bottom: 16px;
-}
-.al-account-link small,
 .al-rule-info {
   display: block;
   margin-top: 7px;
-}
-.al-account-link button {
-  flex-shrink: 0;
 }
 .al-preview {
   margin-top: 24px;
@@ -258,39 +244,19 @@
   margin-top: 6px;
 }
 @media (max-width: 1050px) {
-  .al-account-link {
-    align-items: start;
+  .aliases-workspace .og-callout {
+    align-items: flex-start;
     flex-direction: column;
   }
 }
 
-/* Dense alias rows keep the name, rule, scope and actions easy to scan. */
-.al-rule-list {
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: white;
-}
-.al-rule-list .og-item {
-  padding: 9px 12px;
-  border: 0;
-  border-bottom: 1px solid var(--line);
-  border-radius: 0;
-  background: transparent;
-  gap: 12px;
-}
-.al-rule-list .og-item:last-child {
-  border-bottom: 0;
-}
-.al-rule-list .og-item-body {
+/* Dense alias rows share the Organize row style; name, regex and scope
+   stay easy to scan. */
+.al-rule-list .og-row-body {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 3px 16px;
   align-items: center;
-}
-.al-rule-list h3 {
-  margin: 0;
-  font-size: 13px;
 }
 .al-rule-list code {
   grid-column: 1 / -1;
@@ -304,11 +270,6 @@
   margin: 0;
   font-size: 11px;
 }
-.al-rule-list .og-item > button {
-  padding: 6px 10px;
-  font-size: 12px;
-}
-.al-rule-list h3,
 .al-rule-list code,
 .al-unaliased-list strong {
   min-width: 0;
@@ -317,7 +278,7 @@
   white-space: nowrap;
 }
 @media (max-width: 800px) {
-  .al-rule-list .og-item-body {
+  .al-rule-list .og-row-body {
     grid-template-columns: minmax(0, 1fr);
   }
   .al-rule-list .al-rule-info {

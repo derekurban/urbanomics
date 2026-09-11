@@ -62,7 +62,9 @@ function FinanceEditor({
   const [incomeType, setIncomeType] = useState(row.review.incomeType || ""),
     [incomeSource, setIncomeSource] = useState(row.review.incomeSource || "");
   const [shares, setShares] = useState(row.review.shares),
-    [person, setPerson] = useState(row.review.personId),
+    [person, setPerson] = useState(
+      row.review.personId || row.review.assignedPersonId || "",
+    ),
     [targetQuery, setTargetQuery] = useState("");
   const [values, setValues] = useState([
     ...row.review.allocations,
@@ -650,6 +652,7 @@ export function ReviewWorkspace({
   onSource,
   initialMonth,
   transactionList = false,
+  initialStage,
 }) {
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
@@ -657,7 +660,11 @@ export function ReviewWorkspace({
   const [cashEditor, setCashEditor] = useState(null);
   const [expenseIntent, setExpenseIntent] = useState(null);
   const [state, setState] = useState(null),
-    [stage, setStage] = useState(transactionList ? "transactions" : "organize"),
+    [stage, setStage] = useState(
+      initialStage === "transfers-linked"
+        ? "transfers"
+        : initialStage || (transactionList ? "transactions" : "organize"),
+    ),
     [month, setMonth] = useState(initialMonth || ""),
     [search, setSearch] = useState("");
   const [editor, setEditor] = useState(null),
@@ -860,6 +867,7 @@ export function ReviewWorkspace({
             key={stage}
             rows={visible}
             entities={tags}
+            people={people}
             events={false}
             drafts={tagDrafts}
             setDrafts={setTagDrafts}
@@ -900,6 +908,9 @@ export function ReviewWorkspace({
       )}
       {stage === "transfers" && (
         <TransferWorkspace
+          initialFilter={
+            initialStage === "transfers-linked" ? "linked" : "pending"
+          }
           records={records}
           visible={visible}
           busy={busy}
@@ -1020,6 +1031,13 @@ export function ReviewWorkspace({
                     {transactionLabels(t, facts.get(t.id)).map((label) => (
                       <small key={label}>{label}</small>
                     ))}
+                    {t.review.assignedPersonId && (
+                      <small>
+                        Person ·{" "}
+                        {people.find((p) => p.id === t.review.assignedPersonId)
+                          ?.name || "Assigned"}
+                      </small>
+                    )}
                   </span>
                   {stage === "moneyin" && (
                     <small>
@@ -1223,6 +1241,7 @@ export function ReviewWorkspace({
           key={selectedRow.id}
           row={selectedRow}
           categories={categories}
+          people={people}
           onSave={(changes) => act(() => api.organize(changes))}
           onClose={() => {
             setTagRow(null);

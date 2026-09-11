@@ -33,7 +33,8 @@ const initials = (name) =>
     .join("");
 
 function App() {
-  const [organizeSection, setOrganizeSection] = useState("category");
+  const [organizeSection, setOrganizeSection] = useState("overview");
+  const [reviewStart, setReviewStart] = useState(null);
   const [data, setData] = useState(null),
     [page, setPage] = useState("data"),
     [busy, setBusy] = useState(false);
@@ -399,6 +400,7 @@ function App() {
               run={run}
               busy={busy}
               initialMonth={month}
+              initialStage={reviewStart}
               onSource={(id) =>
                 api
                   .detail(id)
@@ -559,6 +561,19 @@ function App() {
               busy={busy}
               section={organizeSection}
               onSection={setOrganizeSection}
+              onNavigate={(target) => {
+                if (target === "transactions") setPage("months");
+                else {
+                  setReviewStart(
+                    target.startsWith("transfers")
+                      ? target
+                      : target === "money-in"
+                        ? "moneyin"
+                        : "organize",
+                  );
+                  setPage("review");
+                }
+              }}
               accounts={<Accounts data={data} run={run} busy={busy} />}
             />
           )}

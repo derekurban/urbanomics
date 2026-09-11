@@ -77,6 +77,7 @@ async function create(kind, name, selected = []) {
 (async () => {
   try {
     await launch();
+    await section("Categories");
     assert.equal(
       await page.locator(".nav-item").filter({ hasText: "Accounts" }).count(),
       0,
@@ -92,18 +93,18 @@ async function create(kind, name, selected = []) {
     await d.getByRole("button", { name: "Save category", exact: true }).click();
     await d.waitFor({ state: "hidden" });
     await page
-      .getByRole("textbox", { name: "Search categories", exact: true })
+      .getByRole("searchbox", { name: "Search categories", exact: true })
       .fill("food");
-    assert.equal(await page.locator(".og-item").count(), 1);
+    assert.equal(await page.locator(".og-row").count(), 1);
     await snapshot("tags");
     await page
-      .getByRole("textbox", { name: "Search categories", exact: true })
+      .getByRole("searchbox", { name: "Search categories", exact: true })
       .fill("");
     await create("category", "Everyday");
     await page
       .getByRole("heading", { name: "Everyday", exact: true })
       .waitFor();
-    assert.equal(await page.locator(".og-item").count(), 3);
+    assert.equal(await page.locator(".og-row").count(), 3);
     await snapshot("categories");
     await section("Events");
     await create("event", "Mountain weekend");

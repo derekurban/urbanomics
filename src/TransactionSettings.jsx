@@ -6,11 +6,15 @@ import { money, retag } from "./review-model.js";
 export function TransactionSettings({
   row,
   categories,
+  people,
   onSave,
   onClose,
   onSaved,
 }) {
   const [parts, setParts] = useState(row.review.tags);
+  const [assignedPerson, setAssignedPerson] = useState(
+    row.review.assignedPersonId || "",
+  );
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -29,13 +33,22 @@ export function TransactionSettings({
     if (!saving.current) onClose();
   };
   async function save() {
-    if (saving.current || !parts.length) return;
+    if (
+      saving.current ||
+      (!parts.length && assignedPerson === (row.review.assignedPersonId || ""))
+    )
+      return;
     saving.current = true;
     setBusy(true);
     setError("");
     try {
       const result = await onSave([
-        { id: row.id, version: row.version, tags: parts },
+        {
+          id: row.id,
+          version: row.version,
+          tags: parts,
+          ...(people ? { assignedPersonId: assignedPerson } : {}),
+        },
       ]);
       if (result === false) {
         setError(
@@ -43,7 +56,7 @@ export function TransactionSettings({
         );
         return;
       }
-      onSaved?.();
+      if (parts.length) onSaved?.();
       onClose();
     } catch (e) {
       setError(e.message);
@@ -66,7 +79,11 @@ export function TransactionSettings({
           </button>
           <button
             className="primary"
-            disabled={busy || !parts.length}
+            disabled={
+              busy ||
+              (!parts.length &&
+                assignedPerson === (row.review.assignedPersonId || ""))
+            }
             onClick={save}
           >
             {busy ? "Saving…" : "Save"}
@@ -93,6 +110,27 @@ export function TransactionSettings({
         </p>
       )}
       <fieldset disabled={busy} className="ts-fields">
+        {people && (
+          <label>
+            Associated person
+            <select
+              aria-label="Associated person"
+              value={assignedPerson}
+              onChange={(e) => setAssignedPerson(e.target.value)}
+            >
+              <option value="">No person</option>
+              {people.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+            <small>
+              A person association does not create a repayment or shared-cost
+              agreement.
+            </small>
+          </label>
+        )}
         <label className="ts-search">
           Categories
           <input
