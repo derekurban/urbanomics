@@ -1,9 +1,18 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { dashboard, UNCATEGORIZED, TRANSFER_FEES } from "./dashboard-model.js";
+import {
+  dashboard,
+  UNCATEGORIZED,
+  TRANSFER_FEES,
+  availableMonths,
+  monthlyDashboard,
+  vendorGroups,
+  accountOverview,
+} from "./dashboard-model.js";
 import { currencyMoney } from "./CostBreakdown.jsx";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { validDate } from "../electron/review/event-model.mjs";
 import "./dashboard.css";
+import { TrendPanels, Composition, AccountFlow } from "./DashboardCharts.jsx";
 
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
 const monthName = (m) =>
@@ -55,7 +64,9 @@ export function Dashboard({ data, onSource }) {
     [later, setLater] = useState(false),
     [currency, setCurrency] = useState("CAD"),
     [detail, setDetail] = useState(null),
-    [custom, setCustom] = useState(false);
+    [custom, setCustom] = useState(false),
+    [year, setYear] = useState(latest.slice(0, 4)),
+    [detailLayout, setDetailLayout] = useState("vendors");
   useEffect(() => {
     let current = true;
     window.urbanomics
@@ -92,8 +103,49 @@ export function Dashboard({ data, onSource }) {
         : model,
     [model, detail, source],
   );
+  const populatedMonths = useMemo(
+    () => (source ? availableMonths(source.records, currency) : []),
+    [source, currency],
+  );
+  const years = [
+    ...new Set(populatedMonths.map((m) => m.slice(0, 4))),
+  ].reverse();
+  const trends = useMemo(
+    () =>
+      source
+        ? monthlyDashboard(source.records, source.entities, {
+            year,
+            currency,
+            categories: selected,
+            later,
+          })
+        : [],
+    [source, year, currency, selected, later],
+  );
+  const overview = useMemo(
+    () =>
+      source && valid
+        ? accountOverview(source.records, { from, through, currency })
+        : null,
+    [source, from, through, currency, valid],
+  );
+  useEffect(() => {
+    const currencies = [
+      ...new Set(
+        source?.records.filter((t) => !t.deleted).map((t) => t.currency),
+      ),
+    ];
+    if (currencies.length && !currencies.includes(currency))
+      setCurrency(currencies[0]);
+  }, [source, currency]);
+  useEffect(() => {
+    if (!populatedMonths.length) return;
+    if (!populatedMonths.some((m) => m.startsWith(year)))
+      period(populatedMonths.at(-1));
+  }, [populatedMonths, year]);
   const money = (n) => currencyMoney(n, currency);
   function period(m) {
+    setYear(m.slice(0, 4));
     setFrom(m + "-01");
     setThrough(monthEnd(m));
     setCustom(false);
@@ -111,6 +163,71 @@ export function Dashboard({ data, onSource }) {
   }
   const open = (title, rows, type = "expenses") =>
     setDetail({ title, rows, type });
+  const renderExpense = (e) => (
+    <details className="dash-detail-row" key={e.row.id}>
+      <summary>
+        <span>
+          <strong>
+            {e.fee ? "Transfer fee · " : ""}
+            {e.row.description}
+          </strong>
+          <small>
+            {e.row.date} · {e.row.account}
+          </small>
+        </span>
+        <span>
+          <strong>{money(e.net)}</strong>
+          <small>{money(e.repaid)} repaid</small>
+        </span>
+      </summary>
+      <div className="dash-detail-costs">
+        <span>
+          Selected cost <strong>{money(e.gross)}</strong>
+        </span>
+        <span>
+          Agreed own share{" "}
+          <strong>{e.own === null ? "Not set" : money(e.own)}</strong>
+        </span>
+        <span>
+          Friends still owe{" "}
+          <strong>{e.owed === null ? "Not set" : money(e.owed)}</strong>
+        </span>
+      </div>
+      {e.payments.map((p) => (
+        <div className="dash-payment" key={p.row.id}>
+          <span>
+            ↳ {p.row.description}
+            <small>
+              {p.row.date} · {p.row.manual ? "Cash receipt" : p.row.account}
+              {p.row.deleted ? " · hidden account" : ""}
+            </small>
+          </span>
+          <strong>{money(p.selected)}</strong>
+          {!p.row.manual && (
+            <button
+              onClick={() => {
+                setDetail(null);
+                onSource(p.row.id);
+              }}
+            >
+              Source
+            </button>
+          )}
+        </div>
+      ))}
+      {!e.payments.length && (
+        <p className="dash-caption">No repayments applied in this view.</p>
+      )}
+      <button
+        onClick={() => {
+          setDetail(null);
+          onSource(e.row.id);
+        }}
+      >
+        View original transaction
+      </button>
+    </details>
+  );
   if (error)
     return (
       <div className="dash-empty" role="alert">
@@ -171,32 +288,58 @@ export function Dashboard({ data, onSource }) {
       ) : (
         <>
           <div className="dash-periods" aria-label="Dashboard date range">
-            {months.slice(0, 3).map((m) => (
+            <label>
+              Year
+              <select
+                aria-label="Dashboard year"
+                value={year}
+                onChange={(e) =>
+                  period(
+                    populatedMonths
+                      .filter((m) => m.startsWith(e.target.value))
+                      .at(-1),
+                  )
+                }
+              >
+                {years.map((y) => (
+                  <option key={y}>{y}</option>
+                ))}
+              </select>
+            </label>
+            {Array.from(
+              { length: 12 },
+              (_, i) => `${year}-${String(i + 1).padStart(2, "0")}`,
+            ).map((m) => (
               <button
                 key={m}
+                disabled={!populatedMonths.includes(m)}
+                aria-label={monthName(m)}
                 aria-pressed={from === m + "-01" && through === monthEnd(m)}
                 onClick={() => period(m)}
               >
-                {monthName(m)}
+                {new Date(m + "-15T12:00:00Z").toLocaleDateString("en", {
+                  month: "short",
+                  timeZone: "UTC",
+                })}
               </button>
             ))}
             <button
               aria-pressed={
                 from ===
                   source.records
-                    .filter((t) => !t.deleted)
+                    .filter((t) => !t.deleted && t.currency === currency)
                     .map((t) => t.date)
                     .sort()[0] &&
                 through ===
                   source.records
-                    .filter((t) => !t.deleted)
+                    .filter((t) => !t.deleted && t.currency === currency)
                     .map((t) => t.date)
                     .sort()
                     .at(-1)
               }
               onClick={() => {
                 const dates = source.records
-                  .filter((t) => !t.deleted)
+                  .filter((t) => !t.deleted && t.currency === currency)
                   .map((t) => t.date)
                   .sort();
                 setFrom(dates[0]);
@@ -218,10 +361,19 @@ export function Dashboard({ data, onSource }) {
                   value={currency}
                   onChange={(e) => {
                     setCurrency(e.target.value);
+                    const available = availableMonths(
+                      source.records,
+                      e.target.value,
+                    );
+                    if (
+                      available.length &&
+                      !available.includes(from.slice(0, 7))
+                    )
+                      period(available.at(-1));
                     setDetail(null);
                   }}
                 >
-                  {[...new Set(["CAD", ...currencies])].map((c) => (
+                  {currencies.map((c) => (
                     <option key={c}>{c}</option>
                   ))}
                 </select>
@@ -329,6 +481,18 @@ export function Dashboard({ data, onSource }) {
               )}
               {mode === "spending" && (
                 <>
+                  <TrendPanels
+                    months={trends}
+                    currency={currency}
+                    selectedMonth={
+                      from.slice(0, 7) === through.slice(0, 7)
+                        ? from.slice(0, 7)
+                        : null
+                    }
+                    onMonth={period}
+                    year={year}
+                    later={later}
+                  />
                   <div className="dash-stats">
                     <Stat
                       label="Paid for expenses"
@@ -361,6 +525,15 @@ export function Dashboard({ data, onSource }) {
                       onClick={() => open("Still paid by you", model.expenses)}
                     />
                   </div>
+                  <Composition
+                    model={model}
+                    money={money}
+                    onCategory={(c) => {
+                      setDetailLayout("vendors");
+                      setDetail({ title: c.name, category: c.id });
+                    }}
+                    onCash={(g) => open(g.label, g.rows, "cash")}
+                  />
                   <div className="dash-grid">
                     <section className="dash-panel">
                       <div className="dash-panel-heading">
@@ -382,9 +555,10 @@ export function Dashboard({ data, onSource }) {
                           <button
                             key={c.id}
                             className="dash-bar"
-                            onClick={() =>
+                            onClick={() => (
+                              setDetailLayout("vendors"),
                               setDetail({ title: c.name, category: c.id })
-                            }
+                            )}
                           >
                             <span className="dash-between">
                               <span>
@@ -476,6 +650,20 @@ export function Dashboard({ data, onSource }) {
               )}
               {mode === "cash" && (
                 <>
+                  <AccountFlow
+                    overview={overview}
+                    money={money}
+                    onCash={(title, rows, type = "cash") =>
+                      open(title, rows, type)
+                    }
+                    onTransfer={(r) =>
+                      setDetail({
+                        title: `${r.from} → ${r.to}`,
+                        type: "transfers",
+                        pairs: r.pairs,
+                      })
+                    }
+                  />
                   <div className="dash-stats">
                     <Stat
                       label="Gross account inflow"
@@ -552,57 +740,6 @@ export function Dashboard({ data, onSource }) {
                       </section>
                     ))}
                   </div>
-                  <section className="dash-panel dash-accounts">
-                    <div className="dash-panel-heading">
-                      <h2>Across your accounts</h2>
-                      <span>Selected transaction-category portions</span>
-                    </div>
-                    <div className="dash-account-grid">
-                      {[...new Set(model.bank.map((t) => t.row.accountId))].map(
-                        (id) => {
-                          const list = model.bank.filter(
-                            (t) => t.row.accountId === id,
-                          );
-                          return (
-                            <button
-                              key={id}
-                              onClick={() =>
-                                open(list[0].row.account, list, "cash")
-                              }
-                            >
-                              <strong>
-                                <i style={{ background: list[0].row.color }} />
-                                {list[0].row.account}
-                              </strong>
-                              <span>
-                                In{" "}
-                                {money(
-                                  sum(
-                                    list.filter((t) => t.row.amountCents > 0),
-                                    (t) => t.cents,
-                                  ),
-                                )}
-                              </span>
-                              <span>
-                                Out{" "}
-                                {money(
-                                  sum(
-                                    list.filter((t) => t.row.amountCents < 0),
-                                    (t) => t.cents,
-                                  ),
-                                )}
-                              </span>
-                            </button>
-                          );
-                        },
-                      )}
-                    </div>
-                    {!model.bank.length && (
-                      <p className="dash-empty-text">
-                        No bank entries match this selection.
-                      </p>
-                    )}
-                  </section>
                 </>
               )}
               {mode === "events" && (
@@ -702,6 +839,10 @@ export function Dashboard({ data, onSource }) {
                   "Still paid is the expense minus repayments received. Friends still owe includes only recorded shares; missing agreements are not assumed. Amounts owed are distributed over remaining category costs.",
                 ],
                 [
+                  "Balances & account routes",
+                  "Account standing shows the latest exported balance observation, with its date. PC Financial and Simplii CSVs do not provide balances. Conflicting same-day observations stay inspectable rather than guessing a closing balance. Routes use whole linked pairs once by outgoing date, independent of category filters.",
+                ],
+                [
                   "Events & history",
                   "Events are overlapping collections; an expense is counted once in overall spending. These are current assignments, not a reconstruction of past edits. Deleted accounts are excluded from cash flow and expense selection.",
                 ],
@@ -719,7 +860,7 @@ export function Dashboard({ data, onSource }) {
                 of category filters. Counterparts may fall outside the range or
                 belong to a hidden account.
               </p>
-              {model?.transfers
+              {(detail.pairs || model?.transfers)
                 .filter(
                   (t, i, list) =>
                     list.findIndex(
@@ -760,34 +901,43 @@ export function Dashboard({ data, onSource }) {
                     </div>
                   );
                 })}
-              {!model?.transfers.length && (
+              {!(detail.pairs || model?.transfers)?.length && (
                 <p>No linked transfers in this period.</p>
               )}
             </>
-          ) : detail.type === "cash" ? (
+          ) : ["cash", "balances"].includes(detail.type) ? (
             <>
-              <p className="dash-caption">
-                In{" "}
-                {money(
-                  sum(
-                    detail.rows.filter((t) => t.row.amountCents > 0),
-                    (t) => t.cents,
-                  ),
-                )}
-                {" · "}Out{" "}
-                {money(
-                  sum(
-                    detail.rows.filter((t) => t.row.amountCents < 0),
-                    (t) => t.cents,
-                  ),
-                )}
-                {" · "}Net{" "}
-                {money(
-                  sum(detail.rows, (t) =>
-                    t.row.amountCents < 0 ? -t.cents : t.cents,
-                  ),
-                )}
-              </p>
+              {detail.type === "balances" && (
+                <p className="dash-caption">
+                  Latest exported observations. Multiple entries on one date
+                  cannot establish a closing balance without a reliable
+                  ordering; no live balance is inferred.
+                </p>
+              )}
+              {detail.type !== "balances" && (
+                <p className="dash-caption">
+                  In{" "}
+                  {money(
+                    sum(
+                      detail.rows.filter((t) => t.row.amountCents > 0),
+                      (t) => t.cents,
+                    ),
+                  )}
+                  {" · "}Out{" "}
+                  {money(
+                    sum(
+                      detail.rows.filter((t) => t.row.amountCents < 0),
+                      (t) => t.cents,
+                    ),
+                  )}
+                  {" · "}Net{" "}
+                  {money(
+                    sum(detail.rows, (t) =>
+                      t.row.amountCents < 0 ? -t.cents : t.cents,
+                    ),
+                  )}
+                </p>
+              )}
               {detail.rows.map(({ row, cents }) => (
                 <details className="dash-detail-row" key={row.id}>
                   <summary>
@@ -798,10 +948,17 @@ export function Dashboard({ data, onSource }) {
                       </small>
                     </span>
                     <strong>
-                      {row.amountCents < 0 ? "−" : "+"}
-                      {money(cents)}
+                      {detail.type === "balances"
+                        ? money(row.balanceCents)
+                        : `${row.amountCents < 0 ? "−" : "+"}${money(cents)}`}
                     </strong>
                   </summary>
+                  {detail.type === "balances" && (
+                    <p>
+                      Exported balance{" "}
+                      <strong>{money(row.balanceCents)}</strong>
+                    </p>
+                  )}
                   <p>
                     Full source amount {money(row.amountCents)} ·{" "}
                     {row.review.kind === "unreviewed"
@@ -864,78 +1021,47 @@ export function Dashboard({ data, onSource }) {
                   · recorded shares only
                 </p>
               )}
-              {(detail.category ? drill.expenses : detail.rows).map((e) => (
-                <details className="dash-detail-row" key={e.row.id}>
-                  <summary>
-                    <span>
-                      <strong>
-                        {e.fee ? "Transfer fee · " : ""}
-                        {e.row.description}
-                      </strong>
-                      <small>
-                        {e.row.date} · {e.row.account}
-                      </small>
-                    </span>
-                    <span>
-                      <strong>{money(e.net)}</strong>
-                      <small>{money(e.repaid)} repaid</small>
-                    </span>
-                  </summary>
-                  <div className="dash-detail-costs">
-                    <span>
-                      Selected cost <strong>{money(e.gross)}</strong>
-                    </span>
-                    <span>
-                      Agreed own share{" "}
-                      <strong>
-                        {e.own === null ? "Not set" : money(e.own)}
-                      </strong>
-                    </span>
-                    <span>
-                      Friends still owe{" "}
-                      <strong>
-                        {e.owed === null ? "Not set" : money(e.owed)}
-                      </strong>
-                    </span>
-                  </div>
-                  {e.payments.map((p) => (
-                    <div className="dash-payment" key={p.row.id}>
-                      <span>
-                        ↳ {p.row.description}
-                        <small>
-                          {p.row.date} ·{" "}
-                          {p.row.manual ? "Cash receipt" : p.row.account}
-                          {p.row.deleted ? " · hidden account" : ""}
-                        </small>
-                      </span>
-                      <strong>{money(p.selected)}</strong>
-                      {!p.row.manual && (
-                        <button
-                          onClick={() => {
-                            setDetail(null);
-                            onSource(p.row.id);
-                          }}
-                        >
-                          Source
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                  {!e.payments.length && (
-                    <p className="dash-caption">
-                      No repayments applied in this view.
-                    </p>
-                  )}
+              {detail.category && (
+                <div
+                  className="dash-segmented dash-detail-toggle"
+                  aria-label="Category detail layout"
+                >
                   <button
-                    onClick={() => {
-                      setDetail(null);
-                      onSource(e.row.id);
-                    }}
+                    aria-pressed={detailLayout === "vendors"}
+                    onClick={() => setDetailLayout("vendors")}
                   >
-                    View original transaction
+                    By vendor
                   </button>
-                </details>
-              ))}
+                  <button
+                    aria-pressed={detailLayout === "list"}
+                    onClick={() => setDetailLayout("list")}
+                  >
+                    Full list
+                  </button>
+                </div>
+              )}
+              {detail.category && detailLayout === "vendors"
+                ? vendorGroups(drill.expenses).map((g) => (
+                    <details className="dash-vendor" key={g.key}>
+                      <summary>
+                        <span>
+                          <strong>{g.name}</strong>
+                          <small>
+                            {g.rows.length}{" "}
+                            {g.rows.length === 1 ? "payment" : "payments"} ·{" "}
+                            {money(g.gross)} paid · {money(g.repaid)} repaid
+                          </small>
+                        </span>
+                        <strong>{money(g.net)}</strong>
+                      </summary>
+                      <div className="dash-vendor-payments">
+                        {g.rows.map(renderExpense)}
+                      </div>
+                    </details>
+                  ))
+                : (detail.category ? drill.expenses : detail.rows).map(
+                    renderExpense,
+                  )}
               {!(detail.category ? drill.expenses : detail.rows).length && (
                 <p>No matching expenses.</p>
               )}

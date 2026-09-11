@@ -4,6 +4,8 @@ Updated: 2026-09-11
 
 ## Current request
 
+The dashboard now leads with monthly expense and gross bank-flow trends, a year/month picker limited to existing data, and stacked period breakdowns. Category details group by vendor/alias with expandable dated transactions and a full-list toggle. Cash flow leads with available exported balances, per-account movements and directed transfer routes. Current bank balances cannot be established for PC/Simplii exports without an opening/current balance source; EQ running-balance observations retain their dates and same-day ambiguity. This supersedes the initial summary-card-first dashboard layout.
+
 The user accepted the in-chat dashboard mockup and asked for implementation with a pastel palette. Dashboard now integrates Spending, Cash flow and Events, date/category filters and source drilldowns. It separates cash movement from costs after repayments and recorded debts, keeping fees, event overlaps and repayment timing explicit. See `dashboard.md` for accounting and scope policies.
 
 The user removed the numbered Review stage, while explicitly retaining Review in the sidebar. Categories, Money in, Events, Transfers and Overview are independent tools with no stage numbering. Transactions exposes editable financial details and independent saved-state filters rather than a reviewed/pending completion flag. Existing financial payloads remain unchanged; the legacy reviewed field no longer controls visibility, reports or transfer eligibility.

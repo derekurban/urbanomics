@@ -6,7 +6,7 @@ The desktop app combines real CSV imports, a local SQLite ledger, immutable sour
 
 ## Dashboard
 
-**Dashboard** brings together Spending, Cash flow and Events with date and category filters. See gross expenses, repayments and amounts still paid by you; inspect recorded amounts friends still owe; compare gross bank inflow/outflow across accounts. Open any total, category or event to trace its contributing records and original sources. The optional later-repayments switch updates expense costs across month boundaries. Manual cash stays separate from bank totals, and linked transfers contribute only their fees to spending. See [dashboard definitions](docs/dashboard.md).
+**Dashboard** brings together Spending, Cash flow and Events with a data-backed year/month picker and category filters. Compare monthly stacked expense trends and money-in/money-out bars, then inspect a month through composition bars and expandable vendor totals. Cash flow shows latest exported balance observations where available, per-account movements and directed linked transfers. See gross expenses, repayments and amounts still paid by you; inspect recorded amounts friends still owe; compare gross bank inflow/outflow across accounts. Open any total, category or event to trace its contributing records and original sources. The optional later-repayments switch updates expense costs across month boundaries. Manual cash stays separate from bank totals, and linked transfers contribute only their fees to spending. See [dashboard definitions](docs/dashboard.md).
 
 ## Run the desktop app
 

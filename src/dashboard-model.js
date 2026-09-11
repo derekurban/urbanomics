@@ -2,6 +2,148 @@ export const UNCATEGORIZED = "dashboard:uncategorized";
 export const TRANSFER_FEES = "dashboard:transfer-fees";
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
 
+export const endOfMonth = (month) =>
+  new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))
+    .toISOString()
+    .slice(0, 10);
+export function availableMonths(records, currency = "CAD") {
+  return [
+    ...new Set(
+      records
+        .filter((t) => !t.deleted && t.currency === currency)
+        .map((t) => t.date.slice(0, 7)),
+    ),
+  ].sort();
+}
+export function monthlyDashboard(
+  records,
+  entities,
+  { year, currency = "CAD", categories = [], later = false },
+) {
+  const available = new Set(availableMonths(records, currency));
+  return Array.from({ length: 12 }, (_, i) => {
+    const month = `${year}-${String(i + 1).padStart(2, "0")}`;
+    return {
+      month,
+      available: available.has(month),
+      model: available.has(month)
+        ? dashboard(records, entities, {
+            from: month + "-01",
+            through: endOfMonth(month),
+            currency,
+            categories,
+            later,
+          })
+        : null,
+    };
+  });
+}
+export function vendorGroups(expenses) {
+  const groups = new Map();
+  for (const e of expenses) {
+    const name = (e.fee ? "Transfer fee · " : "") + e.row.description;
+    const key =
+      (e.fee ? "fee:" : "") +
+      (e.row.aliasId
+        ? `alias:${e.row.aliasId}`
+        : `name:${e.row.description.trim().toLocaleLowerCase()}`);
+    if (!groups.has(key))
+      groups.set(key, { key, name, gross: 0, repaid: 0, net: 0, rows: [] });
+    const g = groups.get(key);
+    g.gross += e.gross;
+    g.repaid += e.repaid;
+    g.net += e.net;
+    g.rows.push(e);
+  }
+  return [...groups.values()]
+    .map((g) => ({
+      ...g,
+      rows: g.rows.sort(
+        (a, b) =>
+          b.row.date.localeCompare(a.row.date) ||
+          a.row.id.localeCompare(b.row.id),
+      ),
+    }))
+    .sort((a, b) => b.net - a.net || a.name.localeCompare(b.name));
+}
+
+// Source balances are observations, never totals inferred from partial imports.
+export function accountOverview(records, { from, through, currency = "CAD" }) {
+  const active = records.filter(
+    (t) => !t.deleted && !t.manual && t.currency === currency,
+  );
+  const byId = new Map(records.map((t) => [t.id, t]));
+  const accounts = [...new Set(active.map((t) => t.accountId))].map((id) => {
+    const rows = active.filter((t) => t.accountId === id);
+    const period = rows.filter((t) => t.date >= from && t.date <= through);
+    const dated = rows
+      .filter((t) => Number.isSafeInteger(t.balanceCents))
+      .sort((a, b) => b.date.localeCompare(a.date));
+    const date = dated[0]?.date;
+    const observations = dated.filter((t) => t.date === date);
+    const values = [...new Set(observations.map((t) => t.balanceCents))];
+    return {
+      id,
+      name: rows[0].account,
+      color: rows[0].color,
+      rows: period.map((row) => ({ row, cents: Math.abs(row.amountCents) })),
+      cashIn: sum(
+        period.filter((t) => t.amountCents > 0),
+        (t) => t.amountCents,
+      ),
+      cashOut: sum(
+        period.filter((t) => t.amountCents < 0),
+        (t) => -t.amountCents,
+      ),
+      balance: {
+        date,
+        value: values.length === 1 ? values[0] : null,
+        observations,
+        ambiguous: values.length > 1,
+      },
+    };
+  });
+  const routes = new Map();
+  // Attribute a route once by its outgoing date, even if the credit is in another month.
+  for (const out of active.filter(
+    (t) => t.amountCents < 0 && t.date >= from && t.date <= through,
+  )) {
+    const inc = byId.get(out.review.transferId);
+    if (
+      out.review.kind !== "transfer" ||
+      inc?.review.kind !== "transfer" ||
+      inc.review.transferId !== out.id ||
+      inc.amountCents <= 0 ||
+      inc.currency !== currency
+    )
+      continue;
+    const key = `${out.accountId}:${inc.accountId}`;
+    if (!routes.has(key))
+      routes.set(key, {
+        key,
+        from: out.account,
+        to: inc.account + (inc.deleted ? " (hidden)" : ""),
+        fromColor: out.color,
+        toColor: inc.color,
+        debit: 0,
+        credit: 0,
+        fees: 0,
+        excess: 0,
+        pairs: [],
+      });
+    const r = routes.get(key);
+    r.debit -= out.amountCents;
+    r.credit += inc.amountCents;
+    r.fees += out.review.transferFeeCents || 0;
+    r.excess += inc.review.transferExcessCents || 0;
+    r.pairs.push({ row: out, other: inc });
+  }
+  return {
+    accounts,
+    routes: [...routes.values()].sort((a, b) => b.debit - a.debit),
+  };
+}
+
 // Integer largest-remainder allocation, bounded by the remaining category cost.
 export function apportion(cents, parts) {
   const total = sum(parts, (p) => p.cents);

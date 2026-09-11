@@ -10,7 +10,7 @@ const repo = path.resolve(__dirname, ".."),
   dataDir = path.join(root, "data");
 const store = new ImportStore(dataDir),
   account = store.addAccount("Synthetic chequing", "pc", "chequing"),
-  savings = store.addAccount("Synthetic savings", "pc", "chequing");
+  savings = store.addAccount("Synthetic savings", "eq", "savings");
 function upload(name, acct, rows) {
   const file = path.join(root, name + ".csv");
   fs.writeFileSync(
@@ -38,8 +38,17 @@ upload("bank", account, [
   ["To savings", "-100", "08/10/2026"],
   ["July dinner", "-40", "07/30/2026"],
   ["Older repayment", "20", "08/24/2026"],
+  ["Older interest", "5", "01/01/2024"],
 ]);
-upload("savings", savings, [["From chequing", "99", "08/10/2026"]]);
+const eqFile = path.join(root, "eq.csv");
+fs.writeFileSync(
+  eqFile,
+  csv([
+    ["Transfer date", "Description", "Amount", "Balance"],
+    ["2026-08-10", "From chequing", "99", "250"],
+  ]),
+);
+store.resolveAccount(store.enqueue([eqFile]).ids[0], savings, false);
 const food = store.review.entity("category", {
     name: "Groceries",
     color: "#8FA6CB",
@@ -113,6 +122,7 @@ store.review.linkTransfer(
   row("From chequing").version,
   200,
 );
+store.aliases.save({ name: "Juniper", pattern: "^(July dinner|Dinner)" });
 store.close();
 const env = { ...process.env, URBANOMICS_DATA_DIR: dataDir };
 delete env.ELECTRON_RUN_AS_NODE;
@@ -144,6 +154,35 @@ const stat = (label) =>
     await button("August 2026").click();
     assert.equal(await stat("Paid for expenses").textContent(), "$401.00");
     assert.equal(await stat("Still paid by you").textContent(), "$300.99");
+    assert.deepEqual(
+      await page
+        .getByLabel("Dashboard year", { exact: true })
+        .locator("option")
+        .allTextContents(),
+      ["2026", "2024"],
+    );
+    await page
+      .getByLabel("Dashboard year", { exact: true })
+      .selectOption("2024");
+    assert.equal(
+      await button("January 2024").getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(await button("February 2024").isDisabled(), true);
+    await page
+      .getByLabel("Dashboard year", { exact: true })
+      .selectOption("2026");
+    await button("August 2026").click();
+    assert.equal(await button("January 2026").isDisabled(), true);
+    assert.equal(await page.locator(".dash-month-bar").count(), 24);
+    await page
+      .getByRole("button", {
+        name: "July 2026: after repayments $40.00",
+        exact: true,
+      })
+      .click();
+    assert.equal(await stat("Paid for expenses").textContent(), "$40.00");
+    await button("August 2026").click();
     await shot("spending");
     await page
       .locator(".dash-filters")
@@ -162,7 +201,11 @@ const stat = (label) =>
     await page.locator(".dash-bar").first().click();
     let modal = page.getByRole("dialog", { name: "Groceries", exact: true });
     await modal.waitFor();
-    await modal.locator("summary").click();
+    await modal.locator(".dash-vendor > summary").click();
+    await modal.locator(".dash-detail-row > summary").click();
+    await modal.getByRole("button", { name: "Full list", exact: true }).click();
+    assert.equal(await modal.locator(".dash-vendor").count(), 0);
+    await modal.locator(".dash-detail-row > summary").click();
     await shot("category-detail");
     assert.match(await modal.textContent(), /60\.01/);
     await modal.getByRole("button", { name: "Source", exact: true }).click();
@@ -173,6 +216,23 @@ const stat = (label) =>
       .getByRole("button", { name: "All categories", exact: true })
       .click();
     assert.equal(await stat("Paid for expenses").textContent(), "$401.00");
+    await button("All dates").click();
+    await page
+      .locator(".dash-bar")
+      .filter({ hasText: "Uncategorized" })
+      .click();
+    modal = page.getByRole("dialog", { name: "Uncategorized", exact: true });
+    assert.equal(await modal.locator(".dash-vendor").count(), 1);
+    assert.match(
+      await modal.locator(".dash-vendor > summary").textContent(),
+      /Juniper.*2 payments/s,
+    );
+    await modal.locator(".dash-vendor > summary").click();
+    assert.equal(await modal.locator(".dash-detail-row").count(), 2);
+    assert.match(await modal.textContent(), /2026-07-30/);
+    await shot("vendors");
+    await page.keyboard.press("Escape");
+    await button("August 2026").click();
     await page.getByRole("checkbox", { name: /Include repayments/ }).check();
     assert.equal(await stat("Still paid by you").textContent(), "$251.00");
     await page
@@ -181,6 +241,23 @@ const stat = (label) =>
       .click();
     assert.equal(await stat("Gross account inflow").textContent(), "$1,219.01");
     assert.equal(await stat("Gross account outflow").textContent(), "$500.00");
+    assert.match(
+      await page.locator(".dash-account-grid").textContent(),
+      /\$250.00/,
+    );
+    assert.match(
+      await page.locator(".dash-account-grid").textContent(),
+      /Balance unavailable/,
+    );
+    assert.equal(await page.locator(".dash-route").count(), 1);
+    await page.locator(".dash-account-card").filter({hasText:"Synthetic savings"}).locator(".dash-balance").click();
+    modal=page.getByRole("dialog");
+    assert.match(await modal.locator("summary").textContent(),/\$250.00/);
+    await page.keyboard.press("Escape");
+    await page.locator(".dash-route").click();
+    await page.getByRole("dialog").waitFor();
+    assert.match(await page.getByRole("dialog").textContent(), /Fee \$1.00/);
+    await page.keyboard.press("Escape");
     await shot("cash-flow");
     await page
       .getByRole("navigation", { name: "Dashboard views" })
@@ -221,6 +298,10 @@ const stat = (label) =>
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
+    await button("Cash flow").click();
+    await shot("cash-narrow");
+    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    await button("Spending").click();
     await button("About these numbers").click();
     await shot("methods-narrow");
     await page.keyboard.press("Escape");

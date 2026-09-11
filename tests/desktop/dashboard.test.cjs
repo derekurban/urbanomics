@@ -89,6 +89,123 @@ function fixture() {
     ],
   };
 }
+test("monthly trends preserve missing months and reconcile category filters and receipt cutoffs", async () => {
+  const { monthlyDashboard, availableMonths } = await import(
+    "../../src/dashboard-model.js"
+  );
+  const { records, entities } = fixture();
+  assert.deepEqual(availableMonths(records), ["2026-07", "2026-08", "2026-09"]);
+  const series = monthlyDashboard(records, entities, { year: "2026" });
+  assert.equal(series.length, 12);
+  assert.equal(series[0].model, null);
+  assert.equal(series[6].model.net, 4000);
+  assert.equal(series[7].model.net, 29099);
+  assert.equal(series[7].model.cashIn, 121901);
+  assert.equal(series[8].model.gross, 0); // Observed month with no expenses is zero, not missing.
+  const later = monthlyDashboard(records, entities, {
+    year: "2026",
+    later: true,
+  });
+  assert.equal(later[6].model.net, 2000);
+  assert.equal(later[7].model.net, 24100);
+  const food = monthlyDashboard(records, entities, {
+    year: "2026",
+    categories: ["food"],
+  });
+  assert.equal(food[7].model.net, 11999);
+  assert.equal(food[7].model.cashIn, 0);
+  assert.equal(food[7].model.cashOut, 18000);
+  assert.equal(food[6].available, true);
+  assert.equal(food[6].model.net, 0);
+  assert.deepEqual(availableMonths(records, "USD"), ["2026-08"]);
+});
+test("vendor groups merge aliases across raw descriptions, preserve cents, and retain dated payments", async () => {
+  const { vendorGroups } = await import("../../src/dashboard-model.js");
+  const rows = [
+    {
+      row: {
+        id: "a",
+        description: "Superstore",
+        originalDescription: "STORE 123",
+        aliasId: "alias",
+        date: "2026-08-01",
+      },
+      gross: 1234,
+      repaid: 234,
+      net: 1000,
+    },
+    {
+      row: {
+        id: "b",
+        description: "Superstore",
+        originalDescription: "STORE 456",
+        aliasId: "alias",
+        date: "2026-08-20",
+      },
+      gross: 2001,
+      repaid: 0,
+      net: 2001,
+    },
+    {
+      row: { id: "c", description: "Dining", date: "2026-08-20" },
+      gross: 101,
+      repaid: 0,
+      net: 101,
+    },
+  ];
+  const before = JSON.stringify(rows),
+    groups = vendorGroups(rows);
+  assert.equal(groups.length, 2);
+  assert.deepEqual(
+    [groups[0].gross, groups[0].repaid, groups[0].net],
+    [3235, 234, 3001],
+  );
+  assert.deepEqual(
+    groups[0].rows.map((e) => e.row.id),
+    ["b", "a"],
+  );
+  assert.equal(JSON.stringify(rows), before);
+});
+test("account standing uses source observations and transfer arrows count once by debit month", async () => {
+  const { accountOverview } = await import("../../src/dashboard-model.js");
+  const { records } = fixture();
+  records.find((t) => t.id === "in").date = "2026-09-01";
+  records.find((t) => t.id === "in").balanceCents = 9900;
+  const opts = { from: "2026-08-01", through: "2026-08-31" };
+  let view = accountOverview(records, opts);
+  assert.equal(view.accounts.length, 2); // No hidden, manual cash or USD accounts.
+  assert.equal(view.accounts.find((a) => a.id === "a").balance.value, null);
+  assert.equal(view.accounts.find((a) => a.id === "b").balance.value, 9900);
+  assert.equal(
+    view.accounts.find((a) => a.id === "b").balance.date,
+    "2026-09-01",
+  );
+  assert.equal(view.accounts.find((a) => a.id === "b").cashIn, 0);
+  assert.deepEqual(
+    [view.routes[0].debit, view.routes[0].credit, view.routes[0].fees],
+    [10000, 9900, 100],
+  );
+  assert.equal(view.routes[0].pairs.length, 1);
+  assert.equal(
+    accountOverview(records, { from: "2026-09-01", through: "2026-09-30" })
+      .routes.length,
+    0,
+  );
+  records.push({
+    ...records.find((t) => t.id === "in"),
+    id: "balance2",
+    amountCents: 1,
+    balanceCents: 9901,
+    review: { kind: "unreviewed", tags: [], groups: [], allocations: [] },
+  });
+  view = accountOverview(records, opts);
+  assert.equal(view.accounts.find((a) => a.id === "b").balance.value, null);
+  assert.equal(view.accounts.find((a) => a.id === "b").balance.ambiguous, true);
+  assert.equal(
+    view.accounts.find((a) => a.id === "b").balance.observations.length,
+    2,
+  );
+});
 test("dashboard reconciles cash, deductions, cross-month receipts, overlapping events and exact category cents", async () => {
   const { dashboard, TRANSFER_FEES, UNCATEGORIZED } = await import(
     "../../src/dashboard-model.js"
