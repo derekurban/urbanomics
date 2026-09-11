@@ -15,7 +15,15 @@ const tables = {
     "deletedAt",
   ],
   rules: ["key", "schema", "account_id"],
-  review_entities: ["id", "kind", "name", "color", "tags"],
+  review_entities: [
+    "id",
+    "kind",
+    "name",
+    "color",
+    "tags",
+    "startDate",
+    "endDate",
+  ],
   transaction_aliases: ["id", "name", "pattern", "version"],
 };
 const quote = (value) =>

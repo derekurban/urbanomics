@@ -1,6 +1,6 @@
 # Versioned configuration
 
-`workspace.sql` stores the current accounts (including recoverable deletion), filename routing rules, global aliases, categories, events and people. Stable IDs, names, colors and regexes are included intentionally at the user's request. Events use the existing `review_entities` kind `group`.
+`workspace.sql` stores the current accounts (including recoverable deletion), filename routing rules, global aliases, categories, events and people. Stable IDs, names, colors and regexes are included intentionally at the user's request. Events use the existing `review_entities` kind `group`, with optional `startDate` and `endDate` fields.
 
 There are no transactions, amounts, source descriptions from ledger rows, source hashes, raw CSVs, snapshots, import receipts, review decisions, transaction/category/event assignments, repayment links, balances or runtime settings in this export. Alias names and patterns are configuration and may contain personal text by design. The runtime SQLite database and archive remain ignored under `private/`.
 

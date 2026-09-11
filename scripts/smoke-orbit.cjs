@@ -240,59 +240,39 @@ async function drag(target) {
       .waitFor();
     await shot("categories-orbit");
     await stage("2 · Events");
-    await drag("Event Mountain weekend");
     await page
-      .getByRole("button", { name: "Event City day", exact: true })
-      .click();
-    assert.equal(
-      (await state()).records.find((t) => t.description === "Walmart").review
-        .groups.length,
-      0,
-    );
-    assert.equal(
-      await page.getByRole("slider").count(),
-      0,
-      "events do not split amounts",
-    );
-    await shot("events-orbit");
-    await page
-      .getByRole("button", { name: "Save & next", exact: true })
+      .getByRole("button", { name: "Transactions on 2026-08-28" })
       .click();
     await page
-      .getByText("1 of 3 event decisions saved", { exact: true })
-      .waitFor();
-    await page.getByRole("button", { name: "No event", exact: true }).click();
-    await page
-      .getByRole("button", { name: "Save & next", exact: true })
+      .getByRole("button", { name: "Link Walmart", exact: true })
       .click();
     await page
-      .getByText("2 of 3 event decisions saved", { exact: true })
+      .getByRole("button", { name: "Unlink Walmart", exact: true })
       .waitFor();
     await page
-      .getByRole("textbox", { name: "Search events", exact: true })
-      .fill("road trip");
-    await page
-      .getByRole("button", {
-        name: "Event Long summer road trip with friends",
-        exact: true,
-      })
+      .getByRole("button", { name: "Manage event City day", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Save & next", exact: true })
+      .getByRole("button", { name: "Transactions on 2026-08-28" })
       .click();
     await page
-      .getByText("3 of 3 event decisions saved", { exact: true })
+      .getByRole("button", { name: "Link Walmart", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Unlink Walmart", exact: true })
       .waitFor();
+    await shot("events-calendar");
     s = await state();
-    const walmart = s.records.find((t) => t.description === "Walmart"),
-      salary = s.records.find((t) => t.description === "Salary");
+    const walmart = s.records.find((t) => t.description === "Walmart");
     assert.equal(walmart.review.groups.length, 2);
     assert.deepEqual(
       walmart.review.tags.map((p) => p.cents),
       [14001, 9999],
     );
-    assert.equal(salary.review.groupsReviewed, true);
-    assert.equal(salary.review.groups.length, 0);
+    assert.equal(
+      s.records.find((t) => t.description === "Salary").review.groupsReviewed,
+      false,
+    );
     assert.deepEqual(
       s.records.map((t) => t.review.allocations),
       initial.records.map((t) => t.review.allocations),
@@ -342,7 +322,7 @@ async function drag(target) {
     assert.deepEqual(await state(), saved);
     await stage("2 · Events");
     await page
-      .getByText("3 of 3 event decisions saved", { exact: true })
+      .getByRole("region", { name: "Event calendar", exact: true })
       .waitFor();
     assert.deepEqual(errors, []);
     console.log(
@@ -350,7 +330,7 @@ async function drag(target) {
         ok: true,
         root,
         checks:
-          "category quick save, cancel, modal splits, event drafts, split cents, paging, no-event, stale saves, narrow layout, restart",
+          "category quick save, cancel, modal splits, event calendar, split cents, paging, optional events, stale saves, narrow layout, restart",
       }),
     );
   } finally {

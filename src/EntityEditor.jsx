@@ -6,6 +6,8 @@ export function EntityEditor({ entity, onClose, act, error }) {
   const [name, setName] = useState(entity.name || ""),
     [color, setColor] = useState(entity.color || "#78976A"),
     [confirm, setConfirm] = useState(false);
+  const [startDate, setStartDate] = useState(entity.startDate || ""),
+    [endDate, setEndDate] = useState(entity.endDate || "");
   return (
     <WorkspaceModal
       title={`${entity.id ? "Edit" : "New"} ${label}`}
@@ -21,6 +23,8 @@ export function EntityEditor({ entity, onClose, act, error }) {
                 ...entity,
                 name,
                 color,
+                startDate,
+                endDate,
               }),
             )) !== false
           )
@@ -44,6 +48,35 @@ export function EntityEditor({ entity, onClose, act, error }) {
             onChange={(e) => setColor(e.target.value)}
           />
         </label>
+        {entity.kind === "group" && (
+          <>
+            <div className="event-date-inputs">
+              <label>
+                Start date (optional)
+                <input
+                  type="date"
+                  value={startDate}
+                  max={endDate || "9999-12-31"}
+                  onChange={(e) => setStartDate(e.target.value)}
+                />
+              </label>
+              <label>
+                End date (optional)
+                <input
+                  type="date"
+                  value={endDate}
+                  min={startDate || "0001-01-01"}
+                  onChange={(e) => setEndDate(e.target.value)}
+                />
+              </label>
+            </div>
+            <p className="rv-help">
+              The calendar suggests transactions within these dates, plus one
+              day on either side. A single date works for a one-day event. You
+              choose what to link.
+            </p>
+          </>
+        )}
         {error && (
           <p className="dr-error-text" role="alert">
             {error}

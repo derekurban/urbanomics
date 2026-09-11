@@ -29,7 +29,13 @@ test("configuration SQL round-trips definitions but excludes all transaction and
     ["group", "Weekend"],
     ["person", "Sample person"],
   ])
-    store.review.entity(kind, { name, color: "#427A64" });
+    store.review.entity(kind, {
+      name,
+      color: "#427A64",
+      ...(kind === "group"
+        ? { startDate: "2026-08-15", endDate: "2026-08-17" }
+        : {}),
+    });
   store.aliases.save({ name: "Sample merchant", pattern: "^MERCHANT's" });
   const file = path.join(root, "synthetic.csv");
   fs.writeFileSync(
@@ -120,7 +126,7 @@ test("schema 8 globalizes legacy aliases without changing financial records and 
   assert.equal(store.aliases.decorate([row])[0].description, row.description);
   assert.equal(store.aliases.decorate([row])[0].aliasConflicts.length, 2);
   assert.deepEqual(store.db.prepare("SELECT * FROM accounts").all(), accounts);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 8);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 9);
   store.close();
   store = new ImportStore(root);
   assert.deepEqual(

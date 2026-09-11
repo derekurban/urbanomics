@@ -111,7 +111,9 @@ async function selectTask(name) {
     .click();
 }
 async function saveReview() {
-  await page.getByRole("button", { name: "Save review", exact: true }).click();
+  await page
+    .getByRole("button", { name: /^Save (review|allocation)$/, exact: true })
+    .click();
   await page.waitForFunction(
     () => !document.querySelector("footer")?.textContent.includes("Saving…"),
   );
@@ -186,13 +188,10 @@ async function saveReview() {
         .getByRole("textbox", { name: "Search review transactions" })
         .fill(name);
       await page
-        .getByRole("button", { name: "Event Mountain weekend", exact: true })
+        .getByRole("button", { name: `Link ${name}`, exact: true })
         .click();
       await page
-        .getByRole("button", { name: "Save & next", exact: true })
-        .click();
-      await page
-        .getByText("1 of 1 event decisions saved", { exact: true })
+        .getByRole("button", { name: `Unlink ${name}`, exact: true })
         .waitFor();
     }
     await page

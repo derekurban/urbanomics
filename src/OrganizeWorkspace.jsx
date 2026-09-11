@@ -1,3 +1,4 @@
+import { eventDateLabel } from "../electron/review/event-model.mjs";
 import React, { useEffect, useState } from "react";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
@@ -204,6 +205,9 @@ export function OrganizeWorkspace({
                     </span>
                     <div className="og-item-body">
                       <h3>{entity.name}</h3>
+                      {entity.kind === "group" && (
+                        <small>{eventDateLabel(entity)}</small>
+                      )}
                       <small>
                         {active} {active === 1 ? "transaction" : "transactions"}
                         {archived ? ` · ${archived} in deleted accounts` : ""}

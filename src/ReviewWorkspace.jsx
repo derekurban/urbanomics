@@ -1,3 +1,5 @@
+import { EventCalendar } from "./EventCalendar.jsx";
+import { CostBreakdown, currencyMoney } from "./CostBreakdown.jsx";
 import React, { useEffect, useState } from "react";
 import { TransactionSettings } from "./TransactionSettings.jsx";
 import { SplitEditor } from "./SplitEditor.jsx";
@@ -36,9 +38,13 @@ function FinanceEditor({
   onTags,
   onSource,
   error,
+  busy,
+  initialPurpose,
+  initialEvent,
+  onSaved,
 }) {
   const [kind, setKind] = useState(
-    row.review.kind === "unreviewed" ? "" : row.review.kind,
+    initialPurpose || (row.review.kind === "unreviewed" ? "" : row.review.kind),
   );
   const [shares, setShares] = useState(row.review.shares),
     [person, setPerson] = useState(row.review.personId),
@@ -66,7 +72,42 @@ function FinanceEditor({
   );
   const targets = values.filter((p) => p.id !== "remainder").map((p) => p.id);
   const chooseTargets = (ids) =>
-    setValues(distribute(Math.abs(row.amountCents), ids, capacities));
+    setValues(
+      distribute(Math.abs(row.amountCents), [...new Set(ids)], capacities),
+    );
+  const allocated = sum(values.filter((p) => p.id !== "remainder"));
+  const remainder = values.find((p) => p.id === "remainder")?.cents || 0;
+  const previewRecords = records.map((t) =>
+    t.id === row.id
+      ? {
+          ...t,
+          review: {
+            ...t.review,
+            kind: "repayment",
+            personId: person,
+            allocations: values.filter((p) => p.id !== "remainder"),
+            remainder,
+          },
+        }
+      : t,
+  );
+  const changeAmount = (id, text) => {
+    if (!/^\d+(\.\d{0,2})?$/.test(text)) return;
+    const old = values.find((p) => p.id === id).cents;
+    const cents = Math.max(
+      0,
+      Math.min(Math.round(Number(text) * 100), capacities[id], old + remainder),
+    );
+    setValues(
+      values.map((p) =>
+        p.id === id
+          ? { ...p, cents }
+          : p.id === "remainder"
+            ? { ...p, cents: remainder + old - cents }
+            : p,
+      ),
+    );
+  };
   const labels = {
     ...Object.fromEntries(expenses.map((t) => [t.id, title(t)])),
     remainder: "Unassigned e-transfer income",
@@ -97,7 +138,7 @@ function FinanceEditor({
   );
   const save = async (reviewed) => {
     const purpose = kind || "unreviewed";
-    await act(() =>
+    const result = await act(() =>
       api.saveFinancial(row.id, row.version, {
         kind: purpose,
         reviewed,
@@ -108,6 +149,7 @@ function FinanceEditor({
         transferId: transfer,
       }),
     );
+    if (result !== false) onSaved();
   };
   return (
     <section className="rv-finance" aria-label="Transaction review">
@@ -267,8 +309,29 @@ function FinanceEditor({
                 key={p.id}
                 aria-pressed={person === p.id}
                 onClick={() => {
+                  if (person === p.id) return;
                   setPerson(p.id);
-                  setValues([{ id: "remainder", cents: row.amountCents }]);
+                  const ids = initialEvent
+                    ? expenses
+                        .filter(
+                          (t) =>
+                            !t.deleted &&
+                            t.review.groups.includes(initialEvent),
+                        )
+                        .map((t) => t.id)
+                    : [];
+                  setValues(
+                    distribute(
+                      row.amountCents,
+                      ids,
+                      Object.fromEntries(
+                        expenses.map((t) => [
+                          t.id,
+                          capacity(t, records, row.id, p.id),
+                        ]),
+                      ),
+                    ),
+                  );
                 }}
               >
                 <i style={{ background: p.color }}>{p.name.slice(0, 2)}</i>
@@ -278,11 +341,11 @@ function FinanceEditor({
           </div>
           {person && (
             <>
-              <h3>Apply to expenses</h3>
+              <h3>Where should this payment go?</h3>
               <input
                 className="rv-search"
                 aria-label="Search repayment expenses"
-                placeholder="Search expenses, groups, accounts or dates…"
+                placeholder="Search events, expenses, accounts or dates…"
                 value={targetQuery}
                 onChange={(e) => setTargetQuery(e.target.value)}
               />
@@ -354,16 +417,52 @@ function FinanceEditor({
                 ))}
               </div>
               <p className="rv-help">
-                Groups select their expenses once. Allocations are capped at the
+                Events select their expenses once. Allocations are capped at the
                 unpaid amount or agreed share. Any extra stays as unassigned
                 e-transfer income.
               </p>
+              <div className="allocation-summary">
+                <span>
+                  Applied{" "}
+                  <strong>{currencyMoney(allocated, row.currency)}</strong>
+                </span>
+                <span>
+                  Unassigned e-transfer income{" "}
+                  <strong>{currencyMoney(remainder, row.currency)}</strong>
+                </span>
+              </div>
+              <div className="allocation-amounts">
+                {values
+                  .filter((p) => p.id !== "remainder")
+                  .map((p) => (
+                    <label key={p.id}>
+                      {labels[p.id]}
+                      <input
+                        type="number"
+                        aria-label={`Allocation to ${labels[p.id]}`}
+                        min="0"
+                        max={
+                          Math.min(capacities[p.id], p.cents + remainder) / 100
+                        }
+                        step="0.01"
+                        value={(p.cents / 100).toFixed(2)}
+                        onChange={(e) => changeAmount(p.id, e.target.value)}
+                      />
+                    </label>
+                  ))}
+              </div>
               <SplitEditor
                 values={values}
                 onChange={setValues}
                 labels={labels}
                 capacities={capacities}
                 onEven={() => chooseTargets(targets)}
+              />
+              <CostBreakdown
+                expenses={expenses.filter((t) => targets.includes(t.id))}
+                records={previewRecords}
+                people={people}
+                preview
               />
             </>
           )}
@@ -431,13 +530,14 @@ function FinanceEditor({
         <button
           className="primary"
           disabled={
+            busy ||
             !kind ||
             (kind === "repayment" && !person) ||
             (kind === "transfer" && !transfer)
           }
           onClick={() => save(true)}
         >
-          Save review
+          {kind === "repayment" ? "Save allocation" : "Save review"}
         </button>
       </div>
     </section>
@@ -445,8 +545,9 @@ function FinanceEditor({
 }
 
 export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
-  const [tagDrafts, setTagDrafts] = useState({}),
-    [eventDrafts, setEventDrafts] = useState({});
+  const [tagDrafts, setTagDrafts] = useState({});
+  const [paymentIntent, setPaymentIntent] = useState(null);
+  const [selectedEvent, setSelectedEvent] = useState("");
   const [state, setState] = useState(null),
     [stage, setStage] = useState("organize"),
     [month, setMonth] = useState(initialMonth || ""),
@@ -541,26 +642,28 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           <h1>A little order.</h1>
           <p>Give every transaction a place.</p>
         </div>
-        <label>
-          Month
-          <select
-            aria-label="Review month"
-            value={month}
-            onChange={(e) => {
-              setMonth(e.target.value);
-            }}
-          >
-            <option value="">All imported months</option>
-            {[...new Set(activeRows.map((t) => t.month))]
-              .sort()
-              .reverse()
-              .map((m) => (
-                <option key={m} value={m}>
-                  {monthLabel(m)}
-                </option>
-              ))}
-          </select>
-        </label>
+        {stage !== "groups" && (
+          <label>
+            Month
+            <select
+              aria-label="Review month"
+              value={month}
+              onChange={(e) => {
+                setMonth(e.target.value);
+              }}
+            >
+              <option value="">All imported months</option>
+              {[...new Set(activeRows.map((t) => t.month))]
+                .sort()
+                .reverse()
+                .map((m) => (
+                  <option key={m} value={m}>
+                    {monthLabel(m)}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
       </header>
       <nav className="rv-stages" aria-label="Review stages">
         {[
@@ -604,35 +707,61 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             {error}
           </p>
         )}
-      {["organize", "groups"].includes(stage) && (
+      {stage === "organize" && (
         <>
           <div className="rv-sort-controls">
             <button
               disabled={busy}
               onClick={() =>
                 editEntity({
-                  kind: stage === "organize" ? "category" : "group",
+                  kind: "category",
                 })
               }
             >
-              + New {stage === "organize" ? "category" : "event"}
+              + New category
             </button>
           </div>
           <OrbitSorter
             key={stage}
             rows={visible}
-            entities={stage === "organize" ? tags : groups}
-            events={stage === "groups"}
-            drafts={stage === "organize" ? tagDrafts : eventDrafts}
-            setDrafts={stage === "organize" ? setTagDrafts : setEventDrafts}
+            entities={tags}
+            events={false}
+            drafts={tagDrafts}
+            setDrafts={setTagDrafts}
             busy={busy}
             onSave={(changes) => act(() => api.organize(changes))}
             onEdit={editEntity}
-            onContinue={() =>
-              setStage(stage === "organize" ? "groups" : "review")
-            }
+            onContinue={() => setStage("groups")}
           />
         </>
+      )}
+      {stage === "groups" && (
+        <EventCalendar
+          selectedEvent={selectedEvent}
+          onSelectEvent={setSelectedEvent}
+          records={records}
+          visible={activeRows.filter((t) =>
+            `${title(t)} ${t.originalDescription || ""} ${t.account}`
+              .toLowerCase()
+              .includes(search.toLowerCase()),
+          )}
+          groups={groups}
+          people={people}
+          initialMonth={month}
+          busy={busy}
+          onSave={(changes) => act(() => api.organize(changes))}
+          onEdit={editEntity}
+          onSource={onSource}
+          onPayment={(t, eventId) => {
+            setMonth("");
+            setSearch("");
+            setDirection("in");
+            setReviewed(t.review.reviewed);
+            setActive(t.id);
+            setPaymentIntent({ id: t.id, eventId });
+            setStage("review");
+          }}
+        />
       )}
       {stage === "transfers" && (
         <TransferWorkspace
@@ -713,8 +842,18 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             </aside>
             {focus && (
               <FinanceEditor
-                key={focus.id}
+                key={`${focus.id}:${focus.version}`}
                 row={focus}
+                onSaved={() => setPaymentIntent(null)}
+                busy={busy}
+                initialPurpose={
+                  paymentIntent?.id === focus.id ? "repayment" : undefined
+                }
+                initialEvent={
+                  paymentIntent?.id === focus.id
+                    ? paymentIntent.eventId
+                    : undefined
+                }
                 records={records}
                 people={people}
                 groups={groups}

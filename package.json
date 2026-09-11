@@ -12,6 +12,7 @@
     "test": "node --test tests/desktop/*.test.cjs",
     "test:prototypes": "node --test tests/*-prototype.test.cjs",
     "test:desktop": "node scripts/smoke-desktop.cjs",
+    "test:events": "node scripts/smoke-events.cjs",
     "test:review": "node scripts/smoke-review.cjs",
     "test:orbit": "node scripts/smoke-orbit.cjs",
     "test:organize": "node scripts/smoke-organize.cjs",

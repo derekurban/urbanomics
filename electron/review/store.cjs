@@ -1,3 +1,4 @@
+const { eventDates } = require("./event-model.mjs");
 const { randomUUID } = require("node:crypto");
 const {
   validBand,
@@ -127,12 +128,23 @@ class ReviewStore {
         .get(kind, name, values.id || "")
     )
       throw new Error("That name already exists.");
+    const dates = eventDates(
+      kind === "group" ? { ...existing, ...values } : {},
+    );
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
-        "INSERT INTO review_entities VALUES (?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate",
       )
-      .run(id, kind, name, values.color, existing?.tags || "[]");
+      .run(
+        id,
+        kind,
+        name,
+        values.color,
+        existing?.tags || "[]",
+        dates.startDate,
+        dates.endDate,
+      );
     return id;
   }
   removeEntity(id) {
