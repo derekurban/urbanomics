@@ -368,7 +368,9 @@ export function OrbitSorter({
                     "--target-color": entity.color,
                   }}
                   aria-label={`${events ? "Event" : "Category"} ${entity.name}`}
-                  title={entity.name}
+                  title={
+                    part ? `${entity.name} · ${money(part.cents)}` : entity.name
+                  }
                   aria-pressed={selected(entity.id)}
                   disabled={busy}
                   onClick={() => choose(entity.id)}
@@ -378,15 +380,11 @@ export function OrbitSorter({
                     {entity.name}
                     {selected(entity.id) && " ✓"}
                   </span>
-                  <small>
-                    {events
-                      ? selected(entity.id)
-                        ? "Selected"
-                        : "Add to event"
-                      : part
-                        ? `${money(part.cents)} · ${row.amountCents ? Math.round((part.cents / Math.abs(row.amountCents)) * 100) : 100}%`
-                        : "Assign & next"}
-                  </small>
+                  {events && (
+                    <small>
+                      {selected(entity.id) ? "Selected" : "Add to event"}
+                    </small>
+                  )}
                 </button>
               );
             })}

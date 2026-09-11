@@ -1,14 +1,14 @@
-// Even spacing along an ellipse, widening first and growing vertically when
-// the available window width is exhausted. Targets keep readable dimensions.
+// Space compact targets by their rectangular footprint along an ellipse.
+// Horizontal arcs need label-width gaps; vertical arcs need only chip-height gaps.
 export function orbitLayout(count, width, cardHeight) {
-  const targetWidth = Math.min(140, Math.max(96, (width - 260) / 2));
-  const targetHeight = 102;
-  const cardWidth = Math.min(226, width - 2 * targetWidth - 80);
+  const targetWidth = Math.min(116, Math.max(90, (width - 250) / 2));
+  const targetHeight = 44;
+  const cardWidth = Math.min(206, width - 2 * targetWidth - 56);
   const rx = Math.min(
-    (width - targetWidth) / 2 - 12,
-    Math.max(270, cardWidth / 2 + targetWidth / 2 + 26, count * 32),
+    (width - targetWidth) / 2 - 8,
+    Math.max(230, cardWidth / 2 + targetWidth / 2 + 20, count * 18),
   );
-  let ry = Math.max((cardHeight + targetHeight) / 2 + 30, rx * 0.85);
+  let ry = Math.max((cardHeight + targetHeight) / 2 + 18, rx * 0.4);
   function points() {
     const samples = [],
       steps = 1024;
@@ -18,7 +18,10 @@ export function orbitLayout(count, width, cardHeight) {
       const angle = -Math.PI / 2 + (i / steps) * Math.PI * 2;
       const point = { x: rx * Math.cos(angle), y: ry * Math.sin(angle) };
       if (previous)
-        length += Math.hypot(point.x - previous.x, point.y - previous.y);
+        length += Math.max(
+          Math.abs(point.x - previous.x) / (targetWidth + 6),
+          Math.abs(point.y - previous.y) / (targetHeight + 6),
+        );
       samples.push({ ...point, length });
       previous = point;
     }
@@ -40,20 +43,20 @@ export function orbitLayout(count, width, cardHeight) {
     targets = points();
     const overlaps = targets.some(
       (p, i) =>
-        (Math.abs(p.x) < (cardWidth + targetWidth) / 2 + 18 &&
-          Math.abs(p.y) < (cardHeight + targetHeight) / 2 + 22) ||
+        (Math.abs(p.x) < (cardWidth + targetWidth) / 2 + 12 &&
+          Math.abs(p.y) < (cardHeight + targetHeight) / 2 + 16) ||
         targets
           .slice(i + 1)
           .some(
             (q) =>
-              Math.abs(p.x - q.x) < targetWidth + 14 &&
-              Math.abs(p.y - q.y) < targetHeight + 14,
+              Math.abs(p.x - q.x) < targetWidth + 6 &&
+              Math.abs(p.y - q.y) < targetHeight + 6,
           ),
     );
     if (!overlaps) break;
-    ry *= 1.08;
+    ry *= 1.04;
   }
-  const height = ry * 2 + targetHeight + 28;
+  const height = ry * 2 + targetHeight + 16;
   return {
     height,
     rx,

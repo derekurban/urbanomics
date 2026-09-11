@@ -198,7 +198,7 @@ async function drag(target) {
       .click();
     await page
       .getByRole("button", { name: "Category Home", exact: true })
-      .filter({ hasText: "Assign & next" })
+      .and(page.locator('[aria-pressed="false"]'))
       .waitFor();
     assert.match(
       await page.locator(".os-transaction").textContent(),
@@ -342,7 +342,7 @@ async function drag(target) {
       .getByRole("heading", { name: "Snapshots", exact: true })
       .waitFor();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-    async function checkLayout() {
+    async function checkLayout(maxHeight = 900) {
       await page.waitForFunction(
         () => document.querySelectorAll("[data-orbit-target]").length === 24,
       );
@@ -374,11 +374,15 @@ async function drag(target) {
           () => document.documentElement.scrollWidth <= innerWidth,
         ),
       );
+      assert.ok(
+        (await page.locator(".os-orbit").boundingBox()).height <= maxHeight,
+        "24 compact categories stay within the layout height budget",
+      );
     }
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(1329, 940),
     );
-    await checkLayout();
+    await checkLayout(650);
     await shot("all-24-categories");
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 760),
