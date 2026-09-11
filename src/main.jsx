@@ -228,6 +228,7 @@ function App() {
               aria-current={page === id ? "page" : undefined}
               onClick={() => {
                 setPage(id);
+                if (id === "months") setRevision(null);
                 setSelectedJob(null);
               }}
             >
@@ -235,9 +236,6 @@ function App() {
               {label}
               {id === "data" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
-              )}
-              {id === "review" && data.reviewPending > 0 && (
-                <b>{data.reviewPending}</b>
               )}
             </button>
           ))}
@@ -396,7 +394,23 @@ function App() {
               }
             />
           )}
-          {page === "months" && (
+          {page === "months" && !revision && (
+            <ReviewWorkspace
+              key={month}
+              transactionList
+              data={data}
+              run={run}
+              busy={busy}
+              initialMonth={month}
+              onSource={(id) =>
+                api
+                  .detail(id)
+                  .then(setDetail)
+                  .catch((e) => setError(e.message))
+              }
+            />
+          )}
+          {page === "months" && revision && (
             <>
               <div className="page-heading split-heading">
                 <div>
@@ -405,7 +419,7 @@ function App() {
                   <p>Your imported transactions, together in one place.</p>
                 </div>
                 <button className="primary" onClick={() => setPage("review")}>
-                  Review this month
+                  Organize this month
                 </button>
                 <span className="pill">
                   {revision ? "Saved snapshot" : "Current snapshot"}

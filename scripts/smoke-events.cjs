@@ -108,7 +108,7 @@ const state = () => page.evaluate(() => window.urbanomics.reviewState());
 const button = (name) => page.getByRole("button", { name, exact: true });
 const stage = (name) =>
   page
-    .getByRole("navigation", { name: "Review stages" })
+    .getByRole("navigation", { name: "Transaction tools" })
     .getByRole("button", { name })
     .click();
 const shot = (name) =>
@@ -124,7 +124,7 @@ async function launch() {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.getByRole("heading", { name: "Snapshots", exact: true }).waitFor();
   await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-  await stage("2 · Events");
+  await stage("Events");
 }
 async function day(date) {
   await page
@@ -219,11 +219,13 @@ async function link(name, date) {
       .click();
     await shot("allocation-preview");
     await button("Save allocation").click();
-    await page
-      .locator(".rv-task-list")
-      .getByRole("button")
-      .filter({ hasText: "Alex payment" })
-      .waitFor({ state: "hidden" });
+    await page.waitForFunction(
+      async (name) =>
+        (await window.urbanomics.reviewState()).records.find(
+          (t) => t.description === name,
+        ).review.kind === "repayment",
+      "Alex payment",
+    );
     let s = await state(),
       payment = s.records.find((t) => t.description === "Alex payment");
     assert.equal(payment.review.remainder, 1000);
@@ -233,7 +235,7 @@ async function link(name, date) {
       expensesBefore,
       "saving repayment preserves expense reviews",
     );
-    await stage("2 · Events");
+    await stage("Events");
     await button("Costs & repayments").click();
     assert.match(
       await page.locator(".cost-metrics").textContent(),
@@ -252,12 +254,14 @@ async function link(name, date) {
       .getByRole("button", { name: "Sa Sam", exact: true })
       .click();
     await button("Save allocation").click();
-    await page
-      .locator(".rv-task-list")
-      .getByRole("button")
-      .filter({ hasText: "Sam payment" })
-      .waitFor({ state: "hidden" });
-    await stage("2 · Events");
+    await page.waitForFunction(
+      async (name) =>
+        (await window.urbanomics.reviewState()).records.find(
+          (t) => t.description === name,
+        ).review.kind === "repayment",
+      "Sam payment",
+    );
+    await stage("Events");
     await button("Costs & repayments").click();
     assert.match(
       await page.locator(".cost-metrics").textContent(),

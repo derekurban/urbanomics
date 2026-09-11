@@ -616,3 +616,37 @@
     animation: none;
   }
 }
+
+.rv-review-filters {
+  flex-wrap: wrap;
+}
+.rv-state-filters,
+.rv-state-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.rv-state-filters {
+  flex: 1 1 100%;
+  order: 1;
+}
+.rv-state-filters button {
+  padding: 6px 10px;
+  border-radius: 18px;
+  font-size: 12px;
+}
+.rv-state-filters button[aria-pressed="true"] {
+  background: #dfead7;
+  border-color: #8ca47d;
+}
+.rv-task-list > button > .rv-state-badges {
+  display: flex;
+  margin-top: 6px;
+}
+.rv-state-badges small {
+  display: inline-block;
+  border-radius: 8px;
+  padding: 3px 6px;
+  background: #edf2e8;
+  color: var(--ink);
+}

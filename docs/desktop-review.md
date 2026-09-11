@@ -1,6 +1,6 @@
 # Desktop organization and review
 
-The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months. Every stage is accessible: Categories, Events, Transfers, Review, and Overview. No sample entities or decisions are inserted into personal workspaces.
+The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months. Review in the sidebar offers Categories, Money in, Events, Transfers and Overview as independent tools. The numbered Review stage is removed. Transactions in the sidebar exposes financial settings directly. No sample entities or decisions are inserted into personal workspaces.
 
 ## Sorting
 
@@ -26,7 +26,7 @@ Overview filters gross flows by directly assigned categories. Combining categori
 
 ## Financial decisions
 
-The inbox contains unfinished financial reviews. Money out offers Expense or Own-account transfer; money in offers Income, Repayment or Own-account transfer. Zero-value records can be acknowledged without affecting totals. Saving removes the current row from the inbox. Show reviewed exposes completed decisions and Reopen review makes them pending again. Reopening preserves the recorded decision and its links until edited; existing repayment allocations therefore continue reserving their amounts.
+Transactions lists all matching records with independent filters/badges for categorization, deductions received, payments allocated to expenses, typed income, event membership, shared expenses and linked transfers. An expense can be categorized, deducted and in an event simultaneously. Money in offers All, Unassigned money, Income and Allocated filters; partial allocations remain visible under Unassigned money for their remainder. Saving keeps records accessible without Show reviewed or Reopen review. Clear financial assignment removes the purpose, shares and allocations while retaining category/event assignments; it releases deductions. Transfer unlinking checks both saved versions. Legacy reviewed fields remain private for compatibility but do not drive these views or reports.
 
 An expense can have no agreed split, in which case received repayments reduce the user's remaining cost. Adding people records an agreed split (including Me). Cash paid, the user's share, repayments received and the remaining amount owed are shown separately. Saved repayments cannot exceed an expense's gross amount or the payer's agreed share. Changing an expense split or purpose cannot invalidate existing repayments; adjust those allocations first.
 
@@ -34,13 +34,13 @@ A repayment records a selected person and canonical expense transaction IDs. The
 
 Own-account transfers and credit-card payments use **Transfers** for percentage-band matching. Pending incoming entries appear on the left; selecting one finds all eligible negative entries in other active accounts and the same currency across imported months. The symmetric amount band is relative to the absolute outgoing amount, defaults to 2%, and accepts 0–100% in 0.01% increments. Integer basis points and whole cents are compared using exact integer arithmetic. Dates are visible and help order equally close amounts; there is no hidden date cutoff. Amount similarity supplies candidates only: select both checkmarks and press Link transfer to save.
 
-Both row versions are checked and both reviews change atomically. Linked pairs leave Pending and appear under Linked, filtered by the review month and search (either side can match). Linking advances to the next incoming entry. Unlink returns both entries to pending and removes the difference metadata. Existing unrelated completed financial reviews require reopening; repayment records and expenses reserved by repayments cannot be paired. The existing financial editor still allows exact pairs and editing/reopening a previously linked unequal pair.
+Both row versions are checked and both reviews change atomically. Linked pairs leave Pending and appear under Linked, filtered by the review month and search (either side can match). Linking advances to the next incoming entry. Unlink returns both entries to pending and removes the difference metadata. Existing income, repayment and shared-expense assignments block pairing regardless of the reviewed flag; clear the assignment first. Expenses receiving repayments cannot be paired. Unlinked expenses without shared assignments remain eligible regardless of the legacy reviewed flag. The existing financial editor still allows exact pairs and editing/reopening a previously linked unequal pair.
 
 When the incoming amount is smaller, the shortfall defaults to a fee stored once on the outgoing review as `transferFeeCents`. When it is larger, the excess is stored once on the incoming review as `transferExcessCents` and labeled unexplained extra received. It is not earned income. Principal is the smaller of the two amounts; no synthetic bank row or duplicate fee transaction is created. Original entries, category portions and event memberships stay intact. Changing either side's financial purpose also clears the former counterpart and its difference metadata. These optional payload fields default to zero for existing reviews; no database migration rewrites historical decisions.
 
 Overview separates transfer principal, fees, and unexplained differences. When a transaction spans categories, its fee or excess is distributed proportionally over its existing portions using integer cents and largest-remainder rounding. Selecting all categories recovers the exact total; selecting subsets does not double-count principal or fees. Uncategorized entries remain outside this category-based report, as before. Explaining excess incoming money beyond unlinking/reviewing the pair remains future work.
 
-Category totals are **gross categorized cash flow**, with pending rows, transfers, expenses, general income and repayments separated. Mixed repayments remain one gross repayment bucket, avoiding an invented allocation of reimbursements to categories. The exact excess is shown in the repayment editor. These are not net personal-spending reports or proof of complete month coverage.
+Category totals are **gross categorized cash flow**, with unspecified purposes, transfers, expenses, general income and repayments separated. Mixed repayments remain one gross repayment bucket, avoiding an invented allocation of reimbursements to categories. The exact excess is shown in the repayment editor. These are not net personal-spending reports or proof of complete month coverage.
 
 ## Private persistence
 
@@ -50,7 +50,7 @@ Schema 6 converts former tag entities into direct categories while retaining the
 
 Repeated/matched imports retain existing decisions. Newly added transactions start pending. Changed bank descriptions/amounts still follow the importer's cautious matching rules; they are not silently substituted for a reviewed transaction. Deleting an account hides its transactions from active review while retaining decisions and repayment capacity reservations; restoring it recovers those identities and decisions.
 
-Review records live only in the private SQLite workspace, excluded from Git and packaging. To preserve them, back up the complete private workspace while the app is closed. Immutable import snapshots alone do not include later review decisions. There is no review audit history or backup/restore UI yet; completed decisions can be reopened and edited.
+Review records live only in the private SQLite workspace, excluded from Git and packaging. To preserve them, back up the complete private workspace while the app is closed. Immutable import snapshots alone do not include later review decisions. There is no review audit history or backup/restore UI yet; saved assignments can be edited directly.
 
 ## Verification
 

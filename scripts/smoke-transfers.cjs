@@ -69,11 +69,11 @@ async function launch() {
     let page = await launch();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
     await page
-      .getByRole("navigation", { name: "Review stages" })
+      .getByRole("navigation", { name: "Transaction tools" })
       .getByRole("button", { name: "Transfers", exact: true })
       .click();
     await page
-      .getByLabel("Review month", { exact: true })
+      .getByLabel("Transaction month", { exact: true })
       .selectOption("2026-07");
     const workspace = page.getByRole("region", {
       name: "Transfer linking",
@@ -149,7 +149,7 @@ async function launch() {
       .filter({ hasText: "Pair unlinked" })
       .waitFor();
     await workspace.getByRole("button", { name: /^Pending/ }).click();
-    await page.getByLabel("Review month", { exact: true }).selectOption("");
+    await page.getByLabel("Transaction month", { exact: true }).selectOption("");
     await left
       .getByRole("button")
       .filter({ hasText: "Sample exact in" })

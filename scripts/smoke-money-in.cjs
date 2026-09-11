@@ -45,7 +45,7 @@ const button = (name) => page.getByRole("button", { name, exact: true });
 const state = () => page.evaluate(() => window.urbanomics.reviewState());
 const stage = (name) =>
   page
-    .getByRole("navigation", { name: "Review stages" })
+    .getByRole("navigation", { name: "Transaction tools" })
     .getByRole("button", { name, exact: true })
     .click();
 const task = (name) =>
@@ -75,15 +75,17 @@ async function launch() {
     assert.equal(await page.locator(".rv-task-list > button").count(), 2);
     await task("Paycheck deposit");
     await button("Income").click();
-    assert.ok(await button("Save review").isDisabled());
+    assert.ok(await button("Save changes").isDisabled());
     await button("Paycheck").click();
     await shot("income-source");
-    await button("Save review").click();
-    await page
-      .locator(".rv-task-list")
-      .getByText("Paycheck deposit", { exact: true })
-      .waitFor({ state: "hidden" });
-    await stage("3 · Review");
+    await button("Save changes").click();
+    await page.waitForFunction(async (name) => {
+      const r = (await window.urbanomics.reviewState()).records.find(
+        (t) => t.description === name,
+      );
+      return r.review.kind !== "unreviewed";
+    }, "Paycheck deposit");
+    await page.locator(".nav-item").filter({ hasText: "Transactions" }).click();
     await task("Dinner");
     await button("Apply incoming money to this expense").click();
     await page.getByText("Choose a payment for", { exact: false }).waitFor();
@@ -122,10 +124,12 @@ async function launch() {
       .fill("30.01");
     await shot("cash-allocation");
     await button("Save allocation").click();
-    await page
-      .locator(".rv-task-list")
-      .getByText("Cash for our dates", { exact: true })
-      .waitFor({ state: "hidden" });
+    await page.waitForFunction(async (name) => {
+      const r = (await window.urbanomics.reviewState()).records.find(
+        (t) => t.description === name,
+      );
+      return r.review.kind !== "unreviewed";
+    }, "Cash for our dates");
     let s = await state(),
       cash = s.records.find((t) => t.manual);
     assert.equal(cash.review.remainder, 999);
@@ -147,13 +151,13 @@ async function launch() {
       .getByRole("checkbox")
       .check();
     await button("Save allocation").click();
-    await page
-      .locator(".rv-task-list")
-      .getByText("Partner transfer", { exact: true })
-      .waitFor({ state: "hidden" });
-    await page
-      .getByRole("checkbox", { name: "Show reviewed", exact: true })
-      .check();
+    await page.waitForFunction(async (name) => {
+      const r = (await window.urbanomics.reviewState()).records.find(
+        (t) => t.description === name,
+      );
+      return r.review.kind !== "unreviewed";
+    }, "Partner transfer");
+
     await task("Cash for our dates");
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 760),
@@ -185,9 +189,7 @@ async function launch() {
     await launch();
     assert.deepEqual(await state(), saved);
     await stage("Money in");
-    await page
-      .getByRole("checkbox", { name: "Show reviewed", exact: true })
-      .check();
+
     await task("Cash for our dates");
     await button("Edit cash receipt").click();
     modal = page.getByRole("dialog", {

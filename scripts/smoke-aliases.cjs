@@ -115,7 +115,7 @@ async function newRule(name, pattern) {
     assert.ok(s.records.every((t) => !t.review.reviewed));
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
     await page
-      .getByRole("textbox", { name: "Search review transactions" })
+      .getByRole("textbox", { name: "Search workspace transactions" })
       .fill("#1234");
     await page
       .locator(".os-transaction h3")
@@ -128,7 +128,7 @@ async function newRule(name, pattern) {
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     await page.locator(".nav-item").filter({ hasText: "Transactions" }).click();
     await page
-      .locator(".transaction-name")
+      .locator(".rv-task-list")
       .getByText("Walmart", { exact: true })
       .waitFor();
     await aliases();

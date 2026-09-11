@@ -125,7 +125,7 @@ export function flowSummary(records, tagIds) {
     if (!included.length) continue;
     const amount = sum(included);
     let bucket;
-    if (!t.review.reviewed || t.review.kind === "unreviewed")
+    if (t.review.kind === "unreviewed")
       bucket = t.amountCents < 0 ? "unreviewedOut" : "unreviewedIn";
     else if (t.review.kind === "transfer") {
       bucket = t.amountCents < 0 ? "transferOut" : "transferIn";

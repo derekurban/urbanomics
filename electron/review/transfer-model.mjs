@@ -29,7 +29,8 @@ export function pendingTransfers(records) {
     (t) =>
       !t.deleted &&
       !t.manual &&
-      !t.review.reviewed &&
+      ["unreviewed", "expense"].includes(t.review.kind) &&
+      !t.review.shares?.some((p) => p.id !== "me" && p.cents > 0) &&
       !t.review.transferId &&
       t.review.kind !== "repayment" &&
       !reserved.has(t.id),

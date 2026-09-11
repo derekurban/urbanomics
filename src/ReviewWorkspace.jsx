@@ -1,3 +1,5 @@
+import { transactionState, transactionLabels } from "./transaction-state.js";
+import { pendingTransfers } from "../electron/review/transfer-model.mjs";
 import { CashReceiptEditor } from "./CashReceiptEditor.jsx";
 import { EventCalendar } from "./EventCalendar.jsx";
 import { CostBreakdown, currencyMoney } from "./CostBreakdown.jsx";
@@ -48,7 +50,14 @@ function FinanceEditor({
   initialExpense,
 }) {
   const [kind, setKind] = useState(
-    initialPurpose || (row.review.kind === "unreviewed" ? "" : row.review.kind),
+    initialPurpose ||
+      (row.review.kind === "unreviewed"
+        ? row.amountCents < 0
+          ? "expense"
+          : row.amountCents === 0
+            ? "zero"
+            : ""
+        : row.review.kind),
   );
   const [incomeType, setIncomeType] = useState(row.review.incomeType || ""),
     [incomeSource, setIncomeSource] = useState(row.review.incomeSource || "");
@@ -132,24 +141,22 @@ function FinanceEditor({
       0,
     );
   const shareLabels = { me: "Me", ...byId(people) };
+  const eligibleTransfers = new Set(pendingTransfers(records).map((t) => t.id));
   const counterpart = records.filter(
     (t) =>
       !t.deleted &&
       t.accountId !== row.accountId &&
       (t.amountCents === -row.amountCents || t.review.transferId === row.id) &&
       t.currency === row.currency &&
-      (t.review.transferId === row.id ||
-        (!t.review.reviewed &&
-          !t.review.transferId &&
-          t.review.kind !== "repayment")) &&
+      (t.review.transferId === row.id || eligibleTransfers.has(t.id)) &&
       matches(t),
   );
-  const save = async (reviewed) => {
+  const save = async () => {
     const purpose = kind || "unreviewed";
     const result = await act(() =>
       api.saveFinancial(row.id, row.version, {
         kind: purpose,
-        reviewed,
+        reviewed: true,
         shares: purpose === "expense" ? shares : null,
         personId: person,
         incomeType,
@@ -162,7 +169,7 @@ function FinanceEditor({
     if (result !== false) onSaved();
   };
   return (
-    <section className="rv-finance" aria-label="Transaction review">
+    <section className="rv-finance" aria-label="Transaction details">
       <div className="rv-editor-title">
         <div>
           <small>
@@ -579,7 +586,7 @@ function FinanceEditor({
           {!counterpart.length && (
             <p>
               No equal opposite entry in another active account. Import the
-              other side before reviewing this transfer.
+              other side before linking this transfer.
             </p>
           )}
         </>
@@ -590,8 +597,31 @@ function FinanceEditor({
         </p>
       )}
       <div className="rv-review-actions">
-        {row.review.reviewed && (
-          <button onClick={() => save(false)}>Reopen review</button>
+        {row.review.kind !== "unreviewed" && (
+          <button
+            disabled={busy}
+            onClick={async () => {
+              const result = await act(() =>
+                row.review.kind === "transfer"
+                  ? api.unlinkTransfer(
+                      row.id,
+                      row.version,
+                      records.find((t) => t.id === row.review.transferId)
+                        ?.version,
+                    )
+                  : api.saveFinancial(row.id, row.version, {
+                      kind: "unreviewed",
+                      reviewed: false,
+                      shares: null,
+                    }),
+              );
+              if (result !== false) onSaved();
+            }}
+          >
+            {row.review.kind === "transfer"
+              ? "Unlink transfer"
+              : "Clear financial assignment"}
+          </button>
         )}
         <button
           className="primary"
@@ -604,29 +634,36 @@ function FinanceEditor({
             (kind === "repayment" && !person) ||
             (kind === "transfer" && !transfer)
           }
-          onClick={() => save(true)}
+          onClick={save}
         >
-          {kind === "repayment" ? "Save allocation" : "Save review"}
+          {kind === "repayment" ? "Save allocation" : "Save changes"}
         </button>
       </div>
     </section>
   );
 }
 
-export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
+export function ReviewWorkspace({
+  data,
+  run,
+  busy,
+  onSource,
+  initialMonth,
+  transactionList = false,
+}) {
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState("");
   const [cashEditor, setCashEditor] = useState(null);
   const [expenseIntent, setExpenseIntent] = useState(null);
   const [state, setState] = useState(null),
-    [stage, setStage] = useState("organize"),
+    [stage, setStage] = useState(transactionList ? "transactions" : "organize"),
     [month, setMonth] = useState(initialMonth || ""),
     [search, setSearch] = useState("");
   const [editor, setEditor] = useState(null),
     [tagRow, setTagRow] = useState(null),
     [error, setError] = useState("");
-  const [reviewed, setReviewed] = useState(false),
+  const [statusFilter, setStatusFilter] = useState("all"),
     [direction, setDirection] = useState("all"),
     [active, setActive] = useState(""),
     [views, setViews] = useState([]);
@@ -656,7 +693,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       }
     });
   }
-  if (!state) return <p>{error || "Opening your review workspace…"}</p>;
+  if (!state) return <p>{error || "Opening transactions…"}</p>;
   const { records, entities } = state,
     tags = entities.filter((e) => e.kind === "category"),
     groups = entities.filter((e) => e.kind === "group"),
@@ -692,12 +729,12 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
     setTagRow(t);
   };
   const selectedRow = tagRow;
+  const facts = new Map(
+    records.map((t) => [t.id, transactionState(t, records)]),
+  );
   const inbox = visible.filter(
     (t) =>
-      (stage === "moneyin"
-        ? (t.review.reviewed &&
-            !(t.review.kind === "income" && !t.review.incomeType)) === reviewed
-        : t.review.reviewed === reviewed) &&
+      (statusFilter === "all" || facts.get(t.id)[statusFilter]) &&
       (stage === "moneyin"
         ? t.amountCents > 0 && t.review.kind !== "transfer"
         : direction === "all" ||
@@ -715,14 +752,14 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
     <div className="review-workspace">
       <header className="rv-heading">
         <div>
-          <h1>A little order.</h1>
+          <h1>{transactionList ? "Transactions" : "A little order."}</h1>
           <p>Give every transaction a place.</p>
         </div>
         {stage !== "groups" && (
           <label>
             Month
             <select
-              aria-label="Review month"
+              aria-label="Transaction month"
               value={month}
               onChange={(e) => {
                 setMonth(e.target.value);
@@ -741,35 +778,50 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           </label>
         )}
       </header>
-      <nav className="rv-stages" aria-label="Review stages">
-        {[
-          ["organize", "1 · Categories"],
-          ["moneyin", "Money in"],
-          ["groups", "2 · Events"],
-          ["transfers", "Transfers"],
-          ["review", "3 · Review"],
-          ["categories", "4 · Overview"],
-        ].map(([id, label]) => (
-          <button
-            key={id}
-            aria-current={stage === id ? "step" : undefined}
-            onClick={() => {
-              setStage(id);
-              if (id === "moneyin") setMonth("");
-              else {
-                setExpenseIntent(null);
-                setPaymentIntent(null);
-              }
-              setError("");
-            }}
-          >
-            {label}
-          </button>
-        ))}
-      </nav>
+      {!transactionList && (
+        <nav className="rv-stages" aria-label="Transaction tools">
+          {[
+            ["organize", "Categories"],
+            ["moneyin", "Money in"],
+            ["groups", "Events"],
+            ["transfers", "Transfers"],
+            ["categories", "Overview"],
+          ].map(([id, label]) => (
+            <button
+              key={id}
+              aria-current={stage === id ? "page" : undefined}
+              onClick={() => {
+                setStage(id);
+                setStatusFilter("all");
+                setActive("");
+                if (id === "moneyin") setMonth("");
+                else {
+                  setExpenseIntent(null);
+                  setPaymentIntent(null);
+                }
+                setError("");
+              }}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+      )}
+      {transactionList && stage !== "transactions" && (
+        <button
+          onClick={() => {
+            setStage("transactions");
+            setStatusFilter("all");
+            setExpenseIntent(null);
+            setPaymentIntent(null);
+          }}
+        >
+          ← All transactions
+        </button>
+      )}
       <div className="rv-toolbar">
         <input
-          aria-label="Search review transactions"
+          aria-label="Search workspace transactions"
           placeholder="Search transactions or accounts…"
           value={search}
           onChange={(e) => {
@@ -777,7 +829,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           }}
         />
         <span>
-          {scoped.filter((t) => !t.review.reviewed).length} to review ·{" "}
+          {scoped.length} transactions ·{" "}
           {scoped.filter((t) => !t.review.tags.length).length} need categories
         </span>
       </div>
@@ -785,7 +837,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
         !editor &&
         !cashEditor &&
         !tagRow &&
-        !["review", "moneyin", "transfers"].includes(stage) && (
+        !["transactions", "moneyin", "transfers"].includes(stage) && (
           <p className="dr-error-text" role="alert">
             {error}
           </p>
@@ -839,7 +891,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             setMonth("");
             setSearch("");
             setDirection("in");
-            setReviewed(t.review.reviewed);
+            setStatusFilter("all");
             setActive(t.id);
             setPaymentIntent({ id: t.id, eventId });
             setStage("moneyin");
@@ -856,7 +908,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           onSource={onSource}
         />
       )}
-      {["review", "moneyin"].includes(stage) && (
+      {["transactions", "moneyin"].includes(stage) && (
         <>
           {stage === "moneyin" && (
             <div className="money-in-heading">
@@ -911,17 +963,39 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
                 ))}
               </div>
             )}
-            <label>
-              <input
-                type="checkbox"
-                checked={reviewed}
-                onChange={(e) => {
-                  setReviewed(e.target.checked);
-                  setActive("");
-                }}
-              />
-              Show reviewed
-            </label>
+            <div className="rv-state-filters" aria-label="Transaction filters">
+              {(stage === "moneyin"
+                ? [
+                    ["all", "All"],
+                    ["unassigned", "Unassigned money"],
+                    ["income", "Income"],
+                    ["allocated", "Allocated"],
+                  ]
+                : [
+                    ["all", "All states"],
+                    ["uncategorized", "Uncategorized"],
+                    ["categorized", "Categorized"],
+                    ["deducted", "Has deductions"],
+                    ["allocated", "Allocated"],
+                    ["income", "Income"],
+                    ["transfer", "Transfer linked"],
+                    ["events", "In event"],
+                    ["shared", "Shared"],
+                  ]
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  aria-label={`Filter: ${label}`}
+                  aria-pressed={statusFilter === id}
+                  onClick={() => {
+                    setStatusFilter(id);
+                    setActive("");
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
             <button onClick={() => editEntity({ kind: "person" })}>
               + Person
             </button>
@@ -942,6 +1016,11 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
                     {t.account} · {t.date}
                   </small>
                   <span>{money(t.amountCents)}</span>
+                  <span className="rv-state-badges">
+                    {transactionLabels(t, facts.get(t.id)).map((label) => (
+                      <small key={label}>{label}</small>
+                    ))}
+                  </span>
                   {stage === "moneyin" && (
                     <small>
                       {t.review.kind === "repayment"
@@ -955,14 +1034,8 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
               ))}
               {!inbox.length && (
                 <div className="rv-empty-panel">
-                  <h2>
-                    {reviewed ? "No reviewed items here." : "Inbox clear."}
-                  </h2>
-                  <p>
-                    {reviewed
-                      ? "Completed reviews appear here and can be reopened."
-                      : "Newly imported transactions will arrive here."}
-                  </p>
+                  <h2>No matching transactions.</h2>
+                  <p>Try another filter, month or search.</p>
                 </div>
               )}
             </aside>
@@ -984,7 +1057,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
                   setStage("moneyin");
                   setMonth("");
                   setSearch("");
-                  setReviewed(false);
+                  setStatusFilter("all");
                   setActive("");
                 }}
                 initialExpense={expenseIntent?.id}
@@ -1061,12 +1134,12 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           </p>
           <div className="rv-flow-summary">
             {[
-              ["out", "Reviewed expenses"],
+              ["out", "Expenses"],
               ["income", "General income"],
               ["repayment", "Repayment / mixed transfers"],
               ["unassigned", "Unassigned e-transfer income"],
-              ["unreviewedOut", "Unreviewed money out"],
-              ["unreviewedIn", "Unreviewed money in"],
+              ["unreviewedOut", "Money out · purpose unspecified"],
+              ["unreviewedIn", "Money in · purpose unspecified"],
               ["transferOut", "Own transfers out"],
               ["transferIn", "Own transfers in"],
               ["transferFees", "Transfer fees"],
@@ -1094,7 +1167,9 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
                   <strong>{title(t)}</strong>
                   <small>
                     {t.account} ·{" "}
-                    {t.review.reviewed ? t.review.kind : "Unreviewed"}
+                    {t.review.kind === "unreviewed"
+                      ? "Purpose unspecified"
+                      : t.review.kind}
                   </small>
                 </span>
                 <span>
@@ -1120,7 +1195,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             setMonth("");
             setSearch("");
             setStage("moneyin");
-            setReviewed(!!cashEditor.review?.reviewed);
+            setStatusFilter("all");
             setActive(id);
             setPaymentIntent(
               !cashEditor.id || cashEditor.review?.kind === "repayment"

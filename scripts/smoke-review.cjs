@@ -103,7 +103,12 @@ async function create(kind, name, tags = []) {
 }
 async function stage(name) {
   await page
-    .getByRole("navigation", { name: "Review stages" })
+    .locator(".nav-item")
+    .filter({ hasText: name === "3 · Review" ? "Transactions" : "Review" })
+    .click();
+  if (name === "3 · Review") return;
+  await page
+    .getByRole("navigation", { name: "Transaction tools" })
     .getByRole("button", { name })
     .click();
 }
@@ -116,20 +121,32 @@ async function selectTask(name) {
 }
 async function saveReview() {
   await page
-    .getByRole("button", { name: /^Save (review|allocation)$/, exact: true })
+    .getByRole("button", { name: /^Save (changes|allocation)$/, exact: true })
     .click();
   await page.waitForFunction(
-    () => !document.querySelector("footer")?.textContent.includes("Saving…"),
+    () => !document.querySelector(".rv-review-actions .primary")?.disabled,
   );
 }
 (async () => {
   try {
     await launch();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "3 · Review", exact: true })
+        .count(),
+      0,
+    );
+    assert.equal(
+      await page
+        .getByRole("checkbox", { name: "Show reviewed", exact: true })
+        .count(),
+      0,
+    );
     await create("category", "Groceries");
     await create("category", "Home");
     await create("category", "Dining");
     await page
-      .getByRole("textbox", { name: "Search review transactions" })
+      .getByRole("textbox", { name: "Search workspace transactions" })
       .fill("Walmart");
     await page.locator(".os-transaction").click();
     let modal = page.getByRole("dialog", {
@@ -179,17 +196,17 @@ async function saveReview() {
       [14001, 9999],
     );
     await page
-      .getByRole("textbox", { name: "Search review transactions" })
+      .getByRole("textbox", { name: "Search workspace transactions" })
       .fill("Juniper dinner");
     await page
       .getByRole("button", { name: "Category Dining", exact: true })
       .click();
     await page.getByText("1 of 1 categorized", { exact: true }).waitFor();
-    await stage("2 · Events");
+    await stage("Events");
     await create("group", "Mountain weekend");
     for (const name of ["Juniper dinner", "Cabin", "Alex e-transfer"]) {
       await page
-        .getByRole("textbox", { name: "Search review transactions" })
+        .getByRole("textbox", { name: "Search workspace transactions" })
         .fill(name);
       await page
         .getByRole("button", { name: `Link ${name}`, exact: true })
@@ -199,7 +216,7 @@ async function saveReview() {
         .waitFor();
     }
     await page
-      .getByRole("textbox", { name: "Search review transactions" })
+      .getByRole("textbox", { name: "Search workspace transactions" })
       .fill("");
     await snap("groups");
     await stage("3 · Review");
@@ -212,11 +229,7 @@ async function saveReview() {
       .click();
     await snap("expense-shares");
     await saveReview();
-    await page
-      .locator(".rv-task-list")
-      .getByRole("button")
-      .filter({ hasText: "Juniper dinner" })
-      .waitFor({ state: "hidden" });
+
     const beforeCabin = (await state()).records.find(
       (t) => t.description === "Cabin",
     );
@@ -253,11 +266,7 @@ async function saveReview() {
       .fill("150");
     await snap("repayment");
     await saveReview();
-    await page
-      .locator(".rv-task-list")
-      .getByRole("button")
-      .filter({ hasText: "Alex e-transfer" })
-      .waitFor({ state: "hidden" });
+
     s = await state();
     const payment = s.records.find((t) => t.description === "Alex e-transfer");
     assert.equal(payment.review.remainder, 3000);
@@ -276,24 +285,60 @@ async function saveReview() {
       .click();
     await page.getByRole("radio").check();
     await saveReview();
+    await page
+      .getByRole("button", { name: "Filter: Transfer linked", exact: true })
+      .click();
+    assert.equal(await page.locator(".rv-task-list > button").count(), 2);
+    await page
+      .getByRole("button", { name: "Filter: Has deductions", exact: true })
+      .click();
+    assert.equal(await page.locator(".rv-task-list > button").count(), 2);
+    await snap("transaction-states");
+    await page
+      .getByRole("button", { name: "Filter: All states", exact: true })
+      .click();
+    await selectTask("Transfer out");
+    await page
+      .getByRole("button", { name: "Unlink transfer", exact: true })
+      .click();
+    await page.waitForFunction(async () =>
+      (await window.urbanomics.reviewState()).records
+        .filter((t) => ["Transfer out", "Transfer in"].includes(t.description))
+        .every((t) => !t.review.transferId),
+    );
+    await page
+      .getByRole("button", { name: "Own-account transfer", exact: true })
+      .click();
+    await page.getByRole("radio").check();
+    await saveReview();
     await selectTask("Zero record");
     await page
       .getByRole("button", { name: "No cash movement", exact: true })
       .click();
     await saveReview();
-    await page
-      .getByRole("checkbox", { name: "Show reviewed", exact: true })
-      .check();
+
     await selectTask("Juniper dinner");
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Reopen review", exact: true })
+        .count(),
+      0,
+    );
     await page
-      .getByRole("button", { name: "Reopen review", exact: true })
+      .getByRole("button", { name: "Clear financial assignment", exact: true })
       .click();
-    await page
-      .locator(".rv-task-list")
-      .getByRole("button")
-      .filter({ hasText: "Juniper dinner" })
-      .waitFor({ state: "hidden" });
-    await stage("4 · Overview");
+    await page.waitForFunction(
+      async () =>
+        (await window.urbanomics.reviewState()).records.find(
+          (t) => t.description === "Juniper dinner",
+        ).review.kind === "unreviewed",
+    );
+    assert.match(
+      await page.locator(".rv-task-list").textContent(),
+      /Has deductions/,
+    );
+
+    await stage("Overview");
     await page.getByRole("button", { name: "Groceries", exact: true }).click();
     await page.getByRole("button", { name: "Dining", exact: true }).click();
     assert.equal(await page.locator(".rv-insight-rows > button").count(), 2);
@@ -305,7 +350,7 @@ async function saveReview() {
     await app.evaluate(({ BrowserWindow }) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 700),
     );
-    await stage("1 · Categories");
+    await stage("Categories");
     assert.equal(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= window.innerWidth,
@@ -315,9 +360,7 @@ async function saveReview() {
     );
     await snap("narrow-cards");
     await stage("3 · Review");
-    await page
-      .getByRole("checkbox", { name: "Show reviewed", exact: true })
-      .uncheck();
+
     await selectTask("Juniper dinner");
     await snap("narrow-review");
     assert.equal(

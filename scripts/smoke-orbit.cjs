@@ -80,7 +80,7 @@ async function launch() {
 const state = () => page.evaluate(() => window.urbanomics.reviewState());
 const stage = (name) =>
   page
-    .getByRole("navigation", { name: "Review stages" })
+    .getByRole("navigation", { name: "Transaction tools" })
     .getByRole("button", { name })
     .click();
 const shot = (name) =>
@@ -288,7 +288,7 @@ async function drag(target) {
       .getByRole("button", { name: "Category Other", exact: true })
       .waitFor();
     await shot("categories-orbit");
-    await stage("2 · Events");
+    await stage("Events");
     await page
       .getByRole("button", { name: "Transactions on 2026-08-28" })
       .click();
@@ -336,7 +336,7 @@ async function drag(target) {
       ),
       true,
     );
-    await stage("1 · Categories");
+    await stage("Categories");
     await page
       .getByRole("button", { name: "Previous transaction", exact: true })
       .click();
@@ -369,7 +369,7 @@ async function drag(target) {
     app = null;
     await launch();
     assert.deepEqual(await state(), saved);
-    await stage("2 · Events");
+    await stage("Events");
     await page
       .getByRole("region", { name: "Event calendar", exact: true })
       .waitFor();

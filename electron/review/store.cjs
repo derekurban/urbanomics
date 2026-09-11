@@ -372,7 +372,7 @@ class ReviewStore {
       );
       if (!pending.has(outId) || !pending.has(inId))
         throw new Error(
-          "Both entries must be pending and free of repayment allocations. Reopen their reviews first.",
+          "Both entries must be pending: clear any income, repayment or shared-expense assignment before linking. Expenses receiving repayments cannot be linked.",
         );
       if (!withinBand(outgoing.amountCents, incoming.amountCents, basisPoints))
         throw new Error("The selected pair is outside the percentage band.");
@@ -439,7 +439,7 @@ class ReviewStore {
       ].includes(review.kind) ||
       (review.reviewed && review.kind === "unreviewed")
     )
-      throw new Error("Choose a financial purpose before completing review.");
+      throw new Error("Choose a valid financial purpose.");
     if (
       (review.kind === "zero" && row.amountCents !== 0) ||
       (review.kind === "expense" && row.amountCents >= 0) ||
@@ -538,10 +538,12 @@ class ReviewStore {
       if (
         (target.review.transferId && target.review.transferId !== id) ||
         target.review.kind === "repayment" ||
-        (target.review.reviewed && target.review.transferId !== id)
+        (target.review.transferId !== id &&
+          (!["unreviewed", "expense"].includes(target.review.kind) ||
+            target.review.shares?.some((p) => p.id !== "me" && p.cents > 0)))
       )
         throw new Error(
-          "The other transaction is already reviewed. Reopen it first.",
+          "The other transaction has an income, repayment, shared-expense or transfer assignment. Clear that assignment before linking.",
         );
       const next = {
         ...target.review,

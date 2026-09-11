@@ -229,7 +229,7 @@ test("link stores principal differences once, preserves sources and categories, 
   assert.equal(c.row("Fee out").review.reviewed, false);
   assert.deepEqual(originals(), before);
 });
-test("transfer linking blocks reviewed entries, same-account entries, out-of-band amounts and repayment targets", (t) => {
+test("transfer linking blocks assigned income, same-account entries, out-of-band amounts and repayment targets", (t) => {
   const c = fixture(t);
   assert.throws(() => c.link("Fee out", "Fee in", 0), /outside/);
   assert.throws(
@@ -259,7 +259,7 @@ test("transfer linking blocks reviewed entries, same-account entries, out-of-ban
   assert.equal(
     transferCandidates(expense, c.store.review.records(), 0).length,
     0,
-    "reviewed, repayment and same-account entries are excluded",
+    "income, repayment and same-account entries are excluded",
   );
   assert.throws(() => c.link("Exact out", "Competing in", 0), /pending/);
 });
@@ -325,4 +325,24 @@ test("category views conserve transfer principal, fee cents and unexplained extr
   for (const key of Object.keys(all)) assert.equal(a[key] + b[key], all[key]);
   assert.equal(a.transferFees, 0);
   assert.equal(b.transferFees, 1);
+});
+
+test("transfer eligibility follows assignments instead of legacy review completion", (t) => {
+  const c = fixture(t),
+    out = c.row("Exact out"),
+    inc = c.row("Exact in");
+  c.store.review.financial(out.id, out.version, {
+    kind: "expense",
+    reviewed: true,
+    shares: null,
+  });
+  c.link("Exact out", "Exact in", 0);
+  assert.equal(c.row("Exact out").review.transferId, inc.id);
+  const feeIn = c.row("Fee in");
+  c.store.review.financial(feeIn.id, feeIn.version, {
+    kind: "income",
+    incomeType: "interest",
+    reviewed: false,
+  });
+  assert.throws(() => c.link("Fee out", "Fee in", 200), /pending/);
 });
