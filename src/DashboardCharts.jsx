@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { AccountNetwork } from "./AccountNetwork.jsx";
 import { currencyMoney } from "./CostBreakdown.jsx";
 
 const shortMonth = (m) =>
@@ -228,8 +229,8 @@ export function TrendPanels({
           kind="cash"
         />
         <p className="dash-caption">
-          Selected bank-entry categories · includes linked transfers. Each entry
-          uses its own date; manual cash excluded.
+          Selected bank-entry categories · internal transfer principal excluded.
+          Fees and unexplained extra remain separate; manual cash excluded.
         </p>
       </section>
     </div>
@@ -263,7 +264,7 @@ export function Composition({ model, money, onCategory, onCash }) {
           expense: true,
         },
         {
-          name: "Money in · gross bank receipts",
+          name: "Money in · external receipts",
           total: model.cashIn,
           items: incoming,
         },
@@ -374,73 +375,24 @@ export function AccountFlow({ overview, money, onCash, onTransfer }) {
                   />
                 </span>
                 <span>
-                  Net movement <b>{money(a.cashIn - a.cashOut)}</b>
+                  Net external flow <b>{money(a.cashIn - a.cashOut)}</b>
                 </span>
               </button>
             </div>
           ))}
         </div>
         <p className="dash-caption">
-          Balance observations use all imported dates. Movement bars use the
-          selected period and whole accounts, independent of category filters.
-          Missing opening balances prevent reconstructing balances from movement
-          alone.
+          Balance observations use all imported dates. In/out bars show money
+          crossing the boundary of your accounts in the selected period,
+          excluding linked internal principal. Category filters do not affect
+          these whole-account totals.
         </p>
       </section>
-      <section className="dash-panel dash-routes">
-        <div className="dash-panel-heading">
-          <h2>Between your accounts</h2>
-          <span>Registered transfers · outgoing date in this period</span>
-        </div>
-        {overview.routes.map((r) => (
-          <button
-            className="dash-route"
-            key={r.key}
-            onClick={() => onTransfer(r)}
-          >
-            <span className="dash-route-account">
-              <i style={{ background: r.fromColor }} />
-              {r.from}
-              <small>{money(r.debit)} sent</small>
-            </span>
-            <span className="dash-route-arrow">
-              <strong>{money(r.credit)}</strong>
-              <svg
-                viewBox="0 0 200 20"
-                preserveAspectRatio="none"
-                aria-hidden="true"
-              >
-                <path
-                  d="M0 10H194M185 2L195 10L185 18"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                />
-              </svg>
-              <small>
-                {r.pairs.length} linked{" "}
-                {r.pairs.length === 1 ? "transfer" : "transfers"}
-                {r.fees ? ` · ${money(r.fees)} fee` : ""}
-                {r.excess ? ` · ${money(r.excess)} extra` : ""}
-              </small>
-            </span>
-            <span className="dash-route-account">
-              <i style={{ background: r.toColor }} />
-              {r.to}
-              <small>{money(r.credit)} received</small>
-            </span>
-          </button>
-        ))}
-        {!overview.routes.length && (
-          <p className="dash-caption">
-            No registered transfers with an outgoing entry in this period.
-          </p>
-        )}
-        <p className="dash-caption">
-          Each pair appears once in its direction. Credits can land in another
-          month; category filters do not hide account routes.
-        </p>
-      </section>
+      <AccountNetwork
+        overview={overview}
+        money={money}
+        onTransfer={onTransfer}
+      />
     </>
   );
 }

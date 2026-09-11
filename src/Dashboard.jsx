@@ -3,6 +3,7 @@ import {
   dashboard,
   UNCATEGORIZED,
   TRANSFER_FEES,
+  TRANSFER_EXCESS,
   availableMonths,
   monthlyDashboard,
   vendorGroups,
@@ -253,11 +254,13 @@ export function Dashboard({ data, onSource }) {
   const visibleCategories =
     model?.categoryOptions.filter(
       (c) =>
-        ![UNCATEGORIZED, TRANSFER_FEES].includes(c.id) ||
+        ![UNCATEGORIZED, TRANSFER_FEES, TRANSFER_EXCESS].includes(c.id) ||
         source.records.some((t) =>
           c.id === UNCATEGORIZED
             ? !t.review.tags.length
-            : (t.review.transferFeeCents || 0) > 0,
+            : c.id === TRANSFER_EXCESS
+              ? (t.review.transferExcessCents || 0) > 0
+              : (t.review.transferFeeCents || 0) > 0,
         ),
     ) || [];
   const activeCount = source.records.filter((t) => !t.deleted).length;
@@ -666,30 +669,30 @@ export function Dashboard({ data, onSource }) {
                   />
                   <div className="dash-stats">
                     <Stat
-                      label="Gross account inflow"
+                      label="Money in from outside"
                       value={money(model.cashIn)}
-                      note="All matching positive bank entries"
+                      note="Internal transfer principal excluded"
                       tone="dash-blue"
                       onClick={() =>
-                        open("Gross account inflow", model.inflow, "cash")
+                        open("Money in from outside", model.inflow, "cash")
                       }
                     />
                     <Stat
-                      label="Gross account outflow"
+                      label="Money out to outside"
                       value={money(model.cashOut)}
-                      note="All matching negative bank entries"
+                      note="Includes linked transfer fees once"
                       tone="dash-peach"
                       onClick={() =>
-                        open("Gross account outflow", model.outflow, "cash")
+                        open("Money out to outside", model.outflow, "cash")
                       }
                     />
                     <Stat
-                      label="Net account movement"
+                      label="Net external flow"
                       value={money(model.cashIn - model.cashOut)}
-                      note="Inflow minus outflow · not an account balance"
+                      note="External inflow minus external outflow"
                       tone="dash-mint"
                       onClick={() =>
-                        open("Account movements", model.bank, "cash")
+                        open("External account flows", model.bank, "cash")
                       }
                     />
                   </div>
@@ -732,9 +735,10 @@ export function Dashboard({ data, onSource }) {
                         )}
                         {title === "Money out" && (
                           <p className="dash-caption">
-                            Internal transfers appear on both sides of gross
-                            account movement. Transfer fees are already included
-                            in the debit.
+                            Matched internal principal is excluded from both
+                            sides. Only fees cross outward; any unexplained
+                            extra received is shown separately from earned
+                            income.
                           </p>
                         )}
                       </section>
@@ -819,8 +823,8 @@ export function Dashboard({ data, onSource }) {
             <div className="dash-methods">
               {[
                 [
-                  "Gross cash flow",
-                  "Uses bank entries dated inside the range, including both sides of linked transfers. Manual cash receipts remain separate. Category filters use each bank entry’s own categories.",
+                  "External cash flow",
+                  "Shows money crossing the boundary of your own accounts. Matched internal principal is excluded on both dates, including cross-month pairs and hidden counterpart accounts. Only the outgoing fee and incoming unexplained extra remain, under their own categories. Unlinked entries use their saved categories; manual cash receipts remain separate.",
                 ],
                 [
                   "Spending",
@@ -938,7 +942,7 @@ export function Dashboard({ data, onSource }) {
                   )}
                 </p>
               )}
-              {detail.rows.map(({ row, cents }) => (
+              {detail.rows.map(({ row, cents, fee, excess }) => (
                 <details className="dash-detail-row" key={row.id}>
                   <summary>
                     <span>
@@ -960,6 +964,11 @@ export function Dashboard({ data, onSource }) {
                     </p>
                   )}
                   <p>
+                    {fee
+                      ? "Linked transfer fee portion · "
+                      : excess
+                        ? "Unexplained extra portion · "
+                        : ""}
                     Full source amount {money(row.amountCents)} ·{" "}
                     {row.review.kind === "unreviewed"
                       ? "Purpose unassigned"

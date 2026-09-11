@@ -100,7 +100,7 @@ test("monthly trends preserve missing months and reconcile category filters and 
   assert.equal(series[0].model, null);
   assert.equal(series[6].model.net, 4000);
   assert.equal(series[7].model.net, 29099);
-  assert.equal(series[7].model.cashIn, 121901);
+  assert.equal(series[7].model.cashIn, 112001);
   assert.equal(series[8].model.gross, 0); // Observed month with no expenses is zero, not missing.
   const later = monthlyDashboard(records, entities, {
     year: "2026",
@@ -218,8 +218,8 @@ test("dashboard reconciles cash, deductions, cross-month receipts, overlapping e
   assert.equal(m.repaid, 11001);
   assert.equal(m.net, 29099);
   assert.equal(m.owed, 4999);
-  assert.equal(m.cashIn, 121901);
-  assert.equal(m.cashOut, 50000);
+  assert.equal(m.cashIn, 112001);
+  assert.equal(m.cashOut, 40100);
   assert.equal(m.cashReceived, 1000);
   assert.equal(m.events[0].gross, 40000);
   assert.equal(m.events[1].gross, 30000);
@@ -247,12 +247,128 @@ test("dashboard reconciles cash, deductions, cross-month receipts, overlapping e
     categories: [TRANSFER_FEES],
   });
   assert.equal(fee.net, 100);
-  assert.equal(fee.cashOut, 0);
+  assert.equal(fee.cashOut, 100);
   const later = dashboard(f.records, f.entities, { ...opts, later: true });
   assert.equal(later.net, 24100);
   assert.equal(later.owed, 0);
   assert.equal(later.cashIn, m.cashIn);
   assert.equal(JSON.stringify(f), before, "dashboard is read-only");
+});
+test("boundary cash flow excludes linked principal across dates and hidden accounts, keeping fee and excess once", async () => {
+  const { dashboard, accountOverview, TRANSFER_FEES, TRANSFER_EXCESS } =
+    await import("../../src/dashboard-model.js");
+  const r = (id, amount, date, review = {}, extra = {}) => ({
+    id,
+    amountCents: amount,
+    date,
+    currency: "CAD",
+    description: id,
+    accountId: id,
+    account: id,
+    review: {
+      kind: "unreviewed",
+      tags: [],
+      groups: [],
+      shares: null,
+      allocations: [],
+      ...review,
+    },
+    ...extra,
+  });
+  const rows = [
+    r("debit", -10100, "2026-08-31", {
+      kind: "transfer",
+      transferId: "credit",
+      transferFeeCents: 100,
+    }),
+    r(
+      "credit",
+      10000,
+      "2026-09-01",
+      { kind: "transfer", transferId: "debit" },
+      { deleted: true },
+    ),
+    r("out2", -20000, "2026-08-20", { kind: "transfer", transferId: "in2" }),
+    r("in2", 20500, "2026-08-20", {
+      kind: "transfer",
+      transferId: "out2",
+      transferExcessCents: 500,
+    }),
+    r("unlinked", -700, "2026-08-20", {
+      tags: [{ id: "named-transfer", cents: 700 }],
+    }),
+    r("salary", 100000, "2026-08-20", { kind: "income" }),
+  ];
+  const opts = { from: "2026-08-01", through: "2026-08-31" };
+  const view = dashboard(rows, [], opts);
+  assert.deepEqual([view.cashIn, view.cashOut], [100500, 800]);
+  assert.equal(
+    view.cashGroups.find((g) => g.id === "transfer-extra").rows[0].cents,
+    500,
+  );
+  assert.equal(
+    view.cashGroups.find((g) => g.id === "income").rows[0].cents,
+    100000,
+  );
+  assert.equal(
+    view.cashGroups.flatMap((g) => g.rows).reduce((n, t) => n + t.cents, 0),
+    view.cashIn + view.cashOut,
+  );
+  assert.equal(
+    dashboard(rows, [], { ...opts, categories: [TRANSFER_FEES] }).cashOut,
+    100,
+  );
+  assert.equal(
+    dashboard(rows, [], { ...opts, categories: [TRANSFER_EXCESS] }).cashIn,
+    500,
+  );
+  assert.equal(
+    dashboard(rows, [], { ...opts, categories: ["named-transfer"] }).cashOut,
+    700,
+  );
+  const accounts = accountOverview(rows, opts).accounts;
+  assert.equal(
+    accounts.reduce((n, a) => n + a.cashIn, 0),
+    view.cashIn,
+  );
+  assert.equal(
+    accounts.reduce((n, a) => n + a.cashOut, 0),
+    view.cashOut,
+  );
+  rows[1].deleted = false;
+  const september = dashboard(rows, [], {
+    from: "2026-09-01",
+    through: "2026-09-30",
+  });
+  assert.deepEqual([september.cashIn, september.cashOut], [0, 0]);
+  // An unlinked debit becomes external again; category names never establish a transfer.
+  rows[0].review.kind = "unreviewed";
+  assert.equal(dashboard(rows, [], opts).cashOut, 10800);
+});
+test("account network reuses nodes and separates reciprocal directions", async () => {
+  const { accountNetwork } = await import("../../src/account-network.js");
+  const accounts = [
+    { id: "a", name: "A" },
+    { id: "b", name: "B" },
+    { id: "c", name: "C" },
+  ];
+  const routes = [
+    { key: "a:b", fromId: "a", toId: "b" },
+    { key: "b:a", fromId: "b", toId: "a" },
+    { key: "b:d", fromId: "b", toId: "d", to: "Hidden D" },
+  ];
+  const g = accountNetwork(accounts, routes);
+  assert.equal(g.nodes.length, 4);
+  assert.equal(g.edges.length, 3);
+  assert.notDeepEqual(g.edges[0].label, g.edges[1].label);
+  assert.ok(
+    g.nodes.every(
+      (n) =>
+        n.x >= 90 && n.x <= g.width - 90 && n.y >= 37 && n.y <= g.height - 37,
+    ),
+  );
+  assert.ok(g.edges.every((e) => !e.path.includes("NaN")));
+  assert.deepEqual(accountNetwork(accounts, routes), g);
 });
 test("tiny reimbursements cannot overdraw a category, and hidden-account payments still reduce active costs", async () => {
   const { dashboard } = await import("../../src/dashboard-model.js"),

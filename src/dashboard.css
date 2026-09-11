@@ -902,6 +902,81 @@
   width: 100%;
   height: 20px;
 }
+.dash-network-panel {
+  margin-top: 16px;
+}
+.dash-network-scroll {
+  overflow-x: auto;
+  padding: 4px;
+  border-radius: 18px;
+  background: radial-gradient(ellipse at center, #f5f1f8 0%, #f6f9f2 70%);
+}
+.dash-network {
+  display: block;
+  width: 100%;
+  min-width: 600px;
+}
+.dash-network-node {
+  width: 176px;
+  height: 70px;
+  margin: 2px;
+  display: grid;
+  grid-template-columns: 13px 1fr;
+  align-content: center;
+  align-items: center;
+  gap: 5px 7px;
+  padding: 8px 12px;
+  text-align: left;
+  border: 1px solid #b9cbb4;
+  border-radius: 16px;
+  background: #fff;
+  font-size: 16px;
+  line-height: 1.15;
+}
+.dash-network-node i {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+}
+.dash-network-node span {
+  overflow-wrap: anywhere;
+}
+.dash-network-node small {
+  grid-column: 2;
+  color: #697967;
+  font-size: 12px;
+}
+.dash-network-node[aria-pressed="true"] {
+  background: #e1ecde;
+  border-color: #789476;
+}
+.dash-network-label {
+  cursor: pointer;
+}
+.dash-network-label rect {
+  fill: #fffaf1;
+  stroke: #cfdbc5;
+  stroke-width: 1.5;
+}
+.dash-network-label text {
+  fill: #365a45;
+  font-size: 16px;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.dash-network-label:hover rect,
+.dash-network-label:focus-visible rect {
+  fill: #dfeada;
+  stroke: #5d825f;
+  stroke-width: 3;
+}
+.dash-network-label:focus-visible { outline: none; }
+.dash-network-hit {
+  cursor: pointer;
+}
+.dash-network .is-muted {
+  opacity: 0.16;
+}
 @media (max-width: 1150px) {
   .dash-trend-grid {
     grid-template-columns: 1fr;

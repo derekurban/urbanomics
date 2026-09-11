@@ -1,6 +1,42 @@
 export const UNCATEGORIZED = "dashboard:uncategorized";
 export const TRANSFER_FEES = "dashboard:transfer-fees";
+export const TRANSFER_EXCESS = "dashboard:transfer-excess";
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
+
+function isLinked(row, byId) {
+  const other = byId.get(row.review.transferId);
+  return (
+    row.review.kind === "transfer" &&
+    other?.review.kind === "transfer" &&
+    other.review.transferId === row.id &&
+    other.currency === row.currency &&
+    row.amountCents * other.amountCents < 0
+  );
+}
+// Only the unmatched fee/excess crosses the boundary of the user's accounts.
+function boundaryEntry(row, byId) {
+  const transfer = isLinked(row, byId);
+  const fee = transfer && row.amountCents < 0;
+  const excess = transfer && row.amountCents > 0;
+  const parts = !transfer
+    ? categoryParts(row)
+    : [
+        {
+          id: fee ? TRANSFER_FEES : TRANSFER_EXCESS,
+          cents: fee
+            ? row.review.transferFeeCents || 0
+            : row.review.transferExcessCents || 0,
+        },
+      ];
+  return {
+    row,
+    transfer,
+    fee,
+    excess,
+    parts,
+    cents: sum(parts, (p) => p.cents),
+  };
+}
 
 export const endOfMonth = (month) =>
   new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0))
@@ -76,6 +112,9 @@ export function accountOverview(records, { from, through, currency = "CAD" }) {
   const accounts = [...new Set(active.map((t) => t.accountId))].map((id) => {
     const rows = active.filter((t) => t.accountId === id);
     const period = rows.filter((t) => t.date >= from && t.date <= through);
+    const boundary = period
+      .map((row) => boundaryEntry(row, byId))
+      .filter((t) => t.cents > 0);
     const dated = rows
       .filter((t) => Number.isSafeInteger(t.balanceCents))
       .sort((a, b) => b.date.localeCompare(a.date));
@@ -86,14 +125,14 @@ export function accountOverview(records, { from, through, currency = "CAD" }) {
       id,
       name: rows[0].account,
       color: rows[0].color,
-      rows: period.map((row) => ({ row, cents: Math.abs(row.amountCents) })),
+      rows: boundary,
       cashIn: sum(
-        period.filter((t) => t.amountCents > 0),
-        (t) => t.amountCents,
+        boundary.filter((t) => t.row.amountCents > 0),
+        (t) => t.cents,
       ),
       cashOut: sum(
-        period.filter((t) => t.amountCents < 0),
-        (t) => -t.amountCents,
+        boundary.filter((t) => t.row.amountCents < 0),
+        (t) => t.cents,
       ),
       balance: {
         date,
@@ -121,6 +160,8 @@ export function accountOverview(records, { from, through, currency = "CAD" }) {
     if (!routes.has(key))
       routes.set(key, {
         key,
+        fromId: out.accountId,
+        toId: inc.accountId,
         from: out.account,
         to: inc.account + (inc.deleted ? " (hidden)" : ""),
         fromColor: out.color,
@@ -186,16 +227,7 @@ export function dashboard(
     sum(parts, (p) => (!selected.size || selected.has(p.id) ? p.cents : 0));
   const inPeriod = (t) => t.date >= from && t.date <= through;
   const active = records.filter((t) => !t.deleted && t.currency === currency);
-  const linked = (t) => {
-    const other = byId.get(t.review.transferId);
-    return (
-      t.review.kind === "transfer" &&
-      other?.review.kind === "transfer" &&
-      other.review.transferId === t.id &&
-      other.currency === t.currency &&
-      t.amountCents * other.amountCents < 0
-    );
-  };
+  const linked = (t) => isLinked(t, byId);
   const paymentIndex = new Map();
   // Payments from hidden accounts still reduce active expenses; voided cash is absent from records.
   for (const p of [...records].sort(
@@ -276,11 +308,8 @@ export function dashboard(
   }
   const bank = active
     .filter((t) => !t.manual && inPeriod(t))
-    .map((row) => ({
-      row,
-      cents: portion(categoryParts(row)),
-      transfer: linked(row),
-    }))
+    .map((row) => boundaryEntry(row, byId))
+    .map((entry) => ({ ...entry, cents: portion(entry.parts) }))
     .filter((t) => t.cents > 0);
   const cash = active
     .filter((t) => t.manual && inPeriod(t))
@@ -301,6 +330,11 @@ export function dashboard(
     id: TRANSFER_FEES,
     name: "Transfer fees (linked)",
     color: "#d8b38c",
+  });
+  categoryNames.set(TRANSFER_EXCESS, {
+    id: TRANSFER_EXCESS,
+    name: "Unexplained transfer extra",
+    color: "#b9b2c7",
   });
   for (const e of expenses)
     for (const p of e.grossParts) {
@@ -373,9 +407,9 @@ export function dashboard(
         rows: inflow.filter((t) => t.row.review.kind === "repayment"),
       },
       {
-        id: "transfer-in",
-        label: "Internal transfer credits",
-        rows: inflow.filter((t) => t.transfer),
+        id: "transfer-extra",
+        label: "Unexplained transfer extra",
+        rows: inflow.filter((t) => t.excess),
       },
       {
         id: "unassigned",
@@ -391,9 +425,9 @@ export function dashboard(
         rows: outflow.filter((t) => !t.transfer),
       },
       {
-        id: "transfer-out",
-        label: "Internal transfer debits · fees included",
-        rows: outflow.filter((t) => t.transfer),
+        id: "transfer-fees",
+        label: "Linked transfer fees",
+        rows: outflow.filter((t) => t.fee),
       },
     ],
   };

@@ -4,7 +4,9 @@ Updated: 2026-09-11
 
 ## Current request
 
-The dashboard now leads with monthly expense and gross bank-flow trends, a year/month picker limited to existing data, and stacked period breakdowns. Category details group by vendor/alias with expandable dated transactions and a full-list toggle. Cash flow leads with available exported balances, per-account movements and directed transfer routes. Current bank balances cannot be established for PC/Simplii exports without an opening/current balance source; EQ running-balance observations retain their dates and same-day ambiguity. This supersedes the initial summary-card-first dashboard layout.
+Money in/out now excludes linked internal principal across all dashboard views, including transfers spanning dates or hidden accounts. Fees remain external costs and unexplained extra remains separately identified. Per-account bars use the same boundary rule. Internal transfers appear in a shared-node network with directed edges and linked-payment inspection, replacing repeated account-to-account rows. This supersedes the earlier inclusion of internal principal in gross cash flow.
+
+The dashboard now leads with monthly expense and external bank-flow trends, a year/month picker limited to existing data, and stacked period breakdowns. Category details group by vendor/alias with expandable dated transactions and a full-list toggle. Cash flow leads with available exported balances, per-account movements and directed transfer routes. Current bank balances cannot be established for PC/Simplii exports without an opening/current balance source; EQ running-balance observations retain their dates and same-day ambiguity. This supersedes the initial summary-card-first dashboard layout.
 
 The user accepted the in-chat dashboard mockup and asked for implementation with a pastel palette. Dashboard now integrates Spending, Cash flow and Events, date/category filters and source drilldowns. It separates cash movement from costs after repayments and recorded debts, keeping fees, event overlaps and repayment timing explicit. See `dashboard.md` for accounting and scope policies.
 

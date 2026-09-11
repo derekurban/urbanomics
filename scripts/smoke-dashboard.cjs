@@ -239,8 +239,11 @@ const stat = (label) =>
       .getByRole("navigation", { name: "Dashboard views" })
       .getByRole("button", { name: "Cash flow", exact: true })
       .click();
-    assert.equal(await stat("Gross account inflow").textContent(), "$1,219.01");
-    assert.equal(await stat("Gross account outflow").textContent(), "$500.00");
+    assert.equal(
+      await stat("Money in from outside").textContent(),
+      "$1,120.01",
+    );
+    assert.equal(await stat("Money out to outside").textContent(), "$401.00");
     assert.match(
       await page.locator(".dash-account-grid").textContent(),
       /\$250.00/,
@@ -249,12 +252,29 @@ const stat = (label) =>
       await page.locator(".dash-account-grid").textContent(),
       /Balance unavailable/,
     );
-    assert.equal(await page.locator(".dash-route").count(), 1);
-    await page.locator(".dash-account-card").filter({hasText:"Synthetic savings"}).locator(".dash-balance").click();
-    modal=page.getByRole("dialog");
-    assert.match(await modal.locator("summary").textContent(),/\$250.00/);
+    assert.equal(await page.locator(".dash-network-label").count(), 1);
+    await page
+      .locator(".dash-account-card")
+      .filter({ hasText: "Synthetic savings" })
+      .locator(".dash-balance")
+      .click();
+    modal = page.getByRole("dialog");
+    assert.match(await modal.locator("summary").textContent(), /\$250.00/);
     await page.keyboard.press("Escape");
-    await page.locator(".dash-route").click();
+    assert.equal(await page.locator(".dash-network-node").count(), 2);
+    await page.locator(".dash-network-node").first().click();
+    assert.equal(
+      await page
+        .locator(".dash-network-node")
+        .first()
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    await page
+      .getByRole("button", { name: "Show all connections", exact: true })
+      .click();
+    await page.locator(".dash-network-label").focus();
+    await page.keyboard.press("Enter");
     await page.getByRole("dialog").waitFor();
     assert.match(await page.getByRole("dialog").textContent(), /Fee \$1.00/);
     await page.keyboard.press("Escape");
@@ -300,7 +320,11 @@ const stat = (label) =>
     );
     await button("Cash flow").click();
     await shot("cash-narrow");
-    assert.ok(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth));
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
     await button("Spending").click();
     await button("About these numbers").click();
     await shot("methods-narrow");
