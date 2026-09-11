@@ -128,10 +128,39 @@ async function drag(target) {
       1,
       "drop saves exactly once",
     );
-    // Cancel and Escape retain the card and saved state.
+    // Replacing a saved category by click or drop stays on the viewed card.
     await page
       .getByRole("button", { name: "Previous transaction", exact: true })
       .click();
+    await page
+      .getByRole("button", { name: "Category Home", exact: true })
+      .click();
+    await page.waitForFunction(async () => {
+      const s = await window.urbanomics.reviewState();
+      const home = s.entities.find((e) => e.name === "Home").id;
+      return (
+        s.records.find((t) => t.description === "Walmart").review.tags[0]
+          ?.id === home
+      );
+    });
+    assert.match(
+      await page.locator(".os-transaction").textContent(),
+      /Walmart/,
+    );
+    await drag("Category Groceries");
+    await page.waitForFunction(async () => {
+      const s = await window.urbanomics.reviewState();
+      const groceries = s.entities.find((e) => e.name === "Groceries").id;
+      return (
+        s.records.find((t) => t.description === "Walmart").review.tags[0]
+          ?.id === groceries
+      );
+    });
+    assert.match(
+      await page.locator(".os-transaction").textContent(),
+      /Walmart/,
+    );
+    // Removing the last category stays; assigning it again advances.
     await page
       .getByRole("button", { name: "Category Groceries", exact: true })
       .click();
@@ -159,6 +188,20 @@ async function drag(target) {
     await page.keyboard.press("Escape");
     assert.deepEqual(await state(), s);
     assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    // A first assignment in settings advances, just like a first drop.
+    await page.locator(".os-transaction").click();
+    await modal.getByRole("checkbox", { name: "Home", exact: true }).check();
+    await modal.getByRole("button", { name: "Save", exact: true }).click();
+    await modal.waitFor({ state: "hidden" });
+    assert.match(await page.locator(".os-transaction").textContent(), /Dinner/);
+    await page
+      .getByRole("button", { name: "Previous transaction", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Category Home", exact: true })
+      .click();
+    await page.getByText("1 of 3 categorized", { exact: true }).waitFor();
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
     await page
       .getByRole("button", { name: "Previous transaction", exact: true })
       .click();
@@ -181,7 +224,10 @@ async function drag(target) {
     await shot("category-settings");
     await modal.getByRole("button", { name: "Save", exact: true }).click();
     await modal.waitFor({ state: "hidden" });
-    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    assert.match(
+      await page.locator(".os-transaction").textContent(),
+      /Walmart/,
+    );
     s = await state();
     assert.deepEqual(
       s.records
@@ -190,9 +236,6 @@ async function drag(target) {
       [14001, 9999],
     );
     assert.ok(s.records.every((t) => !t.review.reviewed));
-    await page
-      .getByRole("button", { name: "Previous transaction", exact: true })
-      .click();
     await page
       .getByRole("button", { name: "Remove Home", exact: true })
       .click();

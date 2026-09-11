@@ -134,6 +134,17 @@ export function OrbitSorter({
     setActive(next?.id || savedRow.id);
     setMessage(`${savedRow.description} saved.`);
   }
+  function finishSave(savedRow, advanceAfter = true) {
+    // Decide from the saved version before this edit, not the refreshed queue.
+    if (advanceAfter && (events || !complete(savedRow, false)))
+      advance(savedRow);
+    else {
+      setActive(savedRow.id);
+      setMessage(
+        `${savedRow.description} saved. Stay here to adjust this card.`,
+      );
+    }
+  }
   async function save(nextValues = values, advanceAfter = true) {
     if (
       !row ||
@@ -160,8 +171,7 @@ export function OrbitSorter({
         delete next[row.id];
         return next;
       });
-      if (advanceAfter) advance(row);
-      else setMessage("Category removed. Stay here to adjust this card.");
+      finishSave(row, advanceAfter);
     } finally {
       saving.current = false;
     }
@@ -530,7 +540,7 @@ export function OrbitSorter({
           categories={entities}
           onSave={onSave}
           onClose={() => setEditing(null)}
-          onSaved={() => advance(editing)}
+          onSaved={() => finishSave(editing)}
         />
       )}
     </section>

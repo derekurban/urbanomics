@@ -4,6 +4,8 @@ Updated: 2026-09-11
 
 ## Current request
 
+Changing categories on an already categorized transaction keeps the current card. Only a successful first assignment advances through the unfinished queue. This applies to category clicks, drops and transaction-settings saves; removals and cancellations stay put.
+
 Category review now shows all category targets in one growing circle/ellipse. The user rejected paging between subsets of categories; search remains optional, and ordinary vertical scrolling accommodates larger rings.
 
 The user wants a visible money-in workflow and deductions from single transactions or unrelated selections without requiring events. Review → Money in now separates typed income from expense deductions, offers manual cash receipts, and is reachable directly from an expense. New and edited events require both dates. Cash receipts are private, off-bank contributions; allocation and reversal use the same caps as bank repayments. Earlier optional-event-date decisions below are superseded.
