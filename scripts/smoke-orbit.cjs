@@ -90,6 +90,7 @@ const shot = (name) =>
     animations: "disabled",
   });
 async function drag(target) {
+  await page.locator(".os-transaction").scrollIntoViewIfNeeded();
   const c = await page.locator(".os-transaction").boundingBox(),
     t = await page
       .getByRole("button", { name: target, exact: true })
@@ -220,24 +221,26 @@ async function drag(target) {
     await modal.getByRole("button", { name: "Save", exact: true }).click();
     await modal.waitFor({ state: "hidden" });
     assert.ok(
-      await page
-        .locator(".os-navigation > button, .os-target-pages button")
-        .evaluateAll((buttons) =>
-          buttons.every((b) => {
-            const r = b.getBoundingClientRect(),
-              s = b.querySelector("svg").getBoundingClientRect();
-            return (
-              Math.abs(r.width - r.height) < 1 &&
-              Math.abs(r.x + r.width / 2 - s.x - s.width / 2) < 1 &&
-              Math.abs(r.y + r.height / 2 - s.y - s.height / 2) < 1
-            );
-          }),
-        ),
+      await page.locator(".os-navigation > button").evaluateAll((buttons) =>
+        buttons.every((b) => {
+          const r = b.getBoundingClientRect(),
+            s = b.querySelector("svg").getBoundingClientRect();
+          return (
+            Math.abs(r.width - r.height) < 1 &&
+            Math.abs(r.x + r.width / 2 - s.x - s.width / 2) < 1 &&
+            Math.abs(r.y + r.height / 2 - s.y - s.height / 2) < 1
+          );
+        }),
+      ),
       "chevrons are centered inside square buttons",
     );
-    await page
-      .getByRole("button", { name: "Next targets", exact: true })
-      .click();
+    assert.equal(await page.locator("[data-orbit-target]").count(), 7);
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Next targets", exact: true })
+        .count(),
+      0,
+    );
     await page
       .getByRole("button", { name: "Category Other", exact: true })
       .waitFor();
@@ -327,13 +330,108 @@ async function drag(target) {
     await page
       .getByRole("region", { name: "Event calendar", exact: true })
       .waitFor();
+    await page.evaluate(async () => {
+      for (let i = 1; i <= 17; i++)
+        await window.urbanomics.saveEntity("category", {
+          name: `Extra category ${String(i).padStart(2, "0")}`,
+          color: "#78976A",
+        });
+    });
+    await page.reload();
+    await page
+      .getByRole("heading", { name: "Snapshots", exact: true })
+      .waitFor();
+    await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    async function checkLayout() {
+      await page.waitForFunction(
+        () => document.querySelectorAll("[data-orbit-target]").length === 24,
+      );
+      await page.waitForFunction(() => {
+        const orbit = document.querySelector(".os-orbit");
+        const bounds = orbit.getBoundingClientRect(),
+          rects = [
+            ...orbit.querySelectorAll("[data-orbit-target],.os-stack"),
+          ].map((e) => e.getBoundingClientRect());
+        return rects.every(
+          (r, i) =>
+            r.left >= bounds.left - 1 &&
+            r.right <= bounds.right + 1 &&
+            r.top >= bounds.top - 1 &&
+            r.bottom <= bounds.bottom + 1 &&
+            rects
+              .slice(i + 1)
+              .every(
+                (s) =>
+                  r.right <= s.left ||
+                  r.left >= s.right ||
+                  r.bottom <= s.top ||
+                  r.top >= s.bottom,
+              ),
+        );
+      });
+      assert.ok(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= innerWidth,
+        ),
+      );
+    }
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1329, 940),
+    );
+    await checkLayout();
+    await shot("all-24-categories");
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(900, 760),
+    );
+    await checkLayout();
+    await shot("all-24-narrow");
+    const beforeDrag = await state();
+    await page.locator(".os-transaction").scrollIntoViewIfNeeded();
+    const center = await page.locator(".os-transaction").boundingBox(),
+      scroll = await page.evaluate(() => scrollY);
+    await page.mouse.move(
+      center.x + center.width / 2,
+      center.y + center.height / 2,
+    );
+    await page.mouse.down();
+    await page.mouse.move(center.x + center.width / 2, 30, { steps: 8 });
+    await page.waitForFunction(
+      (before) => window.scrollY < before - 40,
+      scroll,
+    );
+    await page.mouse.move(4, 100);
+    await page.mouse.up();
+    assert.deepEqual(
+      await state(),
+      beforeDrag,
+      "dragging beyond the viewport and releasing outside a target does not save",
+    );
+    await page
+      .getByRole("textbox", { name: "Search categories", exact: true })
+      .fill("Extra category 17");
+    assert.equal(await page.locator("[data-orbit-target]").count(), 1);
+    await page
+      .getByRole("textbox", { name: "Search categories", exact: true })
+      .fill("");
+    await checkLayout();
+    const current = await page.locator(".os-transaction h3").textContent();
+    await page
+      .getByRole("button", { name: "Category Extra category 17", exact: true })
+      .click();
+    await page.waitForFunction(async (name) => {
+      const s = await window.urbanomics.reviewState(),
+        id = s.entities.find((e) => e.name === "Extra category 17").id;
+      return s.records
+        .find((t) => t.description === name)
+        .review.tags.some((p) => p.id === id);
+    }, current);
     assert.deepEqual(errors, []);
     console.log(
       JSON.stringify({
         ok: true,
         root,
         checks:
-          "category quick save, cancel, modal splits, event calendar, split cents, paging, optional events, stale saves, narrow layout, restart",
+          "category quick save, cancel, modal splits, event calendar, split cents, all categories, optional events, stale saves, narrow layout, restart",
       }),
     );
   } finally {

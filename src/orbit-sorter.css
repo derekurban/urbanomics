@@ -34,7 +34,9 @@
 }
 .os-ring {
   position: absolute;
-  inset: 40px 54px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
   border: 1px dashed #d3decc;
   border-radius: 50%;
   pointer-events: none;
@@ -44,8 +46,8 @@
   left: var(--x);
   top: var(--y);
   transform: translate(-50%, -50%);
-  width: 122px;
-  min-height: 76px;
+  width: var(--target-width);
+  height: var(--target-height);
   padding: 10px 7px;
   border-radius: 17px;
   z-index: 2;
@@ -74,6 +76,9 @@
   margin-right: 6px;
 }
 .os-target small {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
   display: block;
   font-size: 11px;
   margin-top: 5px;
@@ -90,7 +95,7 @@
   position: absolute;
   top: 50%;
   left: 50%;
-  width: 226px;
+  width: var(--card-width);
   transform: translate(-50%, -50%);
   z-index: 4;
 }
@@ -271,39 +276,26 @@
   margin-left: 12px;
   color: var(--muted);
 }
-.os-target-pages {
+.os-target-search {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   margin-top: 15px;
 }
-.os-target-pages input {
+.os-target-search input {
   flex: 1;
-  width: 100px;
+  min-width: 0;
 }
-.os-target-pages > div {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.os-target-search > span {
+  color: var(--muted);
   font-size: 12px;
-}
-.os-target-pages button {
-  display: grid;
-  place-items: center;
-  padding: 0;
-  width: 32px;
-  height: 32px;
-  min-height: 0;
-  flex-shrink: 0;
-  line-height: 1;
 }
 .os-controls {
   min-width: 0;
 }
 .os-categories .os-body {
   display: block;
-  max-width: 680px;
+  max-width: 100%;
   margin: auto;
 }
 .os-categories .os-controls {
@@ -399,47 +391,6 @@
   flex-wrap: wrap;
   gap: 12px;
   margin: 16px 0;
-}
-@container (max-width: 540px) {
-  .os-orbit {
-    height: auto;
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 14px 8px;
-    margin: 22px 0;
-  }
-  .os-ring {
-    display: none;
-  }
-  .os-target {
-    position: static;
-    transform: none;
-    width: 100%;
-    min-height: 75px;
-    padding: 9px 4px;
-  }
-  .os-target:active {
-    transform: none;
-  }
-  .os-target.os-drop-ready {
-    transform: scale(1.04);
-  }
-  .os-target:nth-of-type(n + 4) {
-    grid-row: 3;
-  }
-  .os-stack {
-    grid-row: 2;
-    grid-column: 1 / -1;
-    position: relative;
-    left: auto;
-    top: auto;
-    width: min(226px, 90%);
-    transform: none;
-    margin: 14px auto;
-  }
-  .os-navigation {
-    gap: 10px;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .os-target,

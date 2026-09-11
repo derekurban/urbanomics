@@ -1,17 +1,11 @@
-import React, { useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { TransactionSettings } from "./TransactionSettings.jsx";
 import { Chevron } from "./Chevron.jsx";
 import { money, retag } from "./review-model.js";
 import "./orbit-sorter.css";
 
-const positions = [
-  [50, 8],
-  [86, 28],
-  [86, 72],
-  [50, 92],
-  [14, 72],
-  [14, 28],
-];
+import { orbitLayout } from "./orbit-layout.js";
+
 const complete = (row, events) =>
   events
     ? row.review.groupsReviewed || row.review.groups.length > 0
@@ -29,7 +23,6 @@ export function OrbitSorter({
   onContinue,
 }) {
   const [active, setActive] = useState(""),
-    [page, setPage] = useState(0),
     [query, setQuery] = useState(""),
     [message, setMessage] = useState(""),
     [hover, setHover] = useState(""),
@@ -54,9 +47,32 @@ export function OrbitSorter({
   const filtered = entities.filter((e) =>
     e.name.toLowerCase().includes(query.toLowerCase()),
   );
-  const pages = Math.max(1, Math.ceil(filtered.length / 6)),
-    entityPage = Math.min(page, pages - 1),
-    targets = filtered.slice(entityPage * 6, entityPage * 6 + 6);
+  const targets = filtered;
+  const orbit = useRef(null),
+    stack = useRef(null);
+  const [bounds, setBounds] = useState({ width: 680, cardHeight: 270 });
+  useLayoutEffect(() => {
+    if (!row || !orbit.current || !stack.current) return;
+    const observer = new ResizeObserver(() => {
+      const width = Math.round(orbit.current.getBoundingClientRect().width),
+        cardHeight = Math.ceil(stack.current.getBoundingClientRect().height);
+      setBounds((old) =>
+        old.width === width && old.cardHeight === cardHeight
+          ? old
+          : { width, cardHeight },
+      );
+    });
+    observer.observe(orbit.current);
+    observer.observe(stack.current);
+    return () => {
+      observer.disconnect();
+      cancelAnimationFrame(gesture.current?.frame);
+    };
+  }, [!!row]);
+  const layout = useMemo(
+    () => orbitLayout(targets.length, bounds.width, bounds.cardHeight),
+    [targets.length, bounds.width, bounds.cardHeight],
+  );
   const names = Object.fromEntries(entities.map((e) => [e.id, e.name])),
     colors = Object.fromEntries(entities.map((e) => [e.id, e.color]));
   const selected = (id) =>
@@ -159,24 +175,55 @@ export function OrbitSorter({
     if (busy || saving.current || e.button !== 0) return;
     suppressClick.current = false;
     setActive(row.id);
-    gesture.current = { id: e.pointerId, x: e.clientX, y: e.clientY };
+    gesture.current = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      clientX: e.clientX,
+      clientY: e.clientY,
+      scrollY: window.scrollY,
+      element: e.currentTarget,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
+  }
+  function positionDrag(g) {
+    const x = g.clientX - g.x,
+      y = g.clientY - g.y + window.scrollY - g.scrollY;
+    g.element.style.transform = `translate(${x}px,${y}px) rotate(${Math.max(-9, Math.min(9, x / 20))}deg)`;
+    setHover(hit(g.clientX, g.clientY)?.dataset.orbitTarget || "");
+  }
+  function scrollDrag() {
+    const g = gesture.current;
+    if (!g?.moved) return;
+    const distance =
+      g.clientY < 64
+        ? g.clientY - 64
+        : g.clientY > window.innerHeight - 64
+          ? g.clientY - window.innerHeight + 64
+          : 0;
+    if (distance) {
+      window.scrollBy(0, Math.max(-18, Math.min(18, distance / 3)));
+      positionDrag(g);
+    }
+    g.frame = requestAnimationFrame(scrollDrag);
   }
   function move(e) {
     const g = gesture.current;
     if (!g || g.id !== e.pointerId) return;
-    const x = e.clientX - g.x,
-      y = e.clientY - g.y;
-    if (Math.hypot(x, y) < 5 && !g.moved) return;
+    g.clientX = e.clientX;
+    g.clientY = e.clientY;
+    if (Math.hypot(g.clientX - g.x, g.clientY - g.y) < 5 && !g.moved) return;
+    const first = !g.moved;
     g.moved = true;
-    e.currentTarget.style.transform = `translate(${x}px,${y}px) rotate(${Math.max(-9, Math.min(9, x / 20))}deg)`;
-    setHover(hit(e.clientX, e.clientY)?.dataset.orbitTarget || "");
+    positionDrag(g);
+    if (first) g.frame = requestAnimationFrame(scrollDrag);
   }
   function end(e, cancel = false) {
     const g = gesture.current;
     if (!g) return;
     const target =
       !cancel && g.moved ? hit(e.clientX, e.clientY)?.dataset.orbitTarget : "";
+    cancelAnimationFrame(g.frame);
     suppressClick.current = !!g.moved || cancel;
     gesture.current = null;
     e.currentTarget.style.transform = "";
@@ -212,42 +259,38 @@ export function OrbitSorter({
         </span>
       </div>
       {entities.length > 6 && (
-        <div className="os-target-pages">
+        <div className="os-target-search">
           <input
             aria-label={events ? "Search events" : "Search categories"}
             placeholder={events ? "Find an event…" : "Find a category…"}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
-              setPage(0);
             }}
           />
-          <div>
-            <button
-              aria-label="Previous targets"
-              disabled={!entityPage}
-              onClick={() => setPage(entityPage - 1)}
-            >
-              <Chevron />
-            </button>
-            <span>
-              {entityPage + 1} / {pages}
-            </span>
-            <button
-              aria-label="Next targets"
-              disabled={entityPage === pages - 1}
-              onClick={() => setPage(entityPage + 1)}
-            >
-              <Chevron right />
-            </button>
-          </div>
+          <span>
+            {targets.length} {events ? "events" : "categories"}
+          </span>
         </div>
       )}
       <div className="os-body">
         <div className="os-stage">
-          <div className="os-orbit">
-            <div className="os-ring" aria-hidden="true" />
-            <div className="os-stack">
+          <div
+            className="os-orbit"
+            ref={orbit}
+            style={{
+              height: layout.height,
+              "--card-width": layout.cardWidth + "px",
+              "--target-width": layout.targetWidth + "px",
+              "--target-height": layout.targetHeight + "px",
+            }}
+          >
+            <div
+              className="os-ring"
+              aria-hidden="true"
+              style={{ width: layout.rx * 2, height: layout.ry * 2 }}
+            />
+            <div className="os-stack" ref={stack}>
               <article
                 role={events ? undefined : "button"}
                 tabIndex={events ? undefined : 0}
@@ -320,8 +363,8 @@ export function OrbitSorter({
                   className={`os-target ${hover === entity.id ? "os-drop-ready" : ""}`}
                   data-orbit-target={entity.id}
                   style={{
-                    "--x": positions[i][0] + "%",
-                    "--y": positions[i][1] + "%",
+                    "--x": layout.targets[i].x + "px",
+                    "--y": layout.targets[i].y + "px",
                     "--target-color": entity.color,
                   }}
                   aria-label={`${events ? "Event" : "Category"} ${entity.name}`}
