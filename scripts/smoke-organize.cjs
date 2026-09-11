@@ -65,6 +65,10 @@ async function create(kind, name, selected = []) {
     .click();
   const d = page.getByRole("dialog", { name: `New ${kind}`, exact: true });
   await d.getByLabel("Name", { exact: true }).fill(name);
+  if (kind === "event") {
+    await d.getByLabel("Start date", { exact: true }).fill("2026-08-14");
+    await d.getByLabel("End date", { exact: true }).fill("2026-08-20");
+  }
   for (const tag of selected)
     await d.getByRole("button", { name: tag, exact: true }).click();
   await d.getByRole("button", { name: `Save ${kind}`, exact: true }).click();

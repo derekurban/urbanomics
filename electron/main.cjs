@@ -85,6 +85,7 @@ else {
         "transactions",
         "sources",
         "review_items",
+        "cash_receipts",
       ].every(
         (table) =>
           store.db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get().n === 0,
@@ -163,6 +164,10 @@ else {
       );
       handle("review:entity-remove", (id) => store.review.removeEntity(id));
       handle("review:organize", (changes) => store.review.organize(changes));
+      handle("review:cash-save", (values) => store.review.saveCash(values));
+      handle("review:cash-void", (id, version) =>
+        store.review.voidCash(id, version),
+      );
       handle("review:financial", (id, version, values) =>
         store.review.financial(id, version, values),
       );

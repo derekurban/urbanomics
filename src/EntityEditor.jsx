@@ -52,18 +52,20 @@ export function EntityEditor({ entity, onClose, act, error }) {
           <>
             <div className="event-date-inputs">
               <label>
-                Start date (optional)
+                Start date
                 <input
                   type="date"
+                  required
                   value={startDate}
                   max={endDate || "9999-12-31"}
                   onChange={(e) => setStartDate(e.target.value)}
                 />
               </label>
               <label>
-                End date (optional)
+                End date
                 <input
                   type="date"
+                  required
                   value={endDate}
                   min={startDate || "0001-01-01"}
                   onChange={(e) => setEndDate(e.target.value)}
@@ -71,9 +73,8 @@ export function EntityEditor({ entity, onClose, act, error }) {
               </label>
             </div>
             <p className="rv-help">
-              The calendar suggests transactions within these dates, plus one
-              day on either side. A single date works for a one-day event. You
-              choose what to link.
+              Set the event's time span. The calendar also suggests transactions
+              one day before and after; you choose what belongs.
             </p>
           </>
         )}

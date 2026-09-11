@@ -239,6 +239,7 @@ test("transfer linking blocks reviewed entries, same-account entries, out-of-ban
   const inc = c.row("Exact in");
   c.store.review.financial(inc.id, inc.version, {
     kind: "income",
+    incomeType: "paycheck",
     reviewed: true,
   });
   assert.throws(() => c.link("Exact out", "Exact in", 0), /pending/);

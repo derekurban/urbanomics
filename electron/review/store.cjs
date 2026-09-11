@@ -1,4 +1,4 @@
-const { eventDates } = require("./event-model.mjs");
+const { eventDates, validDate } = require("./event-model.mjs");
 const { randomUUID } = require("node:crypto");
 const {
   validBand,
@@ -14,6 +14,8 @@ const empty = () => ({
   reviewed: false,
   shares: null,
   personId: "",
+  incomeType: "",
+  incomeSource: "",
   allocations: [],
   remainder: 0,
   transferId: "",
@@ -75,7 +77,7 @@ class ReviewStore {
       .map((e) => ({ ...e, tags: JSON.parse(e.tags) }));
   }
   records() {
-    return this.imports.aliases.decorate(
+    const imported = this.imports.aliases.decorate(
       this.db
         .prepare(
           "SELECT t.*,a.name AS account,a.color,a.deletedAt,r.payload AS review,r.version FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id ORDER BY t.date DESC,t.rowid DESC",
@@ -92,16 +94,42 @@ class ReviewStore {
           version: t.version || 0,
         })),
     );
+    const cash = this.db
+      .prepare("SELECT * FROM cash_receipts WHERE voidedAt IS NULL")
+      .all()
+      .map((t) => ({
+        id: t.id,
+        date: t.date,
+        month: t.date.slice(0, 7),
+        description: t.description,
+        amountCents: t.amountCents,
+        currency: t.currency,
+        accountId: "manual-cash",
+        account: "Cash · off-bank",
+        color: "#C8A06D",
+        manual: true,
+        deleted: false,
+        review: { ...empty(), ...JSON.parse(t.payload) },
+        version: t.version,
+      }));
+    return [...imported, ...cash].sort((a, b) => b.date.localeCompare(a.date));
   }
   state() {
     return { entities: this.entities(), records: this.records() };
   }
   pending() {
-    return this.db
-      .prepare(
-        "SELECT COUNT(*) AS n FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id WHERE a.deletedAt IS NULL AND COALESCE(json_extract(r.payload,'$.reviewed'),0)=0",
-      )
-      .get().n;
+    return (
+      this.db
+        .prepare(
+          "SELECT COUNT(*) AS n FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id WHERE a.deletedAt IS NULL AND COALESCE(json_extract(r.payload,'$.reviewed'),0)=0",
+        )
+        .get().n +
+      this.db
+        .prepare(
+          "SELECT COUNT(*) AS n FROM cash_receipts WHERE voidedAt IS NULL AND COALESCE(json_extract(payload,'$.reviewed'),0)=0",
+        )
+        .get().n
+    );
   }
   entity(kind, values) {
     if (!["category", "group", "person"].includes(kind))
@@ -131,6 +159,8 @@ class ReviewStore {
     const dates = eventDates(
       kind === "group" ? { ...existing, ...values } : {},
     );
+    if (kind === "group" && (!dates.startDate || !dates.endDate))
+      throw new Error("Events need both a start date and an end date.");
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
@@ -181,7 +211,86 @@ class ReviewStore {
       this.db.prepare("DELETE FROM review_entities WHERE id=?").run(id);
     });
   }
+  saveCash(values) {
+    return this.atomic(() => {
+      const previous = values.id
+        ? this.current(values.id, values.version)
+        : null;
+      if (previous && !previous.manual)
+        throw new Error("Only cash receipts can be edited here.");
+      const description =
+        typeof values.description === "string" ? values.description.trim() : "";
+      if (
+        !description ||
+        description.length > 160 ||
+        !validDate(values.date) ||
+        !Number.isSafeInteger(values.amountCents) ||
+        values.amountCents <= 0 ||
+        values.currency !== "CAD"
+      )
+        throw new Error(
+          "Enter a description, valid date and positive CAD amount in whole cents.",
+        );
+      if (
+        previous &&
+        (sum(previous.review.allocations) > values.amountCents ||
+          (previous.review.tags.length &&
+            previous.amountCents !== values.amountCents))
+      )
+        throw new Error(
+          "Adjust the receipt's allocations and categories before reducing or changing its amount.",
+        );
+      const id = previous?.id || randomUUID(),
+        review = previous ? { ...previous.review } : empty();
+      if (review.kind === "repayment")
+        review.remainder = values.amountCents - sum(review.allocations);
+      this.db
+        .prepare(
+          "INSERT INTO cash_receipts (id,date,description,amountCents,currency,payload,version,updated) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET date=excluded.date,description=excluded.description,amountCents=excluded.amountCents,payload=excluded.payload,version=excluded.version,updated=excluded.updated",
+        )
+        .run(
+          id,
+          values.date,
+          description,
+          values.amountCents,
+          "CAD",
+          JSON.stringify(review),
+          (previous?.version || 0) + 1,
+          this.imports.now().toISOString(),
+        );
+      return id;
+    });
+  }
+  voidCash(id, version) {
+    return this.atomic(() => {
+      const row = this.current(id, version);
+      if (!row.manual)
+        throw new Error("Only a manual cash receipt can be removed here.");
+      this.db
+        .prepare(
+          "UPDATE cash_receipts SET voidedAt=?,version=version+1 WHERE id=?",
+        )
+        .run(this.imports.now().toISOString(), id);
+    });
+  }
   write(id, review, version) {
+    if (
+      this.db
+        .prepare("SELECT id FROM cash_receipts WHERE id=? AND voidedAt IS NULL")
+        .get(id)
+    ) {
+      this.db
+        .prepare(
+          "UPDATE cash_receipts SET payload=?,version=?,updated=? WHERE id=?",
+        )
+        .run(
+          JSON.stringify(review),
+          version + 1,
+          this.imports.now().toISOString(),
+          id,
+        );
+      return;
+    }
     this.db
       .prepare(
         "INSERT INTO review_items VALUES (?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET payload=excluded.payload,version=excluded.version,updated=excluded.updated",
@@ -305,6 +414,11 @@ class ReviewStore {
         shares:
           draft.shares === null ? null : portions(draft.shares || [], "shares"),
         personId: draft.personId || "",
+        incomeType: draft.incomeType || "",
+        incomeSource:
+          typeof draft.incomeSource === "string"
+            ? draft.incomeSource.trim()
+            : "",
         allocations: portions(draft.allocations || [], "repayments"),
         remainder: draft.remainder ?? 0,
         transferId: draft.transferId || "",
@@ -334,6 +448,23 @@ class ReviewStore {
       throw new Error(
         "Purpose does not match the direction of this transaction.",
       );
+    if (review.kind === "income") {
+      if (
+        !["paycheck", "interest", "sale", "gift", "other"].includes(
+          review.incomeType,
+        ) ||
+        review.incomeSource.length > 80 ||
+        (review.incomeType === "other" && !review.incomeSource)
+      )
+        throw new Error(
+          "Choose an income type; give other income a source name.",
+        );
+    } else {
+      review.incomeType = "";
+      review.incomeSource = "";
+    }
+    if (row.manual && review.kind === "transfer")
+      throw new Error("Cash receipts cannot be paired as bank transfers.");
     if (review.kind !== "expense") review.shares = null;
     if (
       review.shares &&
@@ -381,6 +512,7 @@ class ReviewStore {
       );
       if (
         !target ||
+        target.manual ||
         target.id === id ||
         target.accountId === row.accountId ||
         Math.sign(target.amountCents) === Math.sign(row.amountCents) ||

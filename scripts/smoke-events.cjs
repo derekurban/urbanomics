@@ -80,6 +80,8 @@ const immutable = () =>
   );
 const otherEvent = store.review.entity("group", {
   name: "Other occasion",
+  startDate: "2026-08-14",
+  endDate: "2026-08-17",
   color: "#78976A",
 });
 const alexIncoming = store.review
@@ -146,8 +148,8 @@ async function link(name, date) {
     await button("+ New event").click();
     const modal = page.getByRole("dialog", { name: "New event", exact: true });
     await modal.getByLabel("Name", { exact: true }).fill("Mountain weekend");
-    await modal.getByLabel("Start date (optional)").fill("2026-08-15");
-    await modal.getByLabel("End date (optional)").fill("2026-08-17");
+    await modal.getByLabel("Start date").fill("2026-08-15");
+    await modal.getByLabel("End date").fill("2026-08-17");
     await shot("event-dates");
     await modal
       .getByRole("button", { name: "Save event", exact: true })

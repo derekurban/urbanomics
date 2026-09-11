@@ -126,7 +126,7 @@ test("schema 8 globalizes legacy aliases without changing financial records and 
   assert.equal(store.aliases.decorate([row])[0].description, row.description);
   assert.equal(store.aliases.decorate([row])[0].aliasConflicts.length, 2);
   assert.deepEqual(store.db.prepare("SELECT * FROM accounts").all(), accounts);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 9);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 10);
   store.close();
   store = new ImportStore(root);
   assert.deepEqual(

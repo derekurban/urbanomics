@@ -56,6 +56,9 @@ for (const kind of ["category", "group"])
   ).entries())
     store.review.entity(kind, {
       name,
+      ...(kind === "group"
+        ? { startDate: "2026-08-26", endDate: "2026-08-28" }
+        : {}),
       color: ["#78976A", "#8FA6CB", "#C8A06D", "#AF8EB5", "#70A8A5", "#CA8D86"][
         i % 6
       ],

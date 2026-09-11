@@ -46,7 +46,14 @@ function setup(t) {
   const row = (name) =>
     store.review.records().find((r) => r.description === name);
   const entity = (kind, name, tags = []) =>
-    store.review.entity(kind, { name, color: "#78976A", tags });
+    store.review.entity(kind, {
+      name,
+      color: "#78976A",
+      tags,
+      ...(kind === "group"
+        ? { startDate: "2026-08-14", endDate: "2026-08-17" }
+        : {}),
+    });
   const save = (name, draft) => {
     const r = row(name);
     return store.review.financial(r.id, r.version, { ...r.review, ...draft });
@@ -176,7 +183,10 @@ test("version 5 tags become direct categories without rewriting reviews or archi
   );
   c.reopen();
   assert.deepEqual(c.store.review.records(), records);
-  assert.equal(c.store.db.prepare("PRAGMA user_version").get().user_version, 9);
+  assert.equal(
+    c.store.db.prepare("PRAGMA user_version").get().user_version,
+    10,
+  );
   assert.equal(
     c.store.review.entities().filter((e) => e.kind === "tag").length,
     0,
@@ -293,7 +303,11 @@ test("repayments span months, preserve expense review, respect agreed shares and
   assert.throws(() => c.store.review.removeEntity(alex), /used/);
   c.save("Alex payment", { reviewed: false });
   assert.equal(c.row("Alex payment").review.reviewed, false);
-  c.save("Alex payment", { kind: "income", reviewed: true });
+  c.save("Alex payment", {
+    kind: "income",
+    incomeType: "paycheck",
+    reviewed: true,
+  });
   assert.deepEqual(c.row("Alex payment").review.allocations, []);
   assert.equal(c.row("Alex payment").review.remainder, 0);
 });

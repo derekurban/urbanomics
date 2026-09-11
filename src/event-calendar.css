@@ -350,11 +350,7 @@
   width: 100%;
 }
 .rv-review-actions {
-  position: sticky;
-  bottom: 0;
   padding: 14px 0;
-  background: white;
-  z-index: 3;
 }
 @media (max-width: 1150px) {
   .event-layout {
@@ -377,4 +373,40 @@
   .event-layout {
     grid-template-columns: 1fr;
   }
+}
+
+.money-in-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+  margin: 22px 0;
+}
+.money-in-heading h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.money-in-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.money-in-heading > button {
+  flex-shrink: 0;
+}
+.money-in-intent {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px;
+  margin-bottom: 16px;
+  background: #edf3e8;
+  border-radius: 12px;
+  font-size: 13px;
+}
+.income-types label {
+  display: grid;
+  gap: 8px;
+  margin-top: 14px;
 }

@@ -147,7 +147,10 @@ export function EventCalendar({
           <div>
             <strong>{event.name}</strong>
             <small>
-              {eventDateLabel(event)} · {members.length} linked transactions
+              {!event.startDate || !event.endDate
+                ? "Dates required · edit event"
+                : eventDateLabel(event)}{" "}
+              · {members.length} linked transactions
             </small>
           </div>
           <button onClick={() => onEdit(event)}>Edit event</button>
@@ -312,7 +315,9 @@ export function EventCalendar({
                   </div>
                   <b>{currencyMoney(t.amountCents, t.currency)}</b>
                   <div className="event-row-actions">
-                    <button onClick={() => onSource(t.id)}>Source</button>
+                    {!t.manual && (
+                      <button onClick={() => onSource(t.id)}>Source</button>
+                    )}
                     <button
                       disabled={busy || !event}
                       aria-label={`${linked(t) ? "Unlink" : "Link"} ${t.description}`}

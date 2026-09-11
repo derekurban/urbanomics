@@ -1,3 +1,4 @@
+import { CashReceiptEditor } from "./CashReceiptEditor.jsx";
 import { EventCalendar } from "./EventCalendar.jsx";
 import { CostBreakdown, currencyMoney } from "./CostBreakdown.jsx";
 import React, { useEffect, useState } from "react";
@@ -42,10 +43,15 @@ function FinanceEditor({
   initialPurpose,
   initialEvent,
   onSaved,
+  onCash,
+  onDeduct,
+  initialExpense,
 }) {
   const [kind, setKind] = useState(
     initialPurpose || (row.review.kind === "unreviewed" ? "" : row.review.kind),
   );
+  const [incomeType, setIncomeType] = useState(row.review.incomeType || ""),
+    [incomeSource, setIncomeSource] = useState(row.review.incomeSource || "");
   const [shares, setShares] = useState(row.review.shares),
     [person, setPerson] = useState(row.review.personId),
     [targetQuery, setTargetQuery] = useState("");
@@ -110,7 +116,9 @@ function FinanceEditor({
   };
   const labels = {
     ...Object.fromEntries(expenses.map((t) => [t.id, title(t)])),
-    remainder: "Unassigned e-transfer income",
+    remainder: row.manual
+      ? "Unassigned cash income"
+      : "Unassigned e-transfer income",
   };
   const matches = (t) =>
     `${title(t)} ${t.account} ${t.date}`
@@ -144,6 +152,8 @@ function FinanceEditor({
         reviewed,
         shares: purpose === "expense" ? shares : null,
         personId: person,
+        incomeType,
+        incomeSource,
         allocations: values.filter((p) => p.id !== "remainder"),
         remainder: values.find((p) => p.id === "remainder")?.cents || 0,
         transferId: transfer,
@@ -164,8 +174,23 @@ function FinanceEditor({
       </div>
       <div className="rv-editor-tools">
         <button onClick={() => onTags(row)}>Edit categories</button>
-        <button onClick={() => onSource(row.id)}>View source</button>
+        {row.manual ? (
+          <button onClick={() => onCash(row)}>Edit cash receipt</button>
+        ) : (
+          <button onClick={() => onSource(row.id)}>View source</button>
+        )}
       </div>
+      {row.amountCents < 0 && row.review.kind !== "transfer" && (
+        <>
+          <button className="primary" onClick={() => onDeduct(row)}>
+            Apply incoming money to this expense
+          </button>
+          <p className="rv-help">
+            Link a bank payment or cash receipt to reduce this expense. You can
+            include other expenses in the same allocation.
+          </p>
+        </>
+      )}
       {row.originalDescription && (
         <p className="alias-original">
           Bank description: {row.originalDescription}
@@ -186,19 +211,21 @@ function FinanceEditor({
           : row.amountCents > 0
             ? [
                 ["income", "Income"],
-                ["repayment", "Repayment"],
+                ["repayment", "Deduct expenses"],
                 ["transfer", "Own-account transfer"],
               ]
             : [["zero", "No cash movement"]]
-        ).map(([id, name]) => (
-          <button
-            key={id}
-            aria-pressed={kind === id}
-            onClick={() => setKind(id)}
-          >
-            {name}
-          </button>
-        ))}
+        )
+          .filter(([id]) => !row.manual || id !== "transfer")
+          .map(([id, name]) => (
+            <button
+              key={id}
+              aria-pressed={kind === id}
+              onClick={() => setKind(id)}
+            >
+              {name}
+            </button>
+          ))}
       </div>
       {row.amountCents === 0 && (
         <p>
@@ -290,10 +317,41 @@ function FinanceEditor({
         </>
       )}
       {kind === "income" && (
-        <p className="rv-help">
-          General income, such as pay, a sale or interest. Own-account transfers
-          and repayments have their own options.
-        </p>
+        <section className="income-types" aria-label="Income source">
+          <h3>What kind of income?</h3>
+          <div className="rv-purpose">
+            {[
+              ["paycheck", "Paycheck"],
+              ["interest", "Interest"],
+              ["sale", "Sale"],
+              ["gift", "Gift"],
+              ["other", "Other income"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                aria-pressed={incomeType === id}
+                onClick={() => setIncomeType(id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {incomeType === "other" && (
+            <label>
+              Income source
+              <input
+                aria-label="Income source name"
+                maxLength={80}
+                placeholder="Name this source"
+                value={incomeSource}
+                onChange={(e) => setIncomeSource(e.target.value)}
+              />
+            </label>
+          )}
+          <p className="rv-help">
+            Keep the full amount as income. No expense allocation is needed.
+          </p>
+        </section>
       )}
       {kind === "repayment" && (
         <>
@@ -311,15 +369,17 @@ function FinanceEditor({
                 onClick={() => {
                   if (person === p.id) return;
                   setPerson(p.id);
-                  const ids = initialEvent
-                    ? expenses
-                        .filter(
-                          (t) =>
-                            !t.deleted &&
-                            t.review.groups.includes(initialEvent),
-                        )
-                        .map((t) => t.id)
-                    : [];
+                  const ids = initialExpense
+                    ? [initialExpense]
+                    : initialEvent
+                      ? expenses
+                          .filter(
+                            (t) =>
+                              !t.deleted &&
+                              t.review.groups.includes(initialEvent),
+                          )
+                          .map((t) => t.id)
+                      : [];
                   setValues(
                     distribute(
                       row.amountCents,
@@ -341,7 +401,11 @@ function FinanceEditor({
           </div>
           {person && (
             <>
-              <h3>Where should this payment go?</h3>
+              <h3>Choose expenses to deduct from</h3>
+              <p className="rv-help">
+                Select one expense, several unrelated expenses, or an event to
+                select its expenses together. All imported months are available.
+              </p>
               <input
                 className="rv-search"
                 aria-label="Search repayment expenses"
@@ -419,7 +483,7 @@ function FinanceEditor({
               <p className="rv-help">
                 Events select their expenses once. Allocations are capped at the
                 unpaid amount or agreed share. Any extra stays as unassigned
-                e-transfer income.
+                income.
               </p>
               <div className="allocation-summary">
                 <span>
@@ -427,7 +491,9 @@ function FinanceEditor({
                   <strong>{currencyMoney(allocated, row.currency)}</strong>
                 </span>
                 <span>
-                  Unassigned e-transfer income{" "}
+                  {row.manual
+                    ? "Unassigned cash income"
+                    : "Unassigned e-transfer income"}{" "}
                   <strong>{currencyMoney(remainder, row.currency)}</strong>
                 </span>
               </div>
@@ -532,6 +598,9 @@ function FinanceEditor({
           disabled={
             busy ||
             !kind ||
+            (kind === "income" &&
+              (!incomeType ||
+                (incomeType === "other" && !incomeSource.trim()))) ||
             (kind === "repayment" && !person) ||
             (kind === "transfer" && !transfer)
           }
@@ -548,6 +617,8 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState("");
+  const [cashEditor, setCashEditor] = useState(null);
+  const [expenseIntent, setExpenseIntent] = useState(null);
   const [state, setState] = useState(null),
     [stage, setStage] = useState("organize"),
     [month, setMonth] = useState(initialMonth || ""),
@@ -623,9 +694,14 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
   const selectedRow = tagRow;
   const inbox = visible.filter(
     (t) =>
-      t.review.reviewed === reviewed &&
-      (direction === "all" ||
-        (direction === "in" ? t.amountCents > 0 : t.amountCents < 0)),
+      (stage === "moneyin"
+        ? (t.review.reviewed &&
+            !(t.review.kind === "income" && !t.review.incomeType)) === reviewed
+        : t.review.reviewed === reviewed) &&
+      (stage === "moneyin"
+        ? t.amountCents > 0 && t.review.kind !== "transfer"
+        : direction === "all" ||
+          (direction === "in" ? t.amountCents > 0 : t.amountCents < 0)),
   );
   const focus = inbox.find((t) => t.id === active) || inbox[0];
   const selectedViews = views.filter((id) =>
@@ -668,6 +744,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       <nav className="rv-stages" aria-label="Review stages">
         {[
           ["organize", "1 · Categories"],
+          ["moneyin", "Money in"],
           ["groups", "2 · Events"],
           ["transfers", "Transfers"],
           ["review", "3 · Review"],
@@ -678,6 +755,11 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             aria-current={stage === id ? "step" : undefined}
             onClick={() => {
               setStage(id);
+              if (id === "moneyin") setMonth("");
+              else {
+                setExpenseIntent(null);
+                setPaymentIntent(null);
+              }
               setError("");
             }}
           >
@@ -701,8 +783,9 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
       </div>
       {error &&
         !editor &&
+        !cashEditor &&
         !tagRow &&
-        !["review", "transfers"].includes(stage) && (
+        !["review", "moneyin", "transfers"].includes(stage) && (
           <p className="dr-error-text" role="alert">
             {error}
           </p>
@@ -759,7 +842,7 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             setReviewed(t.review.reviewed);
             setActive(t.id);
             setPaymentIntent({ id: t.id, eventId });
-            setStage("review");
+            setStage("moneyin");
           }}
         />
       )}
@@ -773,27 +856,61 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
           onSource={onSource}
         />
       )}
-      {stage === "review" && (
+      {["review", "moneyin"].includes(stage) && (
         <>
-          <div className="rv-review-filters">
-            <div className="rv-toggle">
-              {[
-                ["all", "All"],
-                ["out", "Money out"],
-                ["in", "Money in"],
-              ].map(([id, name]) => (
-                <button
-                  key={id}
-                  aria-pressed={direction === id}
-                  onClick={() => {
-                    setDirection(id);
-                    setActive("");
-                  }}
-                >
-                  {name}
-                </button>
-              ))}
+          {stage === "moneyin" && (
+            <div className="money-in-heading">
+              <div>
+                <h2>Give incoming money a purpose.</h2>
+                <p>
+                  Keep it as income, or use it to reduce one or more expenses.
+                </p>
+              </div>
+              <button
+                className="primary"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  setCashEditor({});
+                }}
+              >
+                + Add cash received
+              </button>
             </div>
+          )}
+          {stage === "moneyin" && expenseIntent && (
+            <div className="money-in-intent">
+              <span>
+                Choose a payment for{" "}
+                <strong>{expenseIntent.description}</strong>, or add cash
+                received.
+              </span>
+              <button onClick={() => setExpenseIntent(null)}>
+                Clear expense selection
+              </button>
+            </div>
+          )}
+          <div className="rv-review-filters">
+            {stage !== "moneyin" && (
+              <div className="rv-toggle">
+                {[
+                  ["all", "All"],
+                  ["out", "Money out"],
+                  ["in", "Money in"],
+                ].map(([id, name]) => (
+                  <button
+                    key={id}
+                    aria-pressed={direction === id}
+                    onClick={() => {
+                      setDirection(id);
+                      setActive("");
+                    }}
+                  >
+                    {name}
+                  </button>
+                ))}
+              </div>
+            )}
             <label>
               <input
                 type="checkbox"
@@ -825,6 +942,15 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
                     {t.account} · {t.date}
                   </small>
                   <span>{money(t.amountCents)}</span>
+                  {stage === "moneyin" && (
+                    <small>
+                      {t.review.kind === "repayment"
+                        ? `${money(sum(t.review.allocations))} deducted · ${money(t.review.remainder)} unassigned`
+                        : t.review.kind === "income"
+                          ? `Income · ${t.review.incomeType || "choose type"}`
+                          : "Choose income or deductions"}
+                    </small>
+                  )}
                 </button>
               ))}
               {!inbox.length && (
@@ -844,10 +970,29 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
               <FinanceEditor
                 key={`${focus.id}:${focus.version}`}
                 row={focus}
-                onSaved={() => setPaymentIntent(null)}
+                onSaved={() => {
+                  setPaymentIntent(null);
+                  setExpenseIntent(null);
+                }}
+                onCash={(row) => {
+                  setError("");
+                  setCashEditor(row);
+                }}
+                onDeduct={(row) => {
+                  setExpenseIntent(row);
+                  setPaymentIntent(null);
+                  setStage("moneyin");
+                  setMonth("");
+                  setSearch("");
+                  setReviewed(false);
+                  setActive("");
+                }}
+                initialExpense={expenseIntent?.id}
                 busy={busy}
                 initialPurpose={
-                  paymentIntent?.id === focus.id ? "repayment" : undefined
+                  paymentIntent?.id === focus.id || expenseIntent
+                    ? "repayment"
+                    : undefined
                 }
                 initialEvent={
                   paymentIntent?.id === focus.id
@@ -960,6 +1105,30 @@ export function ReviewWorkspace({ data, run, busy, onSource, initialMonth }) {
             ))}
           </div>
         </>
+      )}
+      {cashEditor && (
+        <CashReceiptEditor
+          row={cashEditor.id ? cashEditor : null}
+          act={act}
+          error={error}
+          onClose={() => {
+            setCashEditor(null);
+            setError("");
+          }}
+          onSaved={(id) => {
+            setCashEditor(null);
+            setMonth("");
+            setSearch("");
+            setStage("moneyin");
+            setReviewed(!!cashEditor.review?.reviewed);
+            setActive(id);
+            setPaymentIntent(
+              !cashEditor.id || cashEditor.review?.kind === "repayment"
+                ? { id }
+                : null,
+            );
+          }}
+        />
       )}
       {editor && (
         <EntityEditor

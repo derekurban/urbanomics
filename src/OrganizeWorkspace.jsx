@@ -206,7 +206,11 @@ export function OrganizeWorkspace({
                     <div className="og-item-body">
                       <h3>{entity.name}</h3>
                       {entity.kind === "group" && (
-                        <small>{eventDateLabel(entity)}</small>
+                        <small>
+                          {!entity.startDate || !entity.endDate
+                            ? "Dates required"
+                            : eventDateLabel(entity)}
+                        </small>
                       )}
                       <small>
                         {active} {active === 1 ? "transaction" : "transactions"}

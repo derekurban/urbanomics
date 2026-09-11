@@ -41,6 +41,8 @@ test("schema 9 adds optional event dates without rewriting financial tables and 
   });
   const id = store.review.entity("group", {
     name: "Old event",
+    startDate: "2026-08-14",
+    endDate: "2026-08-17",
     color: "#78976A",
   });
   store.db.exec(
@@ -48,7 +50,7 @@ test("schema 9 adds optional event dates without rewriting financial tables and 
   );
   store.close();
   store = new ImportStore(root);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 9);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 10);
   const event = store.review.entities().find((e) => e.id === id);
   assert.equal(event.startDate, "");
   assert.equal(event.endDate, "");
@@ -67,14 +69,18 @@ test("schema 9 adds optional event dates without rewriting financial tables and 
   // Renaming from an older client omitting optional fields retains the dates.
   store.review.entity("group", { id, name: "Renamed", color: event.color });
   assert.equal(store.review.entities()[0].endDate, "2026-08-17");
-  store.review.entity("group", {
-    id,
-    name: "Renamed",
-    color: event.color,
-    startDate: "",
-    endDate: "",
-  });
-  assert.equal(store.review.entities()[0].startDate, "");
+  assert.throws(
+    () =>
+      store.review.entity("group", {
+        id,
+        name: "Renamed",
+        color: event.color,
+        startDate: "",
+        endDate: "",
+      }),
+    /both a start date/,
+  );
+  assert.equal(store.review.entities()[0].startDate, "2026-08-14");
 });
 
 test("cost breakdown separates fronted cash, agreed shares and payer debts without counting overlapping events twice", () => {

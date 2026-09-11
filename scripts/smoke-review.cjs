@@ -90,6 +90,10 @@ async function create(kind, name, tags = []) {
     exact: true,
   });
   await dialog.getByLabel("Name", { exact: true }).fill(name);
+  if (kind === "group") {
+    await dialog.getByLabel("Start date", { exact: true }).fill("2026-08-14");
+    await dialog.getByLabel("End date", { exact: true }).fill("2026-08-20");
+  }
   for (const tag of tags)
     await dialog.getByRole("button", { name: tag, exact: true }).click();
   await dialog
@@ -217,7 +221,9 @@ async function saveReview() {
       (t) => t.description === "Cabin",
     );
     await selectTask("Alex e-transfer");
-    await page.getByRole("button", { name: "Repayment", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Deduct expenses", exact: true })
+      .click();
     await page
       .locator(".rv-people")
       .getByRole("button", { name: "Al Alex", exact: true })
@@ -262,6 +268,7 @@ async function saveReview() {
     );
     await selectTask("Salary");
     await page.getByRole("button", { name: "Income", exact: true }).click();
+    await page.getByRole("button", { name: "Paycheck", exact: true }).click();
     await saveReview();
     await selectTask("Transfer out");
     await page

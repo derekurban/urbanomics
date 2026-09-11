@@ -4,6 +4,8 @@ Updated: 2026-09-11
 
 ## Current request
 
+The user wants a visible money-in workflow and deductions from single transactions or unrelated selections without requiring events. Review → Money in now separates typed income from expense deductions, offers manual cash receipts, and is reachable directly from an expense. New and edited events require both dates. Cash receipts are private, off-bank contributions; allocation and reversal use the same caps as bank repayments. Earlier optional-event-date decisions below are superseded.
+
 The user accepted integrating shared-cost allocation and replaced event cards with a calendar. Optional event start/end dates suggest bank-exported dates within a ±1-day window, with explicit linking by day or transaction. Every transaction needs categories; event membership stays optional. Single-ended dates are implemented as one-day occasions. Review shows event cost breakdowns and lets incoming money allocate to expenses through an event shortcut. Saved allocations target unique expense IDs, preserve excess as unassigned e-transfer income, and do not follow later membership changes. Existing transaction category and financial decisions remain independent.
 
 Aliases now apply globally across accounts. The user explicitly approved committing configuration definitions (aliases, accounts, filename rules, categories, events and people) as SQL in the GitHub repository. Live SQLite, transactions, snapshots, raw CSVs and financial review decisions remain private. The app keeps the SQL export current; Git commits remain an explicit repository workflow. Fresh empty workspaces can seed definitions from the tracked SQL.

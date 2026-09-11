@@ -87,6 +87,7 @@ function seedConfiguration(db, file) {
     "transactions",
     "sources",
     "review_items",
+    "cash_receipts",
   ])
     if (db.prepare(`SELECT COUNT(*) AS n FROM "${table}"`).get().n)
       throw new Error("Configuration can only seed an empty workspace.");

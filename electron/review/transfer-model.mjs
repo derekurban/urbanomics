@@ -28,6 +28,7 @@ export function pendingTransfers(records) {
   return records.filter(
     (t) =>
       !t.deleted &&
+      !t.manual &&
       !t.review.reviewed &&
       !t.review.transferId &&
       t.review.kind !== "repayment" &&
