@@ -4,6 +4,10 @@ A fresh start on a personal finance app that makes money movements understandabl
 
 The desktop app combines real CSV imports, a local SQLite ledger, immutable source/monthly archives, and persistent transaction organization and review. The accepted prototypes now connect to imported transactions through a Review workspace.
 
+## Dashboard
+
+**Dashboard** brings together Spending, Cash flow and Events with date and category filters. See gross expenses, repayments and amounts still paid by you; inspect recorded amounts friends still owe; compare gross bank inflow/outflow across accounts. Open any total, category or event to trace its contributing records and original sources. The optional later-repayments switch updates expense costs across month boundaries. Manual cash stays separate from bank totals, and linked transfers contribute only their fees to spending. See [dashboard definitions](docs/dashboard.md).
+
 ## Run the desktop app
 
 Requires Node.js 24 and npm. From this directory:
@@ -45,13 +49,14 @@ Click a selected category to remove it and stay on that card. Remaining categori
 
 Events → **Costs & repayments** shows cash paid, friends’ repayments, cash still fronted, agreed personal shares and outstanding reimbursements. Open an incoming event payment to allocate it to expenses; exact amount inputs and dollar/cent dividers adjust the allocation. Event selection counts each expense once, with excess left as unassigned e-transfer income. Unknown expense splits stay identified, and currencies are shown separately.
 
-Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. A net personal-spending report by category, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
+Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. Dashboard adds category costs after received repayments; finalized personal-share reporting, sender recognition, automatic categorization, and backup/restore UI remain future work. See [review behavior and persistence](docs/desktop-review.md).
 
 Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. Transactions, snapshots, source archives and runtime SQLite are never bundled or committed. These local files are not encrypted by the app.
 
 ```sh
 npm test                # Import, deduplication, date, and recovery checks
 npm run test:desktop    # Real Electron UI + persistence checks; build first
+npm run test:dashboard  # Dashboard totals, filters, relationships and source drilldowns
 npm run test:money-in   # Income sources, cash lifecycle and deductions without events
 npm run test:events     # Event dates/calendar, shared costs, cross-month repayments and migration checks
 npm run test:review     # Synthetic categorization, grouping, financial review and restart checks

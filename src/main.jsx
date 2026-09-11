@@ -1,3 +1,4 @@
+import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
@@ -198,6 +199,7 @@ function App() {
     setChoices({});
   };
   const tabs = [
+    ["dashboard", "◉", "Dashboard"],
     ["data", "▤", "Snapshots"],
     ["review", "✓", "Review"],
     ["months", "▦", "Transactions"],
@@ -305,6 +307,17 @@ function App() {
             <ProcessingResults
               {...processResult}
               onClose={() => setProcessResult(null)}
+            />
+          )}
+          {page === "dashboard" && (
+            <Dashboard
+              data={data}
+              onSource={(id) =>
+                api
+                  .detail(id)
+                  .then(setDetail)
+                  .catch((e) => setError(e.message))
+              }
             />
           )}
           {page === "data" && (

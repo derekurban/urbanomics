@@ -4,6 +4,8 @@ Updated: 2026-09-11
 
 ## Current request
 
+The user accepted the in-chat dashboard mockup and asked for implementation with a pastel palette. Dashboard now integrates Spending, Cash flow and Events, date/category filters and source drilldowns. It separates cash movement from costs after repayments and recorded debts, keeping fees, event overlaps and repayment timing explicit. See `dashboard.md` for accounting and scope policies.
+
 The user removed the numbered Review stage, while explicitly retaining Review in the sidebar. Categories, Money in, Events, Transfers and Overview are independent tools with no stage numbering. Transactions exposes editable financial details and independent saved-state filters rather than a reviewed/pending completion flag. Existing financial payloads remain unchanged; the legacy reviewed field no longer controls visibility, reports or transfer eligibility.
 
 Changing categories on an already categorized transaction keeps the current card. Only a successful first assignment advances through the unfinished queue. This applies to category clicks, drops and transaction-settings saves; removals and cancellations stay put.
