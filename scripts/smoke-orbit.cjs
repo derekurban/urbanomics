@@ -108,6 +108,18 @@ async function drag(group, tag, cancel = false) {
     target.y + target.height / 2,
     { steps: 10 },
   );
+  assert.ok(
+    await page
+      .locator(".os-stack")
+      .evaluate(
+        (el) =>
+          Number(getComputedStyle(el).zIndex) <
+          Number(
+            getComputedStyle(document.querySelector(".rh-expanded")).zIndex,
+          ),
+      ),
+    "card stack is below petals during actual drag",
+  );
   await shot("two-motion-drag");
   if (cancel) await page.keyboard.press("Escape");
   await page.mouse.up();
@@ -119,8 +131,8 @@ async function drag(group, tag, cancel = false) {
     const initialBox = await page.locator(".os-transaction").boundingBox();
     await shot("category-orbit");
     await drag("Food", "Groceries");
-    await page.getByText("1 of 3 tagged", { exact: true }).waitFor();
-    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    await page.getByText("1 of 2 tagged", { exact: true }).waitFor();
+    assert.match(await page.locator(".os-transaction").textContent(), /Dinner/);
     assert.equal(await page.getByRole("dialog").count(), 0);
     let s = await state();
     assert.equal(s.records.find((r) => r.description === "Walmart").version, 1);
@@ -145,7 +157,7 @@ async function drag(group, tag, cancel = false) {
       /Walmart/,
     );
     await button("Tag Restaurants").click();
-    await page.getByText("0 of 3 tagged", { exact: true }).waitFor();
+    await page.getByText("0 of 2 tagged", { exact: true }).waitFor();
     assert.match(
       await page.locator(".os-transaction").textContent(),
       /Walmart/,
@@ -154,7 +166,7 @@ async function drag(group, tag, cancel = false) {
     await drag("Food", "Groceries", true);
     assert.deepEqual(await state(), beforeCancel);
     await drag("Food", "Groceries");
-    await page.getByText("1 of 3 tagged", { exact: true }).waitFor();
+    await page.getByText("1 of 2 tagged", { exact: true }).waitFor();
     const beforeModal = await state();
     await page.locator(".os-transaction").press("Enter");
     const modal = page.getByRole("dialog", { name: "Transaction settings" });
@@ -197,11 +209,16 @@ async function drag(group, tag, cancel = false) {
     await page
       .getByRole("region", { name: "Categories and tags hierarchy" })
       .waitFor();
+    assert.equal(await page.locator(".th-tag select").count(), 0);
     await page
-      .getByRole("combobox", { name: "Move Groceries to category" })
-      .selectOption(
-        s.entities.find((e) => e.kind === "bucket" && e.name === "Personal").id,
-      );
+      .locator(".th-tag")
+      .filter({ has: page.getByText("Groceries", { exact: true }) })
+      .focus();
+    await page.keyboard.press("Space");
+    await page
+      .getByRole("region", { name: "Category Personal", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
     await page.waitForFunction(async () => {
       const s = await window.urbanomics.reviewState();
       return (
@@ -210,7 +227,7 @@ async function drag(group, tag, cancel = false) {
       );
     });
     assert.deepEqual((await state()).records, saved);
-    // Real HTML drag moves a tag back; the select remains an accessible alternative.
+    // Real HTML drag moves a tag back; keyboard lifting is the non-pointer alternative.
     const groceryRow = page
       .locator(".th-tag")
       .filter({ has: page.getByText("Groceries", { exact: true }) });
@@ -302,10 +319,12 @@ async function drag(group, tag, cancel = false) {
     await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
     await open("Food");
-    await button("More tags").click();
+    assert.equal(await button("More tags").count(), 0);
+    assert.equal(await page.locator(".rh-tag").count(), 9);
     await button(
       "Tag Very long ninth food tag for checking overflow",
     ).waitFor();
+    await shot("all-nine-tags-narrow");
     await page
       .getByRole("textbox", { name: "Search categories and tags", exact: true })
       .fill("ninth");
@@ -319,7 +338,55 @@ async function drag(group, tag, cancel = false) {
     await page
       .getByRole("textbox", { name: "Search categories and tags", exact: true })
       .fill("");
+    const beforeOuterDrag = (await state()).records;
+    await drag("Food", "Very long ninth food tag for checking overflow", true);
+    await shot("outer-ring-after-cancel");
+    assert.deepEqual((await state()).records, beforeOuterDrag);
     await page.keyboard.press("Escape");
+    await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+    await button("Categories & tags").click();
+    await shot("expense-tags-alphabetical");
+    await page
+      .getByRole("group", { name: "Organization lens" })
+      .getByRole("button", { name: /Income/ })
+      .click();
+    assert.equal(await page.locator(".th-tag").count(), 0);
+    await button("+ New tag").click();
+    let incomeModal = page.getByRole("dialog", {
+      name: "New tag",
+      exact: true,
+    });
+    assert.equal(
+      await incomeModal
+        .getByRole("button", { name: "Income", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    await incomeModal
+      .getByRole("textbox", { name: "Name", exact: true })
+      .fill("Paycheck");
+    await incomeModal
+      .getByRole("button", { name: "Save tag", exact: true })
+      .click();
+    await incomeModal.waitFor({ state: "hidden" });
+    await shot("income-tags");
+    await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page
+      .getByRole("group", { name: "Review tag lens" })
+      .getByRole("button", { name: "Money in", exact: true })
+      .click();
+    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
+    assert.equal(await button("Category Food").count(), 0);
+    assert.equal(await button("Tag Groceries").count(), 0);
+    await button("Tag Paycheck").click();
+    await page.getByText("1 of 1 tagged", { exact: true }).waitFor();
+    assert.equal(
+      (await state()).records.find((r) => r.description === "Salary").review
+        .kind,
+      "unreviewed",
+      "tagging does not declare earned income",
+    );
+    await shot("income-review");
     const persisted = await state();
     await app.close();
     app = null;
@@ -331,7 +398,7 @@ async function drag(group, tag, cancel = false) {
         ok: true,
         root,
         checks:
-          "two-motion pointer drag; exactly one save; first-only advance; edit and removal stay; Escape cancels; modal cancel and exact-cent split; hierarchy move menu and drag; deletion guard; fixed geometry at 900px; reduced motion; restart",
+          "two-motion pointer drag; exactly one save; first-only advance; edit and removal stay; Escape cancels; modal cancel and exact-cent split; keyboard and drag hierarchy moves and drag; deletion guard; fixed geometry at 900px; reduced motion; restart",
       }),
     );
   } catch (error) {

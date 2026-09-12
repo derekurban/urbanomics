@@ -1,5 +1,9 @@
 # Direction note
 
+## Separate financial lenses — September 12, 2026
+
+Expense tags now belong to broad expense categories; income tags are separate flat definitions. Organize and Review offer separate lenses with alphabetical tags. Tagging alone does not classify income, repayment or transfer purpose. The review radial has no pages: fixed-size targets use extra rings as needed, and the dragged card stays beneath expanded targets. Parent moves use drag/drop or keyboard pickup/place rather than dropdowns. Existing financial decisions remain unchanged. See `tag-hierarchy.md`.
+
 ## Transfer experiment — September 12, 2026
 
 The user requested a temporary auto-link testing tab under Review → Transfers, using amount/day similarity and directed account permissions while preserving manual links. The lab implements an editable route matrix, conservative one-to-one candidate classification, explicit batch apply and a read-only comparison against existing pairs. It does not automate imports. Start with exact amounts and ±1 day, with adjustable tolerances. See `transfer-lab.md` for the algorithm and current limits.

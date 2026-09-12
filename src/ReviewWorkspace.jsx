@@ -1,3 +1,9 @@
+import {
+  alphabetical,
+  tagType,
+  tagLens,
+  taggable,
+} from "../electron/review/tag-model.mjs";
 import { transactionState, transactionLabels } from "./transaction-state.js";
 import { pendingTransfers } from "../electron/review/transfer-model.mjs";
 import { CashReceiptEditor } from "./CashReceiptEditor.jsx";
@@ -654,6 +660,7 @@ export function ReviewWorkspace({
   transactionList = false,
   initialStage,
 }) {
+  const [tagMode, setTagMode] = useState("expense");
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState("");
@@ -702,10 +709,10 @@ export function ReviewWorkspace({
   }
   if (!state) return <p>{error || "Opening transactions…"}</p>;
   const { records, entities } = state,
-    tags = entities.filter((e) => e.kind === "category"),
+    tags = alphabetical(entities.filter((e) => e.kind === "category")),
     groups = entities.filter((e) => e.kind === "group"),
     people = entities.filter((e) => e.kind === "person"),
-    categories = entities.filter((e) => e.kind === "category");
+    categories = tags;
   const activeRows = records.filter((t) => !t.deleted),
     scoped = activeRows.filter((t) => !month || t.month === month),
     visible = scoped.filter((t) =>
@@ -852,11 +859,27 @@ export function ReviewWorkspace({
       {stage === "organize" && (
         <>
           <div className="rv-sort-controls">
+            <div
+              className="rv-toggle"
+              role="group"
+              aria-label="Review tag lens"
+            >
+              {["expense", "income"].map((type) => (
+                <button
+                  key={type}
+                  aria-pressed={tagMode === type}
+                  onClick={() => setTagMode(type)}
+                >
+                  {type === "income" ? "Money in" : "Money out"}
+                </button>
+              ))}
+            </div>
             <button
               disabled={busy}
               onClick={() =>
                 editEntity({
                   kind: "category",
+                  flowType: tagMode,
                 })
               }
             >
@@ -864,10 +887,16 @@ export function ReviewWorkspace({
             </button>
           </div>
           <OrbitSorter
-            key={stage}
-            rows={visible}
-            entities={tags}
-            buckets={entities.filter((e) => e.kind === "bucket")}
+            key={stage + tagMode}
+            rows={visible.filter((t) => taggable(t) && tagLens(t) === tagMode)}
+            entities={tags.filter((e) => tagType(e) === tagMode)}
+            allTags={tags}
+            lens={tagMode}
+            buckets={
+              tagMode === "expense"
+                ? entities.filter((e) => e.kind === "bucket")
+                : []
+            }
             people={people}
             events={false}
             drafts={tagDrafts}

@@ -1,3 +1,9 @@
+import {
+  alphabetical,
+  tagFits,
+  tagLens,
+  taggable,
+} from "../electron/review/tag-model.mjs";
 import React, { useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { SplitEditor } from "./SplitEditor.jsx";
@@ -67,8 +73,12 @@ export function TransactionSettings({
       setBusy(false);
     }
   }
-  const matches = categories.filter((c) =>
-    c.name.toLowerCase().includes(query.trim().toLowerCase()),
+  const matches = alphabetical(
+    categories.filter(
+      (c) =>
+        tagFits(row, c) &&
+        c.name.toLowerCase().includes(query.trim().toLowerCase()),
+    ),
   );
   return (
     <WorkspaceModal
@@ -133,6 +143,25 @@ export function TransactionSettings({
               agreement.
             </small>
           </label>
+        )}
+        <p className="rv-help">
+          {taggable(row)
+            ? tagLens(row) === "income"
+              ? "Income tags describe the source. They do not mark this payment as earned income or create a repayment."
+              : "Expense tags describe what this purchase paid for."
+            : "Manage this payment through its transfer or repayment links. Existing tags can be removed here."}
+        </p>
+        {parts.some(
+          (p) =>
+            !tagFits(
+              row,
+              categories.find((c) => c.id === p.id),
+            ),
+        ) && (
+          <p className="alias-warning">
+            Some saved tags belong to the previous setup. Remove them to select
+            tags from this lens; existing amounts are preserved until you save.
+          </p>
         )}
         <label className="ts-search">
           Tags

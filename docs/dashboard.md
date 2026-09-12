@@ -46,3 +46,5 @@ Boundary-flow regression checks cover cent conservation, fee/extra categories, c
 ## Category hierarchy
 
 The Categories / Tags switch selects broad parent rollups or individual tag breakdowns. Tags retain the legacy kind `category` in storage; broad categories use `bucket`. Rollups happen after per-tag repayment allocation, preserving cent rounding. Parent filters resolve to unique child IDs, and sibling portions show a transaction once in drilldowns. Ungrouped tags stay individually visible in the category view until assigned a parent. Moving a tag updates its category for historical and future reports without rewriting its transaction portions. See [hierarchy behavior](tag-hierarchy.md).
+
+Cash flow now has independent expense-category/tag and income-tag filters. Selecting expense tags does not discard incoming receipts. Selecting income tags does not change expense totals or repayment attribution. Tagging never changes the financial-purpose classifications used for income versus repayments.

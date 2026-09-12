@@ -10,6 +10,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
         : entity.kind === "category"
           ? "tag"
           : entity.kind;
+  const [flowType, setFlowType] = useState(entity.flowType || "expense");
   const [parentId, setParentId] = useState(entity.parentId || "");
   const [name, setName] = useState(entity.name || ""),
     [color, setColor] = useState(entity.color || "#78976A"),
@@ -34,6 +35,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
                 startDate,
                 endDate,
                 parentId,
+                flowType,
               }),
             )) !== false
           )
@@ -58,27 +60,29 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
           />
         </label>
         {entity.kind === "category" && (
-          <label>
-            Category
-            <select
-              aria-label="Tag category"
-              value={parentId}
-              onChange={(e) => setParentId(e.target.value)}
-            >
-              <option value="">Ungrouped tags</option>
-              {entities
-                .filter((e) => e.kind === "bucket")
-                .map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-            </select>
+          <div className="entity-type">
+            <span>Tag type</span>
+            <div className="rv-toggle" role="group" aria-label="Tag type">
+              {["expense", "income"].map((type) => (
+                <button
+                  type="button"
+                  key={type}
+                  aria-pressed={flowType === type}
+                  onClick={() => {
+                    setFlowType(type);
+                    if (type === "income") setParentId("");
+                  }}
+                >
+                  {type === "income" ? "Income" : "Expense"}
+                </button>
+              ))}
+            </div>
             <small>
-              Moving a tag changes its category rollup, preserving every
-              transaction split.
+              {flowType === "income"
+                ? "Income sources have no expense category."
+                : `Category: ${entities.find((e) => e.id === parentId)?.name || "Ungrouped"}. Move tags by dragging in Organize.`}
             </small>
-          </label>
+          </div>
         )}
         {entity.kind === "group" && (
           <>

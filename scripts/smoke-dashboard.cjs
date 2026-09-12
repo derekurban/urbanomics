@@ -56,6 +56,7 @@ const food = store.review.entity("category", {
   home = store.review.entity("category", { name: "Home", color: "#AF8EB5" }),
   income = store.review.entity("category", {
     name: "Income",
+    flowType: "income",
     color: "#78976A",
   }),
   person = store.review.entity("person", { name: "Alex", color: "#70A8A5" }),
@@ -244,6 +245,36 @@ const stat = (label) =>
       "$1,120.01",
     );
     assert.equal(await stat("Money out to outside").textContent(), "$401.00");
+    await page
+      .getByRole("group", { name: "Cash flow tag lens" })
+      .getByRole("button", { name: "Income tags", exact: true })
+      .click();
+    await page
+      .locator(".dash-filters")
+      .getByRole("button", { name: "Income", exact: true })
+      .click();
+    assert.equal(
+      await stat("Money in from outside").textContent(),
+      "$1,000.00",
+    );
+    assert.equal(await stat("Money out to outside").textContent(), "$401.00");
+    assert.equal(
+      await page
+        .locator(".dash-filters")
+        .getByRole("button", { name: "Food", exact: true })
+        .count(),
+      0,
+    );
+    await shot("income-filter");
+    await page
+      .locator(".dash-filters")
+      .getByRole("button", { name: "All income tags", exact: true })
+      .click();
+    await page
+      .getByRole("group", { name: "Cash flow tag lens" })
+      .getByRole("button", { name: "Expense categories & tags", exact: true })
+      .click();
+
     assert.match(
       await page.locator(".dash-account-grid").textContent(),
       /\$250.00/,

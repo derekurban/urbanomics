@@ -54,7 +54,14 @@ export function availableMonths(records, currency = "CAD") {
 export function monthlyDashboard(
   records,
   entities,
-  { year, currency = "CAD", categories = [], later = false, layer = "tags" },
+  {
+    year,
+    currency = "CAD",
+    categories = [],
+    later = false,
+    layer = "tags",
+    incomeTags,
+  },
 ) {
   const available = new Set(availableMonths(records, currency));
   return Array.from({ length: 12 }, (_, i) => {
@@ -70,6 +77,7 @@ export function monthlyDashboard(
             categories,
             later,
             layer,
+            incomeTags,
           })
         : null,
     };
@@ -227,6 +235,7 @@ export function dashboard(
     categories = [],
     later = false,
     layer = "tags",
+    incomeTags,
   },
 ) {
   const byId = new Map(records.map((t) => [t.id, t]));
@@ -248,8 +257,14 @@ export function dashboard(
       ? tags.find((t) => t.id === id && bucketIds.has(t.parentId))?.parentId ||
         id
       : id;
-  const portion = (parts) =>
-    sum(parts, (p) => (!selected.size || selected.has(p.id) ? p.cents : 0));
+  const incomingSelection =
+    incomeTags === undefined ? selected : new Set(incomeTags);
+  const portion = (parts, incoming = false) => {
+    const selection = incoming ? incomingSelection : selected;
+    return sum(parts, (p) =>
+      !selection.size || selection.has(p.id) ? p.cents : 0,
+    );
+  };
   const inPeriod = (t) => t.date >= from && t.date <= through;
   const active = records.filter((t) => !t.deleted && t.currency === currency);
   const linked = (t) => isLinked(t, byId);
@@ -334,11 +349,14 @@ export function dashboard(
   const bank = active
     .filter((t) => !t.manual && inPeriod(t))
     .map((row) => boundaryEntry(row, byId))
-    .map((entry) => ({ ...entry, cents: portion(entry.parts) }))
+    .map((entry) => ({
+      ...entry,
+      cents: portion(entry.parts, entry.row.amountCents > 0),
+    }))
     .filter((t) => t.cents > 0);
   const cash = active
     .filter((t) => t.manual && inPeriod(t))
-    .map((row) => ({ row, cents: portion(categoryParts(row)) }))
+    .map((row) => ({ row, cents: portion(categoryParts(row), true) }))
     .filter((t) => t.cents > 0);
   const inflow = bank.filter((t) => t.row.amountCents > 0),
     outflow = bank.filter((t) => t.row.amountCents < 0);

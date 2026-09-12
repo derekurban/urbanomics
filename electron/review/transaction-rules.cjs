@@ -1,3 +1,4 @@
+const { tagType, tagFits, tagLens } = require("./tag-model.mjs");
 const { randomUUID, createHash } = require("node:crypto");
 
 class TransactionRuleStore {
@@ -41,6 +42,15 @@ class TransactionRuleStore {
       !entities.some((e) => e.id === personId && e.kind === "person")
     )
       throw new Error("This person is no longer available.");
+    const tag = entities.find((e) => e.id === categoryId);
+    if (
+      tag &&
+      direction !== "any" &&
+      direction !== (tagType(tag) === "income" ? "in" : "out")
+    )
+      throw new Error(
+        "The rule direction conflicts with the tag's income or expense type.",
+      );
     return {
       id: values.id || "",
       name: name || "Draft rule",
@@ -89,6 +99,7 @@ class TransactionRuleStore {
       throw new Error("This rule changed. Refresh before removing it.");
   }
   candidates(records, rules) {
+    const entities = this.imports.review.entities();
     const compiled = rules
       .filter((r) => r.enabled)
       .map((r) => ({ ...r, regex: this.imports.aliases.regex(r.pattern) }));
@@ -101,6 +112,10 @@ class TransactionRuleStore {
               (r.direction === "in"
                 ? row.amountCents > 0
                 : row.amountCents < 0)) &&
+            (row.review.kind === "transfer" ||
+              !r.categoryId ||
+              tagType(entities.find((e) => e.id === r.categoryId)) ===
+                tagLens(row)) &&
             r.regex.test(row.originalDescription ?? row.description),
         );
         if (!matched.length) return [];
@@ -121,7 +136,16 @@ class TransactionRuleStore {
           const categoryId = categoryIds[0],
             personId = personIds[0];
           if (categoryId) {
-            if (!row.review.tags.length && row.amountCents !== 0)
+            if (
+              !tagFits(
+                row,
+                entities.find((e) => e.id === categoryId),
+              )
+            )
+              reasons.push(
+                "Tag type does not match this transaction or its financial purpose.",
+              );
+            else if (!row.review.tags.length && row.amountCents !== 0)
               changes.categoryId = categoryId;
             else if (
               !(

@@ -1,3 +1,4 @@
+const { tagType, tagFits } = require("./tag-model.mjs");
 const { eventDates, validDate } = require("./event-model.mjs");
 const { randomUUID } = require("node:crypto");
 const {
@@ -149,12 +150,18 @@ class ReviewStore {
         .get(values.id, kind);
     if (values.id && !existing)
       throw new Error("Item no longer exists. Refresh and try again.");
+    const flowType =
+      kind === "category"
+        ? (values.flowType ?? existing?.flowType ?? "expense")
+        : "expense";
+    if (!["expense", "income"].includes(flowType))
+      throw new Error("Choose expense or income for this tag.");
     if (
       this.db
         .prepare(
-          "SELECT id FROM review_entities WHERE kind=? AND lower(name)=lower(?) AND id<>?",
+          "SELECT id FROM review_entities WHERE kind=? AND lower(name)=lower(?) AND id<>? AND (kind<>'category' OR flowType=?)",
         )
-        .get(kind, name, values.id || "")
+        .get(kind, name, values.id || "", flowType)
     )
       throw new Error("That name already exists.");
     const dates = eventDates(
@@ -162,9 +169,33 @@ class ReviewStore {
     );
     if (kind === "group" && (!dates.startDate || !dates.endDate))
       throw new Error("Events need both a start date and an end date.");
+    if (existing && tagType(existing) !== flowType) {
+      if (
+        this.records().some(
+          (r) =>
+            r.review.tags.some((p) => p.id === existing.id) &&
+            !tagFits(r, { flowType }),
+        )
+      )
+        throw new Error(
+          "This type conflicts with saved transactions. Create a separate tag instead.",
+        );
+      if (
+        this.db
+          .prepare(
+            "SELECT id FROM transaction_rules WHERE categoryId=? AND direction=?",
+          )
+          .get(existing.id, flowType === "income" ? "out" : "in")
+      )
+        throw new Error(
+          "Update conflicting rule directions before changing this tag's type.",
+        );
+    }
     // Legacy kind=category identifies assignable tags. Buckets never own portions.
     const parentId =
       kind === "category" ? (values.parentId ?? existing?.parentId ?? "") : "";
+    if (flowType === "income" && parentId)
+      throw new Error("Income tags do not belong to expense categories.");
     if (
       typeof parentId !== "string" ||
       (parentId &&
@@ -178,7 +209,7 @@ class ReviewStore {
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
-        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType",
       )
       .run(
         id,
@@ -189,6 +220,7 @@ class ReviewStore {
         dates.startDate,
         dates.endDate,
         parentId,
+        flowType,
       );
     return id;
   }
@@ -226,9 +258,13 @@ class ReviewStore {
           const existing = this.entities().find(
             (e) =>
               e.kind === "category" &&
+              tagType(e) === "expense" &&
               e.name.toLowerCase() === tag.toLowerCase(),
           );
-          if (!existing || !existing.parentId)
+          if (
+            !existing ||
+            (!existing.parentId && tagType(existing) === "expense")
+          )
             this.entity("category", {
               ...existing,
               name: existing?.name || tag,
@@ -426,7 +462,23 @@ class ReviewStore {
           review.assignedPersonId = change.assignedPersonId;
         }
         if (change.tags !== undefined) {
-          review.tags = portions(change.tags, "category portions");
+          review.tags = portions(change.tags, "tag portions");
+          // Let legacy assignments remain unchanged during unrelated edits, or be removed.
+          const unchanged =
+            JSON.stringify(review.tags) === JSON.stringify(row.review.tags);
+          if (
+            !unchanged &&
+            review.tags.some(
+              (p) =>
+                !tagFits(
+                  row,
+                  entities.find((e) => e.id === p.id),
+                ),
+            )
+          )
+            throw new Error(
+              "Use tags from this transaction's income or expense lens. Repayments and transfers are managed through their financial links.",
+            );
           if (
             review.tags.some((p) => !tags.has(p.id)) ||
             (review.tags.length &&

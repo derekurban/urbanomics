@@ -1,3 +1,4 @@
+import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import "./rules-workspace.css";
@@ -396,7 +397,7 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
               <option value="">No tag</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.name}
+                  {tagType(c) === "income" ? "Income" : "Expense"} · {c.name}
                 </option>
               ))}
             </select>
@@ -585,7 +586,9 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
     () => new Map(entities.map((e) => [e.id, e])),
     [entities],
   );
-  const categories = entities.filter((e) => e.kind === "category"),
+  const categories = alphabetical(
+      entities.filter((e) => e.kind === "category"),
+    ),
     people = entities.filter((e) => e.kind === "person");
   const counts = tally(candidates);
   const perRule = useMemo(() => {

@@ -299,7 +299,7 @@ test("schema 11 adds empty rule tables without rewriting existing ledger or revi
   s.close();
   s = new ImportStore(root);
   try {
-    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 13);
+    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 14);
     for (const [name, rows] of Object.entries(before))
       assert.deepEqual(
         s.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),

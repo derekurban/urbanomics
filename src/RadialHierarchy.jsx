@@ -1,174 +1,121 @@
-import React, { useEffect, useState } from "react";
-const slots = (n, cx, cy, radius) =>
-  Array.from({ length: n }, (_, i) => ({
-    x: cx + Math.cos(-Math.PI / 2 + (i * 2 * Math.PI) / n) * radius,
-    y: cy + Math.sin(-Math.PI / 2 + (i * 2 * Math.PI) / n) * radius,
-  }));
+import React from "react";
+import { alphabetical } from "../electron/review/tag-model.mjs";
+import { ringSlots } from "./radial-hierarchy-layout.js";
 export function RadialHierarchy({
   tags,
   buckets,
   expanded,
   onExpand,
   width,
+  height,
   query,
   choose,
   selected,
   hover,
   busy,
+  lens = "expense",
 }) {
-  const [page, setPage] = useState(0),
-    [tagPage, setTagPage] = useState(0);
-  useEffect(() => setTagPage(0), [expanded, query]);
-  useEffect(() => setPage(0), [query]);
+  const matches = (name) =>
+    name.toLowerCase().includes(query.trim().toLowerCase());
+  const sorted = alphabetical(tags);
   const groups = [
     ...buckets,
     { id: "ungrouped", name: "Ungrouped", color: "#9AA993" },
   ]
     .map((b) => ({
       ...b,
-      children: tags.filter((t) => (t.parentId || "ungrouped") === b.id),
+      children: sorted.filter((t) => (t.parentId || "ungrouped") === b.id),
     }))
-    .filter((b) => b.id !== "ungrouped" || b.children.length);
-  const matching = groups.filter(
-    (b) =>
-      !query ||
-      b.name.toLowerCase().includes(query.toLowerCase()) ||
-      b.children.some((t) =>
-        t.name.toLowerCase().includes(query.toLowerCase()),
-      ),
-  );
-  const actualPage = Math.min(
-      page,
-      Math.max(0, Math.ceil(matching.length / 8) - 1),
-    ),
-    visible = matching.slice(actualPage * 8, actualPage * 8 + 8);
-  const points = slots(visible.length, width / 2, 260, 205),
-    active = groups.find((b) => b.id === expanded),
-    anchor = visible.findIndex((b) => b.id === expanded);
-  const cx =
-      anchor < 0
-        ? width / 2
-        : Math.max(175, Math.min(width - 175, points[anchor].x)),
-    cy = anchor < 0 ? 260 : Math.max(180, Math.min(340, points[anchor].y));
+    .filter((b) => b.id !== "ungrouped" || b.children.length)
+    .filter((b) => matches(b.name) || b.children.some((t) => matches(t.name)));
+  const points = ringSlots(groups.length, 205, 102).points;
+  const active =
+    lens === "income"
+      ? {
+          id: "income",
+          name: "Income tags",
+          color: "#8FA6CB",
+          children: sorted,
+        }
+      : groups.find((b) => b.id === expanded);
   const children =
-      active?.children.filter(
-        (t) =>
-          !query ||
-          active.name.toLowerCase().includes(query.toLowerCase()) ||
-          t.name.toLowerCase().includes(query.toLowerCase()),
-      ) || [],
-    tp = Math.min(tagPage, Math.max(0, Math.ceil(children.length / 8) - 1)),
-    shown = children.slice(tp * 8, tp * 8 + 8),
-    tagPoints = slots(shown.length, cx, cy, 123);
-  function open(id) {
-    if (expanded !== id) {
-      setTagPage(0);
-      onExpand(id);
-    }
-  }
+    active?.children.filter((t) => matches(active.name) || matches(t.name)) ||
+    [];
+  const ring = ringSlots(children.length, lens === "income" ? 205 : 123),
+    disc = 2 * (ring.radius + 48);
+  const anchor = groups.findIndex((b) => b.id === expanded);
+  const clamp = (n, max) =>
+    Math.max(disc / 2 + 5, Math.min(max - disc / 2 - 5, n));
+  const cx =
+      lens === "income"
+        ? width / 2
+        : clamp(width / 2 + (points[anchor]?.x || 0), width),
+    cy =
+      lens === "income"
+        ? height / 2
+        : clamp(height / 2 + (points[anchor]?.y || 0), height);
   return (
     <>
-      {visible.map((b, i) => (
-        <button
-          key={b.id}
-          data-orbit-bucket={b.id}
-          className={`rh-bucket ${expanded === b.id ? "is-open" : ""}`}
-          style={{
-            left: points[i].x,
-            top: points[i].y,
-            "--bubble-color": b.color,
-          }}
-          aria-label={`Category ${b.name}`}
-          aria-expanded={expanded === b.id}
-          disabled={busy}
-          onMouseEnter={() => open(b.id)}
-          onFocus={() => open(b.id)}
-          onClick={() => open(b.id)}
-        >
-          <strong>{b.name}</strong>
-          <small>{b.children.length} tags</small>
-        </button>
-      ))}
-      {!matching.length && (
+      {lens === "expense" &&
+        groups.map((b, i) => (
+          <button
+            key={b.id}
+            data-orbit-bucket={b.id}
+            className={`rh-bucket ${expanded === b.id ? "is-open" : ""}`}
+            style={{
+              left: width / 2 + points[i].x,
+              top: height / 2 + points[i].y,
+              "--bubble-color": b.color,
+            }}
+            aria-label={`Category ${b.name}`}
+            aria-expanded={expanded === b.id}
+            disabled={busy}
+            onMouseEnter={() => onExpand(b.id)}
+            onFocus={() => onExpand(b.id)}
+            onClick={() => onExpand(b.id)}
+          >
+            <strong>{b.name}</strong>
+            <small>{b.children.length} tags</small>
+          </button>
+        ))}
+      {lens === "expense" && !groups.length && (
         <p className="rh-no-buckets">
-          Create categories and tags in Organize to begin.
+          No categories or tags match. Create them in Organize to begin.
         </p>
-      )}
-      {matching.length > 8 && (
-        <div className="rh-pages">
-          <button
-            disabled={actualPage === 0 || busy}
-            onClick={() => {
-              setPage(actualPage - 1);
-              onExpand("");
-            }}
-          >
-            Previous categories
-          </button>
-          <span>
-            {actualPage + 1} / {Math.ceil(matching.length / 8)}
-          </span>
-          <button
-            disabled={(actualPage + 1) * 8 >= matching.length || busy}
-            onClick={() => {
-              setPage(actualPage + 1);
-              onExpand("");
-            }}
-          >
-            More categories
-          </button>
-        </div>
       )}
       {active && (
         <div className="rh-expanded" style={{ "--bubble-color": active.color }}>
-          <div
-            className="rh-petal-disc"
-            data-petal-disc
-            style={{ left: cx, top: cy }}
-          />
-          <div className="rh-petal-title" style={{ left: cx, top: cy }}>
-            <strong>{active.name}</strong>
-            <small>
-              {children.length ? "Drop onto a tag" : "Add tags in Organize"}
-            </small>
-            <button
-              aria-label="Close category tags"
-              onClick={() => onExpand("")}
-            >
-              Back
-            </button>
-            {children.length > 8 && (
-              <div>
+          {lens === "expense" && (
+            <>
+              <div
+                className="rh-petal-disc"
+                data-petal-disc
+                style={{ left: cx, top: cy, width: disc, height: disc }}
+              />
+              <div className="rh-petal-title" style={{ left: cx, top: cy }}>
+                <strong>{active.name}</strong>
+                <small>
+                  {children.length ? "Drop onto a tag" : "Add tags in Organize"}
+                </small>
                 <button
-                  aria-label="Previous tags"
-                  disabled={tp === 0}
-                  onClick={() => setTagPage(tp - 1)}
+                  aria-label="Close category tags"
+                  onClick={() => onExpand("")}
                 >
-                  ‹
-                </button>
-                <span>
-                  {tp + 1}/{Math.ceil(children.length / 8)}
-                </span>
-                <button
-                  aria-label="More tags"
-                  disabled={(tp + 1) * 8 >= children.length}
-                  onClick={() => setTagPage(tp + 1)}
-                >
-                  ›
+                  Back
                 </button>
               </div>
-            )}
-          </div>
-          {shown.map((tag, i) => (
+            </>
+          )}
+          {children.map((tag, i) => (
             <button
               key={tag.id}
               data-orbit-target={tag.id}
               className={`rh-tag ${hover === tag.id ? "os-drop-ready" : ""}`}
               style={{
-                left: tagPoints[i].x,
-                top: tagPoints[i].y,
+                left: cx + ring.points[i].x,
+                top: cy + ring.points[i].y,
                 "--bubble-color": tag.color,
-                "--petal-index": i,
+                "--petal-index": Math.min(i, 8),
               }}
               disabled={busy}
               title={tag.name}

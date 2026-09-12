@@ -11,3 +11,5 @@ Development's standard workspace uses this directory automatically. The installe
 A fresh or fully empty workspace seeds from its configuration directory (or the packaged SQL if no local copy exists). Existing workspaces are authoritative and export their current configuration; pulling SQL changes does not overwrite an existing ledger's definitions. SQL is a trusted executable repository artifact, not an upload format. Do not apply it over an existing workspace. The file is a configuration seed, not a complete financial backup; back up the closed private workspace to preserve financial history and reviews.
 
 Schema 13 exports tag parent definitions in `review_entities.parentId`. Legacy kind `category` denotes assignable tags; kind `bucket` denotes broad categories. Empty parents mean ungrouped tags. Financial portions and raw records remain private. Existing SQL without parentId seeds compatible ungrouped tags; hierarchy edits never rewrite ledger payloads.
+
+Schema 14 includes review_entities.flowType in the explicit configuration export. It describes expense/income tag definitions only; no financial assignments or transaction data are exported.

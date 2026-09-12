@@ -1,3 +1,4 @@
+import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   dashboard,
@@ -60,6 +61,8 @@ export function Dashboard({ data, onSource }) {
     data.lastCompleteMonth;
   const [from, setFrom] = useState(latest + "-01"),
     [through, setThrough] = useState(monthEnd(latest));
+  const [incomeTags, setIncomeTags] = useState([]);
+  const [filterLens, setFilterLens] = useState("expense");
   const [layer, setLayer] = useState("categories");
   const [mode, setMode] = useState("spending"),
     [selected, setSelected] = useState([]),
@@ -94,13 +97,24 @@ export function Dashboard({ data, onSource }) {
     categories: selected,
     later,
     layer,
+    incomeTags,
   };
   const model = useMemo(
     () =>
       source && valid
         ? dashboard(source.records, source.entities, options)
         : null,
-    [source, from, through, currency, selected, later, layer, valid],
+    [
+      source,
+      from,
+      through,
+      currency,
+      selected,
+      later,
+      layer,
+      incomeTags,
+      valid,
+    ],
   );
   const drill = useMemo(
     () =>
@@ -126,11 +140,12 @@ export function Dashboard({ data, onSource }) {
             year,
             currency,
             categories: selected,
+            incomeTags,
             layer,
             later,
           })
         : [],
-    [source, year, currency, selected, later, layer],
+    [source, year, currency, selected, later, layer, incomeTags],
   );
   const overview = useMemo(
     () =>
@@ -162,12 +177,13 @@ export function Dashboard({ data, onSource }) {
     setDetail(null);
   }
   function filter(id) {
-    setSelected((old) =>
-      id === "all"
-        ? []
-        : old.includes(id)
-          ? old.filter((v) => v !== id)
-          : [...old, id],
+    (filterLens === "income" && mode === "cash" ? setIncomeTags : setSelected)(
+      (old) =>
+        id === "all"
+          ? []
+          : old.includes(id)
+            ? old.filter((v) => v !== id)
+            : [...old, id],
     );
     setDetail(null);
   }
@@ -260,7 +276,7 @@ export function Dashboard({ data, onSource }) {
   const currencies = [
     ...new Set(source.records.filter((t) => !t.deleted).map((t) => t.currency)),
   ].sort();
-  const visibleCategories =
+  const expenseOptions =
     model?.categoryOptions.filter(
       (c) =>
         ![UNCATEGORIZED, TRANSFER_FEES, TRANSFER_EXCESS].includes(c.id) ||
@@ -272,6 +288,15 @@ export function Dashboard({ data, onSource }) {
               : (t.review.transferFeeCents || 0) > 0,
         ),
     ) || [];
+  const incomeLens = filterLens === "income" && mode === "cash";
+  const activeFilters = incomeLens ? incomeTags : selected;
+  const visibleCategories = alphabetical(
+    incomeLens
+      ? source.entities.filter(
+          (e) => e.kind === "category" && tagType(e) === "income",
+        )
+      : expenseOptions.filter((e) => tagType(e) !== "income"),
+  );
   const activeCount = source.records.filter((t) => !t.deleted).length;
   return (
     <div className="dash-workspace">
@@ -447,45 +472,73 @@ export function Dashboard({ data, onSource }) {
                   </button>
                 ))}
               </nav>
+              {mode === "cash" && (
+                <div
+                  className="rv-toggle"
+                  role="group"
+                  aria-label="Cash flow tag lens"
+                >
+                  {["expense", "income"].map((type) => (
+                    <button
+                      key={type}
+                      aria-pressed={filterLens === type}
+                      onClick={() => setFilterLens(type)}
+                    >
+                      {type === "income"
+                        ? "Income tags"
+                        : "Expense categories & tags"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="dash-filter-heading">
                 <strong>
                   {mode === "cash"
-                    ? "Transaction categories"
+                    ? incomeLens
+                      ? "Income tags"
+                      : "Expense categories & tags"
                     : "Expense categories"}
                 </strong>
                 <span>
-                  {selected.length
-                    ? `${selected.length} selected`
-                    : `All ${layer}`}{" "}
+                  {activeFilters.length
+                    ? `${activeFilters.length} selected`
+                    : incomeLens
+                      ? "All income tags"
+                      : `All ${layer}`}{" "}
                   · multiple selections combine
                 </span>
               </div>
-              <div className="rv-toggle" aria-label="Spending breakdown layer">
-                {["categories", "tags"].map((id) => (
-                  <button
-                    key={id}
-                    aria-pressed={layer === id}
-                    onClick={() => {
-                      setLayer(id);
-                      setSelected([]);
-                      setDetail(null);
-                    }}
-                  >
-                    {id === "categories" ? "Categories" : "Tags"}
-                  </button>
-                ))}
-              </div>
+              {!incomeLens && (
+                <div
+                  className="rv-toggle"
+                  aria-label="Spending breakdown layer"
+                >
+                  {["categories", "tags"].map((id) => (
+                    <button
+                      key={id}
+                      aria-pressed={layer === id}
+                      onClick={() => {
+                        setLayer(id);
+                        setSelected([]);
+                        setDetail(null);
+                      }}
+                    >
+                      {id === "categories" ? "Categories" : "Tags"}
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="dash-filters" aria-label="Dashboard categories">
                 <button
-                  aria-pressed={!selected.length}
+                  aria-pressed={!activeFilters.length}
                   onClick={() => filter("all")}
                 >
-                  All {layer}
+                  All {incomeLens ? "income tags" : layer}
                 </button>
                 {visibleCategories.map((c) => (
                   <button
                     key={c.id}
-                    aria-pressed={selected.includes(c.id)}
+                    aria-pressed={activeFilters.includes(c.id)}
                     onClick={() => filter(c.id)}
                   >
                     <i style={{ background: c.color }} />
@@ -493,6 +546,12 @@ export function Dashboard({ data, onSource }) {
                   </button>
                 ))}
               </div>
+              {mode === "cash" && (
+                <p className="rv-help">
+                  Expense filters affect money out; income tags filter money in
+                  independently. Repayments remain receipts, not earned income.
+                </p>
+              )}
               {mode !== "cash" && (
                 <label className="dash-later">
                   <input

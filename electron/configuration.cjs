@@ -25,6 +25,7 @@ const tables = {
     "startDate",
     "endDate",
     "parentId",
+    "flowType",
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [

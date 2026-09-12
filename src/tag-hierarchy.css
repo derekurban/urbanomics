@@ -113,3 +113,43 @@
     transition: none;
   }
 }
+.th-lenses {
+  display: flex;
+  gap: 12px;
+}
+.th-lenses button {
+  flex: 1;
+  display: grid;
+  text-align: left;
+  gap: 5px;
+  padding: 15px 18px;
+  border-radius: 16px;
+  background: #fafbf8;
+}
+.th-lenses button[aria-pressed="true"] {
+  background: #e6eee1;
+  border-color: #91ad80;
+}
+.th-lenses button:nth-child(2)[aria-pressed="true"] {
+  background: #e6edf7;
+  border-color: #94acd0;
+}
+.th-lenses small {
+  font-size: 11px;
+  color: var(--muted);
+}
+.th-tag[aria-grabbed="true"] {
+  background: #e7efde;
+  outline: 2px solid #8ba878;
+}
+.th-group:focus-visible {
+  outline: 3px solid #8ba878;
+}
+.entity-type {
+  display: grid;
+  gap: 10px;
+}
+.entity-type small {
+  color: var(--muted);
+  font-size: 12px;
+}

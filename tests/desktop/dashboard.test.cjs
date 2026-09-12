@@ -90,9 +90,8 @@ function fixture() {
   };
 }
 test("monthly trends preserve missing months and reconcile category filters and receipt cutoffs", async () => {
-  const { monthlyDashboard, availableMonths } = await import(
-    "../../src/dashboard-model.js"
-  );
+  const { monthlyDashboard, availableMonths } =
+    await import("../../src/dashboard-model.js");
   const { records, entities } = fixture();
   assert.deepEqual(availableMonths(records), ["2026-07", "2026-08", "2026-09"]);
   const series = monthlyDashboard(records, entities, { year: "2026" });
@@ -207,9 +206,8 @@ test("account standing uses source observations and transfer arrows count once b
   );
 });
 test("dashboard reconciles cash, deductions, cross-month receipts, overlapping events and exact category cents", async () => {
-  const { dashboard, TRANSFER_FEES, UNCATEGORIZED } = await import(
-    "../../src/dashboard-model.js"
-  );
+  const { dashboard, TRANSFER_FEES, UNCATEGORIZED } =
+    await import("../../src/dashboard-model.js");
   const f = fixture(),
     before = JSON.stringify(f),
     opts = { from: "2026-08-01", through: "2026-08-31" };
@@ -448,4 +446,26 @@ test("date boundaries, later repayments, empty selections and currencies remain 
   });
   assert.equal(aug.gross, 40000);
   assert.equal(aug.transfers.length, 1);
+});
+
+test("income tags filter receipts independently of expense tags without reclassifying repayments", async () => {
+  const { dashboard } = await import("../../src/dashboard-model.js");
+  const { records, entities } = fixture();
+  const period = { from: "2026-08-01", through: "2026-08-31", incomeTags: [] };
+  const all = dashboard(records, entities, period);
+  const food = dashboard(records, entities, {
+    ...period,
+    categories: ["food"],
+  });
+  assert.equal(food.cashIn, all.cashIn);
+  assert.ok(food.cashOut < all.cashOut);
+  const income = dashboard(records, entities, {
+    ...period,
+    incomeTags: ["income"],
+  });
+  assert.equal(income.cashIn, 100000);
+  assert.equal(income.cashOut, all.cashOut);
+  assert.equal(income.net, all.net);
+  assert.equal(all.cashGroups.find((g) => g.id === "repayment").rows.length, 2);
+  assert.equal(all.cashGroups.find((g) => g.id === "income").rows.length, 1);
 });

@@ -1,17 +1,24 @@
 import React, { useState } from "react";
 import "./tag-hierarchy.css";
+import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
 const api = window.urbanomics;
 export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
+  const [lens, setLens] = useState("expense");
+  const [lifted, setLifted] = useState("");
   const [query, setQuery] = useState(""),
     [over, setOver] = useState(null);
-  const tags = entities.filter((e) => e.kind === "category"),
+  const tags = alphabetical(
+      entities.filter((e) => e.kind === "category" && tagType(e) === lens),
+    ),
     buckets = entities.filter((e) => e.kind === "bucket");
-  const groups = [
-    ...buckets,
-    { id: "", name: "Ungrouped tags", color: "#A4ADA3" },
-  ];
+  const groups =
+    lens === "income"
+      ? [{ id: "", name: "Income tags", color: "#8FA6CB" }]
+      : [...buckets, { id: "", name: "Ungrouped tags", color: "#A4ADA3" }];
   async function move(tag, parentId) {
-    if (!tag || tag.parentId === parentId || busy) return;
+    if (!tag || tagType(tag) !== "expense" || tag.parentId === parentId || busy)
+      return;
+    setLifted("");
     await act(() => api.saveEntity("category", { ...tag, parentId }));
   }
   return (
@@ -19,24 +26,55 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
       className="th-workspace"
       aria-label="Categories and tags hierarchy"
     >
+      <div className="th-lenses" role="group" aria-label="Organization lens">
+        {["expense", "income"].map((type) => (
+          <button
+            key={type}
+            aria-pressed={lens === type}
+            onClick={() => {
+              setLens(type);
+              setQuery("");
+              setLifted("");
+            }}
+          >
+            <strong>{type === "expense" ? "Expenses" : "Income"}</strong>
+            <small>
+              {type === "expense"
+                ? "Categories with detailed tags"
+                : "Sources of money received"}
+            </small>
+          </button>
+        ))}
+      </div>
       <div className="th-heading">
         <div>
-          <h2>Big buckets. Little details.</h2>
+          <h2>
+            {lens === "expense" ? "Expense categories & tags" : "Income tags"}
+          </h2>
           <p>
-            Tag each transaction. Categories collect their tags for the bigger
-            picture.
+            {lens === "expense"
+              ? "Organize spending from broad buckets down to details."
+              : "Keep income sources separate from spending. Repayments and transfers retain their own relationships."}
           </p>
         </div>
-        <button
-          disabled={busy}
-          onClick={() => edit({ kind: "bucket", color: "#8DAE87" })}
-        >
-          + New category
-        </button>
+        {lens === "expense" && (
+          <button
+            disabled={busy}
+            onClick={() => edit({ kind: "bucket", color: "#8DAE87" })}
+          >
+            + New category
+          </button>
+        )}
         <button
           className="primary"
           disabled={busy}
-          onClick={() => edit({ kind: "category", color: "#8DAE87" })}
+          onClick={() =>
+            edit({
+              kind: "category",
+              flowType: lens,
+              color: lens === "income" ? "#8FA6CB" : "#8DAE87",
+            })
+          }
         >
           + New tag
         </button>
@@ -45,23 +83,31 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
         <input
           type="search"
           aria-label="Search categories and tags"
-          placeholder="Find a category or tag…"
+          placeholder={
+            lens === "income"
+              ? "Find an income tag…"
+              : "Find a category or tag…"
+          }
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
         <span>
-          {buckets.length} categories · {tags.length} tags
+          {lens === "expense" && `${buckets.length} categories · `}
+          {tags.length} {tags.length === 1 ? "tag" : "tags"}
         </span>
-        <button
-          disabled={busy}
-          onClick={() => act(() => api.starterHierarchy())}
-        >
-          Add Food & Personal starter
-        </button>
+        {lens === "expense" && (
+          <button
+            disabled={busy}
+            onClick={() => act(() => api.starterHierarchy())}
+          >
+            Add Food & Personal starter
+          </button>
+        )}
       </div>
       <p className="th-hint">
-        Drag a tag to another category, or use its Move menu. Existing
-        transaction amounts stay the same.
+        {lens === "expense"
+          ? "Drag tags between categories. Keyboard: Space picks up a focused tag; Enter places it in a focused category."
+          : "Income tags are a flat list, always alphabetical."}
       </p>
       {error && (
         <p role="alert" className="dr-error-text">
@@ -88,8 +134,23 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               className={`th-group ${over === group.id ? "is-over" : ""}`}
               style={{ "--group-color": group.color }}
               aria-label={`Category ${group.name}`}
+              tabIndex={lens === "expense" ? 0 : undefined}
+              onKeyDown={(e) => {
+                if (
+                  e.target === e.currentTarget &&
+                  e.key === "Enter" &&
+                  lifted
+                ) {
+                  e.preventDefault();
+                  move(
+                    tags.find((t) => t.id === lifted),
+                    group.id,
+                  );
+                }
+              }}
               onDragOver={(e) => {
                 if (
+                  lens === "expense" &&
                   !busy &&
                   e.dataTransfer.types.includes("application/urbanomics-tag")
                 ) {
@@ -116,7 +177,9 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               <header>
                 <i />
                 <h3>{group.name}</h3>
-                <small>{children.length} tags</small>
+                <small>
+                  {children.length} {children.length === 1 ? "tag" : "tags"}
+                </small>
                 {group.id && (
                   <button
                     disabled={busy}
@@ -133,6 +196,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                     edit({
                       kind: "category",
                       parentId: group.id,
+                      flowType: lens,
                       color: group.color,
                     })
                   }
@@ -145,7 +209,18 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                   <article
                     className="th-tag"
                     key={tag.id}
-                    draggable={!busy}
+                    draggable={!busy && lens === "expense"}
+                    tabIndex={lens === "expense" ? 0 : undefined}
+                    aria-label={`Tag ${tag.name}`}
+                    aria-grabbed={lifted === tag.id}
+                    onKeyDown={(e) => {
+                      if (e.target !== e.currentTarget) return;
+                      if (e.key === " ") {
+                        e.preventDefault();
+                        setLifted(lifted === tag.id ? "" : tag.id);
+                      }
+                      if (e.key === "Escape") setLifted("");
+                    }}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(
                         "application/urbanomics-tag",
@@ -155,7 +230,9 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                     }}
                     onDragEnd={() => setOver(null)}
                   >
-                    <span aria-hidden="true">⠿</span>
+                    <span aria-hidden="true">
+                      {lens === "expense" ? "⠿" : ""}
+                    </span>
                     <i style={{ background: tag.color }} />
                     <div>
                       <strong>{tag.name}</strong>
@@ -169,18 +246,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                           : ""}
                       </small>
                     </div>
-                    <select
-                      disabled={busy}
-                      aria-label={`Move ${tag.name} to category`}
-                      value={tag.parentId || ""}
-                      onChange={(e) => move(tag, e.target.value)}
-                    >
-                      {groups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          {g.name}
-                        </option>
-                      ))}
-                    </select>
+
                     <button
                       disabled={busy}
                       aria-label={`Edit tag ${tag.name}`}
@@ -195,7 +261,9 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                 <p className="th-empty">
                   {query
                     ? "No matching tags."
-                    : "Drop tags here, or add a new one."}
+                    : lens === "income"
+                      ? "Add an income tag to begin."
+                      : "Drop tags here, or add a new one."}
                 </p>
               )}
             </section>

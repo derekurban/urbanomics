@@ -43,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 13) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 14) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -192,6 +192,29 @@ class ImportStore {
             "ALTER TABLE review_entities ADD COLUMN parentId TEXT NOT NULL DEFAULT ''",
           );
         this.db.exec("PRAGMA user_version=13; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 14) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        if (
+          !this.db
+            .prepare("PRAGMA table_info(review_entities)")
+            .all()
+            .some((c) => c.name === "flowType")
+        ) {
+          this.db.exec(
+            "ALTER TABLE review_entities ADD COLUMN flowType TEXT NOT NULL DEFAULT 'expense' CHECK(flowType IN ('expense','income'))",
+          );
+          // Definition only; historical assignments remain byte-for-byte intact.
+          this.db.exec(
+            "UPDATE review_entities SET flowType='income' WHERE kind='category' AND lower(name)='income' AND parentId=''",
+          );
+        }
+        this.db.exec("PRAGMA user_version=14; COMMIT");
       } catch (error) {
         this.db.exec("ROLLBACK");
         throw error;

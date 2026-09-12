@@ -1,3 +1,4 @@
+import { radialSize } from "./radial-hierarchy-layout.js";
 import React, {
   useEffect,
   useLayoutEffect,
@@ -22,6 +23,8 @@ export function OrbitSorter({
   rows,
   entities,
   buckets = [],
+  allTags = entities,
+  lens = "expense",
   people,
   events,
   drafts,
@@ -79,22 +82,23 @@ export function OrbitSorter({
       cancelAnimationFrame(gesture.current?.frame);
     };
   }, [!!row]);
+  const fixed = radialSize(entities, buckets, lens);
   const layout = useMemo(
     () =>
       events
         ? orbitLayout(targets.length, bounds.width, bounds.cardHeight)
         : {
-            height: 540,
+            height: fixed.height,
             cardWidth: 190,
             targetWidth: 86,
             targetHeight: 86,
             rx: 205,
             ry: 205,
           },
-    [events, targets.length, bounds.width, bounds.cardHeight],
+    [events, targets.length, bounds.width, bounds.cardHeight, fixed.height],
   );
-  const names = Object.fromEntries(entities.map((e) => [e.id, e.name])),
-    colors = Object.fromEntries(entities.map((e) => [e.id, e.color]));
+  const names = Object.fromEntries(allTags.map((e) => [e.id, e.name])),
+    colors = Object.fromEntries(allTags.map((e) => [e.id, e.color]));
   const selected = (id) =>
     events ? values.includes(id) : values.some((p) => p.id === id);
   const setValues = (next, decision = next.length > 0) => {
@@ -323,7 +327,9 @@ export function OrbitSorter({
           <p>
             {events
               ? "Events hold whole transactions. Select a container, or choose No event."
-              : "Hover over a category, then drop onto a tag. Click the card to split or edit."}
+              : lens === "income"
+                ? "Drop onto an income tag to describe the source. Manage repayments and transfers in Money in."
+                : "Hover over a category, then drop onto a tag. Click the card to split or edit."}
           </p>
         </div>
         <span>
@@ -334,14 +340,21 @@ export function OrbitSorter({
         <div className="os-target-search">
           <input
             aria-label={events ? "Search events" : "Search categories and tags"}
-            placeholder={events ? "Find an event…" : "Find a tag or category…"}
+            placeholder={
+              events
+                ? "Find an event…"
+                : lens === "income"
+                  ? "Find an income tag…"
+                  : "Find a tag or category…"
+            }
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
             }}
           />
           <span>
-            {targets.length} {events ? "events" : "tags"}
+            {targets.length}{" "}
+            {events ? "events" : targets.length === 1 ? "tag" : "tags"}
           </span>
         </div>
       )}
@@ -352,6 +365,8 @@ export function OrbitSorter({
             ref={orbit}
             style={{
               height: layout.height,
+              minWidth: events ? undefined : fixed.width,
+              "--stage-center": `${fixed.height / 2}px`,
               "--card-width": layout.cardWidth + "px",
               "--target-width": layout.targetWidth + "px",
               "--target-height": layout.targetHeight + "px",
@@ -436,7 +451,9 @@ export function OrbitSorter({
                 buckets={buckets}
                 expanded={expanded}
                 onExpand={setExpanded}
-                width={Math.max(560, bounds.width)}
+                width={Math.max(fixed.width, bounds.width)}
+                height={fixed.height}
+                lens={lens}
                 query={query}
                 choose={choose}
                 selected={selected}
@@ -619,7 +636,7 @@ export function OrbitSorter({
       {editing && (
         <TransactionSettings
           row={editing}
-          categories={entities}
+          categories={allTags}
           people={people}
           onSave={onSave}
           onClose={() => setEditing(null)}

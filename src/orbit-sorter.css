@@ -401,14 +401,13 @@
 /* Fixed footprints: the card never resizes when names, tags or amounts change. */
 .os-categories .os-orbit {
   min-width: 560px;
-  height: 540px !important;
 }
 .os-categories .os-stage {
   overflow-x: auto;
 }
 .os-categories .os-stack {
   width: 190px;
-  top: 260px;
+  top: var(--stage-center, 280px);
 }
 .os-categories .os-transaction {
   height: 174px;
@@ -436,7 +435,7 @@
   font-size: 10px;
 }
 .os-categories .os-stack:has(.os-transaction[style*="translate"]) {
-  z-index: 20;
+  z-index: 4;
   pointer-events: none;
 }
 .os-categories
@@ -551,20 +550,6 @@
   justify-content: center;
   font-size: 10px;
 }
-.rh-pages {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  gap: 10px;
-  align-items: center;
-  justify-content: center;
-  font-size: 11px;
-}
-.rh-pages button {
-  font-size: 11px;
-}
 .rh-no-buckets {
   text-align: center;
   padding: 8px;
@@ -609,7 +594,7 @@
 }
 
 .os-categories .os-ring {
-  top: 260px;
+  top: var(--stage-center, 280px);
 }
 .rh-bucket,
 .rh-tag,
@@ -625,4 +610,10 @@
     opacity: 1;
     transform: translateY(0);
   }
+}
+.rh-tag:hover,
+.rh-tag:active,
+.rh-bucket:hover,
+.rh-bucket:active {
+  transform: translate(-50%, -50%);
 }
