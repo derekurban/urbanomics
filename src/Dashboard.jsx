@@ -1,3 +1,4 @@
+import { categoryColors } from "./category-colors.js";
 import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
 import {
@@ -78,7 +79,7 @@ export function Dashboard({ data, onSource }) {
       .reviewState()
       .then((s) => {
         if (current) {
-          setSource(s);
+          setSource({ ...s, entities: categoryColors(s.entities) });
           setError("");
         }
       })

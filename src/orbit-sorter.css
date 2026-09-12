@@ -617,3 +617,11 @@
 .rh-bucket:active {
   transform: translate(-50%, -50%);
 }
+
+.rh-tag[data-inherited-color] {
+  background: color-mix(in srgb, var(--bubble-color) 42%, white);
+  border-color: var(--bubble-color);
+}
+.rh-tag[data-inherited-color].os-drop-ready {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--bubble-color) 35%, transparent);
+}

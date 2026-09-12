@@ -1,3 +1,4 @@
+import { categoryColors } from "./category-colors.js";
 import { eventDateLabel } from "../electron/review/event-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
 import { TagHierarchy } from "./TagHierarchy.jsx";
@@ -465,7 +466,7 @@ export function OrganizeWorkspace({
     };
   }, [data]);
 
-  const entities = state?.entities || [],
+  const entities = categoryColors(state?.entities || []),
     records = state?.records || [];
   /* Per-entity usage, counting each transaction once per entity it touches. */
   const usage = useMemo(() => {

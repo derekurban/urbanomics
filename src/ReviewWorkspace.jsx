@@ -1,3 +1,4 @@
+import { categoryColors } from "./category-colors.js";
 import {
   alphabetical,
   tagType,
@@ -708,7 +709,8 @@ export function ReviewWorkspace({
     });
   }
   if (!state) return <p>{error || "Opening transactions…"}</p>;
-  const { records, entities } = state,
+  const { records } = state;
+  const entities = categoryColors(state.entities),
     tags = alphabetical(entities.filter((e) => e.kind === "category")),
     groups = entities.filter((e) => e.kind === "group"),
     people = entities.filter((e) => e.kind === "person"),

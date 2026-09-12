@@ -153,3 +153,11 @@
   color: var(--muted);
   font-size: 12px;
 }
+
+.th-tag[data-inherited-color] {
+  border-left: 4px solid var(--tag-color);
+  background: color-mix(in srgb, var(--tag-color) 18%, white);
+}
+.th-tag[draggable="false"] {
+  cursor: default;
+}

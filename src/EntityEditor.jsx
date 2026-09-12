@@ -13,10 +13,16 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
   const [flowType, setFlowType] = useState(entity.flowType || "expense");
   const [parentId, setParentId] = useState(entity.parentId || "");
   const [name, setName] = useState(entity.name || ""),
-    [color, setColor] = useState(entity.color || "#78976A"),
+    [color, setColor] = useState(
+      entity.customColor ?? entity.color ?? "#78976A",
+    ),
     [confirm, setConfirm] = useState(false);
   const [startDate, setStartDate] = useState(entity.startDate || ""),
     [endDate, setEndDate] = useState(entity.endDate || "");
+  const parent =
+    entity.kind === "category" &&
+    flowType === "expense" &&
+    entities.find((e) => e.kind === "bucket" && e.id === parentId);
   return (
     <WorkspaceModal
       title={`${entity.id ? "Edit" : "New"} ${label}`}
@@ -51,14 +57,21 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
             onChange={(e) => setName(e.target.value)}
           />
         </label>
-        <label className="rv-color-label">
-          Color
-          <input
-            type="color"
-            value={color}
-            onChange={(e) => setColor(e.target.value)}
-          />
-        </label>
+        {parent ? (
+          <p className="rv-help">
+            Color follows {parent.name}’s gradient. Edit the category color to
+            update its tags.
+          </p>
+        ) : (
+          <label className="rv-color-label">
+            Color
+            <input
+              type="color"
+              value={color}
+              onChange={(e) => setColor(e.target.value)}
+            />
+          </label>
+        )}
         {entity.kind === "category" && (
           <div className="entity-type">
             <span>Tag type</span>

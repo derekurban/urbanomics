@@ -19,7 +19,13 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
     if (!tag || tagType(tag) !== "expense" || tag.parentId === parentId || busy)
       return;
     setLifted("");
-    await act(() => api.saveEntity("category", { ...tag, parentId }));
+    await act(() =>
+      api.saveEntity("category", {
+        ...tag,
+        color: tag.customColor ?? tag.color,
+        parentId,
+      }),
+    );
   }
   return (
     <section
@@ -208,6 +214,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                 {matches.map((tag) => (
                   <article
                     className="th-tag"
+                    data-inherited-color={tag.inheritedColor || undefined}
+                    style={{ "--tag-color": tag.color }}
                     key={tag.id}
                     draggable={!busy && lens === "expense"}
                     tabIndex={lens === "expense" ? 0 : undefined}

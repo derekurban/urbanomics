@@ -110,6 +110,7 @@ export function RadialHierarchy({
             <button
               key={tag.id}
               data-orbit-target={tag.id}
+              data-inherited-color={tag.inheritedColor || undefined}
               className={`rh-tag ${hover === tag.id ? "os-drop-ready" : ""}`}
               style={{
                 left: cx + ring.points[i].x,
