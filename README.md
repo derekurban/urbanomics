@@ -49,6 +49,8 @@ Click a selected category to remove it and stay on that card. Remaining categori
 
 **Review → Transfers** starts with pending money in on the left and matching money out on the right. Set an amount tolerance (default ±2% of the outgoing amount), select both entries, and press Link transfer to advance to the next incoming transaction. Candidates use other accounts in the same currency across all imported months. Shortfalls become transfer fees; extra received stays an unexplained difference. Linked pairs leave Pending and appear under Linked, where they can be inspected or unlinked. Existing income, repayment and shared-expense assignments must be cleared before pairing, and repayments cannot lose their target expenses. Transfer principal stays separate from fees and unexplained differences in Overview.
 
+**Review → Transfers → Auto-link lab** is a temporary testing area for directed account routes, date windows and amount tolerance. Preview unique/ambiguous matches, compare against existing manual pairs without changing them, then explicitly link selected candidates. Defaults use exact amounts, ±1 day and the requested EQ/PC/Simplii directions. Save setup remembers routes and tolerances; it never links transactions automatically. See [algorithm and safeguards](docs/transfer-lab.md).
+
 Events → **Costs & repayments** shows cash paid, friends’ repayments, cash still fronted, agreed personal shares and outstanding reimbursements. Open an incoming event payment to allocate it to expenses; exact amount inputs and dollar/cent dividers adjust the allocation. Event selection counts each expense once, with excess left as unassigned e-transfer income. Unknown expense splits stay identified, and currencies are shown separately.
 
 Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. Dashboard adds category costs after received repayments; finalized personal-share reporting and backup/restore UI remain future work. Regex rules now provide explicit person recognition and automatic categorization. See [review behavior and persistence](docs/desktop-review.md).
@@ -66,6 +68,7 @@ npm run test:orbit      # Quick category saves, modal splits/cancellation, event
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
 npm run test:rules      # Rule previews, conflicts, new/repeat imports and person mappings
 npm run test:aliases    # Regex previews, conflicts, readable names, persistence and visual checks
+npm run test:transfer-lab # Directed candidate matching, historical comparison and batch linking
 npm run test:transfers  # Pair matching, fees, linked history, automatic multi-month imports
 npm run package:win     # Windows application in release/win-unpacked/
 ```

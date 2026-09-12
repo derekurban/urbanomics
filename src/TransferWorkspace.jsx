@@ -6,6 +6,7 @@ import {
 } from "../electron/review/transfer-model.mjs";
 import { money } from "./review-model.js";
 import "./transfer-workspace.css";
+import { TransferLab } from "./TransferLab.jsx";
 
 const api = window.urbanomics;
 function Entry({ row, selected, onClick }) {
@@ -151,6 +152,15 @@ export function TransferWorkspace({
           >
             Linked <span>{pairs.length}</span>
           </button>
+          <button
+            aria-pressed={filter === "lab"}
+            onClick={() => {
+              setFilter("lab");
+              setNotice("");
+            }}
+          >
+            Auto-link lab
+          </button>
         </div>
         {filter === "pending" && (
           <label className="tr-band">
@@ -181,7 +191,14 @@ export function TransferWorkspace({
           {error}
         </p>
       )}
-      {filter === "pending" ? (
+      {filter === "lab" ? (
+        <TransferLab
+          records={records}
+          act={act}
+          busy={busy}
+          onSource={onSource}
+        />
+      ) : filter === "pending" ? (
         <>
           <p className="tr-help">
             Start with money in, then find its outgoing match across accounts

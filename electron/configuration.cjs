@@ -5,6 +5,7 @@ const { randomUUID } = require("node:crypto");
 // Explicit columns only: never export ledger rows, source files, reviews,
 // allocations, snapshot payloads, receipts, caches, or historical settings.
 const tables = {
+  transfer_lab_config: ["id", "maxDays", "basisPoints", "routes", "version"],
   accounts: [
     "id",
     "name",
@@ -46,7 +47,7 @@ const quote = (value) =>
 function configurationSQL(db) {
   const lines = [
     "-- Urbanomics configuration v1. Apply only to an empty, initialized workspace.",
-    "-- Accounts, filename rules, categories, events, people, aliases and transaction rules only.",
+    "-- Accounts, filename rules, categories, events, people, aliases, transaction rules and transfer-lab setup only.",
     "BEGIN IMMEDIATE;",
   ];
   for (const [table, columns] of Object.entries(tables)) {

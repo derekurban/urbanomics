@@ -1,5 +1,9 @@
 # Direction note
 
+## Transfer experiment — September 12, 2026
+
+The user requested a temporary auto-link testing tab under Review → Transfers, using amount/day similarity and directed account permissions while preserving manual links. The lab implements an editable route matrix, conservative one-to-one candidate classification, explicit batch apply and a read-only comparison against existing pairs. It does not automate imports. Start with exact amounts and ±1 day, with adjustable tolerances. See `transfer-lab.md` for the algorithm and current limits.
+
 ## Current Organize direction — September 11, 2026
 
 The user requested a full Organize overhaul delegated to Fable 5.1, preserving existing management while adding regex-driven category/person rules. Fable 5.1 designed the Overview, compact management lists and Rules UI through Claude Code using source-only files; the parent integrated the persistence and verified the Electron workflow.

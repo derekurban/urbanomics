@@ -40,6 +40,7 @@ function syncConfiguration() {
   }
 }
 const configurationChanges = new Set([
+  "transfer-lab:save",
   "transaction-rules:save",
   "transaction-rules:remove",
   "aliases:save",
@@ -85,6 +86,7 @@ else {
         "review_entities",
         "transaction_aliases",
         "transaction_rules",
+        "transfer_lab_config",
         "transactions",
         "sources",
         "review_items",
@@ -134,6 +136,8 @@ else {
               ![
                 "workspace:state",
                 "review:state",
+                "transfer-lab:state",
+                "transfer-lab:preview",
                 "aliases:state",
                 "aliases:preview",
                 "transaction-rules:state",
@@ -157,6 +161,16 @@ else {
         ...store.state(),
         configurationError,
       }));
+      handle("transfer-lab:state", () => store.transferLab.state());
+      handle("transfer-lab:save", (values, version) =>
+        store.transferLab.save(values, version),
+      );
+      handle("transfer-lab:preview", (values) =>
+        store.transferLab.preview(values),
+      );
+      handle("transfer-lab:apply", (values, token, keys) =>
+        store.transferLab.apply(values, token, keys),
+      );
       handle("review:state", () => store.review.state());
       handle("aliases:state", () => store.aliases.state());
       handle("transaction-rules:state", () => store.transactionRules.state());

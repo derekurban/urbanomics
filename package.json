@@ -20,6 +20,7 @@
     "test:organize": "node scripts/smoke-organize.cjs",
     "test:rules": "node scripts/smoke-rules.cjs",
     "test:aliases": "node scripts/smoke-aliases.cjs",
+    "test:transfer-lab": "node scripts/smoke-transfer-lab.cjs",
     "test:transfers": "node scripts/smoke-transfers.cjs",
     "package:win": "npm run build && electron-builder --win dir"
   },

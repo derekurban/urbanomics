@@ -5,6 +5,7 @@ const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const { ReviewStore } = require("../review/store.cjs");
 const { AliasStore } = require("../review/aliases.cjs");
+const { TransferLabStore } = require("../review/transfer-lab.cjs");
 const { TransactionRuleStore } = require("../review/transaction-rules.cjs");
 const { parseExport, hash, routingKey, csv } = require("./parsers.cjs");
 
@@ -42,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 11) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 12) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -173,6 +174,12 @@ class ImportStore {
         CREATE TABLE IF NOT EXISTS transaction_rule_applications(id TEXT PRIMARY KEY,transaction_id TEXT NOT NULL REFERENCES transactions(id),created TEXT NOT NULL,payload TEXT NOT NULL);
         PRAGMA user_version=11; COMMIT;`);
     }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 12) {
+      this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE IF NOT EXISTS transfer_lab_config(id INTEGER PRIMARY KEY CHECK(id=1),maxDays INTEGER NOT NULL,basisPoints INTEGER NOT NULL,routes TEXT NOT NULL,version INTEGER NOT NULL);
+        PRAGMA user_version=12; COMMIT;`);
+    }
+    this.transferLab = new TransferLabStore(this);
     this.transactionRules = new TransactionRuleStore(this);
     this.recover();
   }

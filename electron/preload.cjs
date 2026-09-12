@@ -6,6 +6,12 @@ async function invoke(channel, ...args) {
 }
 contextBridge.exposeInMainWorld("urbanomics", {
   state: () => invoke("workspace:state"),
+  transferLabState: () => invoke("transfer-lab:state"),
+  saveTransferLab: (values, version) =>
+    invoke("transfer-lab:save", values, version),
+  previewTransferLab: (values) => invoke("transfer-lab:preview", values),
+  applyTransferLab: (values, token, keys) =>
+    invoke("transfer-lab:apply", values, token, keys),
   reviewState: () => invoke("review:state"),
   transactionRulesState: () => invoke("transaction-rules:state"),
   previewTransactionRule: (values) =>
