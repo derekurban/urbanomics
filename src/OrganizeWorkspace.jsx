@@ -1,5 +1,6 @@
 import { eventDateLabel } from "../electron/review/event-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
+import { TagHierarchy } from "./TagHierarchy.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
 import { RulesWorkspace } from "./RulesWorkspace.jsx";
@@ -8,7 +9,7 @@ import "./organize-workspace.css";
 const api = window.urbanomics;
 const sections = [
   ["overview", "Overview"],
-  ["category", "Categories"],
+  ["category", "Categories & tags"],
   ["group", "Events"],
   ["person", "People"],
   ["accounts", "Accounts"],
@@ -179,7 +180,7 @@ function Overview({ state, data, usage, extras, extrasError, go, onNavigate }) {
       count: ruleConflicts,
       title: "Transactions where rules disagree",
       detail:
-        "Two or more rules map to different categories or people, so nothing is applied.",
+        "Two or more rules map to different tags or people, so nothing is applied.",
       actions: [{ label: "Inspect rules", go: () => go("rules") }],
     });
   if (aliasConflicts)
@@ -205,17 +206,17 @@ function Overview({ state, data, usage, extras, extrasError, go, onNavigate }) {
       count: ready,
       title: "Transactions ready for your saved rules",
       detail:
-        "Applying fills empty categories or people. Nothing is applied on its own.",
+        "Applying fills empty tags or people. Nothing is applied on its own.",
       actions: [{ label: "Review and apply", go: () => go("rules") }],
     });
   if (uncategorized)
     items.push({
       tone: "info",
       count: uncategorized,
-      title: "Active transactions without a category",
+      title: "Active transactions without a tag",
       detail: onNavigate
-        ? "Categorize them in Review, or add a rule so imports fill them in."
-        : "Add a rule so imports fill them in, or categorize them in Review.",
+        ? "Tag them in Review, or add a rule so imports fill them in."
+        : "Add a rule so imports fill them in, or tag them in Review.",
       actions: [
         onNavigate && {
           label: "Open transactions",
@@ -236,7 +237,7 @@ function Overview({ state, data, usage, extras, extrasError, go, onNavigate }) {
     items.push({
       tone: "tidy",
       count: unusedCategories,
-      title: "Categories with no transactions",
+      title: "Tags with no transactions",
       detail: "Fine to keep, or delete them to shorten your pickers.",
       actions: [{ label: "Categories", go: () => go("category") }],
     });
@@ -385,7 +386,7 @@ function Overview({ state, data, usage, extras, extrasError, go, onNavigate }) {
                 <Glyph name="arrow" />
                 <span>
                   <strong>Transactions</strong>
-                  <small>Categorize, split and assign people.</small>
+                  <small>Tag, split and assign people.</small>
                 </span>
               </button>
               <button onClick={() => onNavigate("transfers")}>
@@ -533,8 +534,8 @@ export function OrganizeWorkspace({
       <div className="page-heading">
         <h1>Organize</h1>
         <p>
-          The pieces that sort your transactions: categories, events, people,
-          accounts, aliases and rules.
+          The pieces that sort your transactions: categories, tags, events,
+          people, accounts, aliases and rules.
         </p>
       </div>
       <nav className="og-sections" aria-label="Organize sections">
@@ -566,6 +567,15 @@ export function OrganizeWorkspace({
           run={run}
           busy={busy}
           onAccounts={() => go("accounts")}
+        />
+      ) : section === "category" ? (
+        <TagHierarchy
+          entities={entities}
+          usage={usage}
+          edit={edit}
+          act={act}
+          busy={busy || !state}
+          error={editing ? "" : error}
         />
       ) : section === "rules" ? (
         <RulesWorkspace
@@ -726,6 +736,7 @@ export function OrganizeWorkspace({
         <EntityEditor
           key={editing.id || editing.kind}
           entity={editing}
+          entities={entities}
           act={act}
           error={error}
           onClose={() => {

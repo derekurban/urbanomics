@@ -36,11 +36,11 @@ function Mapping({ categoryId, personId, byId, missing = true }) {
         (category ? (
           <span className="rl-map">
             <i style={{ background: category.color }} />
-            <em>Category</em>
+            <em>Tag</em>
             {category.name}
           </span>
         ) : (
-          missing && <span className="rl-map is-missing">Missing category</span>
+          missing && <span className="rl-map is-missing">Missing tag</span>
         ))}
       {personId &&
         (person ? (
@@ -387,13 +387,13 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
             anchor. RE2 syntax; no / delimiters, lookarounds or backreferences.
           </p>
           <label>
-            Category
+            Tag
             <select
-              aria-label="Category"
+              aria-label="Tag"
               value={draft.categoryId}
               onChange={(e) => update("categoryId", e.target.value)}
             >
-              <option value="">No category</option>
+              <option value="">No tag</option>
               {categories.map((c) => (
                 <option key={c.id} value={c.id}>
                   {c.name}
@@ -418,10 +418,10 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
           </label>
           <p className={`rv-help rl-span ${mapped ? "" : "rl-hint"}`}>
             {mapped
-              ? "A category fills in only where none is set. A person is an association only: no debt, split, income or repayment is created."
+              ? "A tag fills in only where none is set. A person is an association only: no debt, split, income or repayment is created."
               : noTargets
-                ? "Create a category or a person first so the rule has something to map to."
-                : "Choose a category, a person, or both."}
+                ? "Create a tag or a person first so the rule has something to map to."
+                : "Choose a tag, a person, or both."}
           </p>
           <label className="rl-check rl-span">
             <input
@@ -618,8 +618,8 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
         <div>
           <h2>Rules</h2>
           <p>
-            Match the original bank description and fill in a category or a
-            person automatically.
+            Match the original bank description and fill in a tag or a person
+            automatically.
           </p>
         </div>
         <button
@@ -633,7 +633,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
       <div className="rl-facts">
         <div className="rl-fact">
           <strong>Runs on import</strong>
-          New transactions that match get their category or person right away.
+          New transactions that match get their tag or person right away.
         </div>
         <div className="rl-fact">
           <strong>Fills gaps only</strong>
@@ -661,7 +661,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
               <div>
                 <strong>Nothing to map to yet</strong>
                 <small>
-                  Rules fill in categories and people, so create one first.
+                  Rules fill in tags and people, so create one first.
                 </small>
               </div>
               <div className="og-callout-actions">
@@ -695,7 +695,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
                   {plural(candidates.length, "transaction")} matched by{" "}
                   {plural(enabled, "enabled rule")}
                   {uncategorized
-                    ? ` · ${plural(uncategorized, "active transaction")} without a category`
+                    ? ` · ${plural(uncategorized, "active transaction")} without a tag`
                     : ""}
                 </small>
               </div>
@@ -731,8 +731,8 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
                 </p>
               )}
               <p>
-                Optional. Only empty category or person fields are filled, and
-                only for transactions marked ready.
+                Optional. Only empty tag or person fields are filled, and only
+                for transactions marked ready.
               </p>
             </section>
           )}
@@ -741,10 +741,10 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
               <h3>No rules yet.</h3>
               <p>
                 A rule watches the original bank description, like a recurring
-                merchant or a payroll line, and fills in a category or person on
+                merchant or a payroll line, and fills in a tag or person on
                 import.
                 {uncategorized
-                  ? ` Right now ${plural(uncategorized, "active transaction has", "active transactions have")} no category.`
+                  ? ` Right now ${plural(uncategorized, "active transaction has", "active transactions have")} no tag.`
                   : ""}
               </p>
               <button

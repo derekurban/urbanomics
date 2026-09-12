@@ -24,6 +24,7 @@ const tables = {
     "tags",
     "startDate",
     "endDate",
+    "parentId",
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [

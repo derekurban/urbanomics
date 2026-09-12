@@ -133,7 +133,7 @@ class ReviewStore {
     );
   }
   entity(kind, values) {
-    if (!["category", "group", "person"].includes(kind))
+    if (!["category", "bucket", "group", "person"].includes(kind))
       throw new Error("Unknown organization type.");
     const name = typeof values?.name === "string" ? values.name.trim() : "";
     if (
@@ -162,10 +162,23 @@ class ReviewStore {
     );
     if (kind === "group" && (!dates.startDate || !dates.endDate))
       throw new Error("Events need both a start date and an end date.");
+    // Legacy kind=category identifies assignable tags. Buckets never own portions.
+    const parentId =
+      kind === "category" ? (values.parentId ?? existing?.parentId ?? "") : "";
+    if (
+      typeof parentId !== "string" ||
+      (parentId &&
+        !this.db
+          .prepare(
+            "SELECT id FROM review_entities WHERE id=? AND kind='bucket'",
+          )
+          .get(parentId))
+    )
+      throw new Error("Choose an existing category for this tag.");
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
-        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate) VALUES (?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId) VALUES (?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId",
       )
       .run(
         id,
@@ -175,8 +188,57 @@ class ReviewStore {
         existing?.tags || "[]",
         dates.startDate,
         dates.endDate,
+        parentId,
       );
     return id;
+  }
+  starterHierarchy() {
+    return this.atomic(() => {
+      const starters = [
+        [
+          "Food",
+          "#8DAE87",
+          [
+            "Groceries",
+            "Restaurants",
+            "Fast food",
+            "Coffee and cafes",
+            "Bars",
+            "Delivery",
+            "Alcohol",
+            "Cannabis",
+          ],
+        ],
+        [
+          "Personal",
+          "#B99BC9",
+          ["Clothing", "Cosmetic and toiletries", "Medical", "Gifts"],
+        ],
+      ];
+      for (const [name, color, tags] of starters) {
+        const parentId =
+          this.entities().find(
+            (e) =>
+              e.kind === "bucket" &&
+              e.name.toLowerCase() === name.toLowerCase(),
+          )?.id || this.entity("bucket", { name, color });
+        for (const tag of tags) {
+          const existing = this.entities().find(
+            (e) =>
+              e.kind === "category" &&
+              e.name.toLowerCase() === tag.toLowerCase(),
+          );
+          if (!existing || !existing.parentId)
+            this.entity("category", {
+              ...existing,
+              name: existing?.name || tag,
+              color: existing?.color || color,
+              parentId,
+            });
+        }
+      }
+      return this.entities();
+    });
   }
   removeEntity(id) {
     const entity = this.entities().find((e) => e.id === id);
@@ -191,13 +253,20 @@ class ReviewStore {
       throw new Error(
         "This item is mapped by a transaction rule. Update or delete that rule first.",
       );
+    if (
+      entity.kind === "bucket" &&
+      this.entities().some((e) => e.parentId === id)
+    )
+      throw new Error(
+        "Move this category's tags elsewhere before deleting it.",
+      );
     const records = this.records();
     if (
       entity.kind === "category" &&
       records.some((t) => t.review.tags.some((p) => p.id === id))
     )
       throw new Error(
-        "Remove this category from its transactions first, including archived accounts.",
+        "Remove this tag from its transactions first, including archived accounts.",
       );
     if (
       entity.kind === "person" &&

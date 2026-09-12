@@ -221,3 +221,7 @@ Category targets use compact two-line chips and footprint-aware spacing around t
 ## Tactile transfer lab — September 12, 2026
 
 The user requested movable account nodes and drawing directional transfer connections, plus testing as if previous transfers did not exist. The lab now defaults to an in-memory unlinked sandbox with read-only selected-pair validation. Pending only retains explicit live linking. Node layout is a local preference; route and tolerance definitions remain saved configuration. Actual saved transfers and archives are preserved.
+
+## Categories and tags hierarchy — September 12, 2026
+
+The user replaced the single category layer with broad categories containing narrower tags. Food includes groceries, restaurants, fast food, coffee and cafes, bars, delivery, alcohol and cannabis. Personal includes clothing, cosmetic and toiletries, medical and gifts. Tags can be moved between parents in Organize. Review should use fixed-size cards and bubbles with a two-motion drag: enter a broad category, then choose its tag petals. The implementation preserves existing portions as tags, leaves unmatched definitions ungrouped, and adds a category/tag dashboard switch. Overflow rings use eight targets at a time with search, keeping footprints fixed; this is an implementation choice for the trial.

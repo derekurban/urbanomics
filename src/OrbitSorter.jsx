@@ -1,9 +1,16 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { TransactionSettings } from "./TransactionSettings.jsx";
 import { Chevron } from "./Chevron.jsx";
 import { money, retag } from "./review-model.js";
 import "./orbit-sorter.css";
 
+import { RadialHierarchy } from "./RadialHierarchy.jsx";
 import { orbitLayout } from "./orbit-layout.js";
 
 const complete = (row, events) =>
@@ -14,6 +21,7 @@ const complete = (row, events) =>
 export function OrbitSorter({
   rows,
   entities,
+  buckets = [],
   people,
   events,
   drafts,
@@ -23,6 +31,7 @@ export function OrbitSorter({
   onEdit,
   onContinue,
 }) {
+  const [expanded, setExpanded] = useState("");
   const [active, setActive] = useState(""),
     [query, setQuery] = useState(""),
     [message, setMessage] = useState(""),
@@ -71,8 +80,18 @@ export function OrbitSorter({
     };
   }, [!!row]);
   const layout = useMemo(
-    () => orbitLayout(targets.length, bounds.width, bounds.cardHeight),
-    [targets.length, bounds.width, bounds.cardHeight],
+    () =>
+      events
+        ? orbitLayout(targets.length, bounds.width, bounds.cardHeight)
+        : {
+            height: 540,
+            cardWidth: 190,
+            targetWidth: 86,
+            targetHeight: 86,
+            rx: 205,
+            ry: 205,
+          },
+    [events, targets.length, bounds.width, bounds.cardHeight],
   );
   const names = Object.fromEntries(entities.map((e) => [e.id, e.name])),
     colors = Object.fromEntries(entities.map((e) => [e.id, e.color]));
@@ -123,6 +142,7 @@ export function OrbitSorter({
     setMessage("Saved version restored.");
   }
   function navigate(next) {
+    setExpanded("");
     setActive(rows[next].id);
     setMessage("");
   }
@@ -133,6 +153,7 @@ export function OrbitSorter({
       (_, n) => rows[(origin + n + 1) % rows.length],
     ).find((t) => !complete(t, events));
     setActive(next?.id || savedRow.id);
+    setExpanded("");
     setMessage(`${savedRow.description} saved.`);
   }
   function finishSave(savedRow, advanceAfter = true) {
@@ -184,6 +205,8 @@ export function OrbitSorter({
     });
   function start(e) {
     if (busy || saving.current || e.button !== 0) return;
+    e.preventDefault();
+    e.currentTarget.focus();
     suppressClick.current = false;
     setActive(row.id);
     gesture.current = {
@@ -201,7 +224,22 @@ export function OrbitSorter({
     const x = g.clientX - g.x,
       y = g.clientY - g.y + window.scrollY - g.scrollY;
     g.element.style.transform = `translate(${x}px,${y}px) rotate(${Math.max(-9, Math.min(9, x / 20))}deg)`;
-    setHover(hit(g.clientX, g.clientY)?.dataset.orbitTarget || "");
+    const tag = hit(g.clientX, g.clientY);
+    setHover(tag?.dataset.orbitTarget || "");
+    const inside = (selector) =>
+      [...root.current.querySelectorAll(selector)].find((el) => {
+        const r = el.getBoundingClientRect();
+        return (
+          g.clientX >= r.left &&
+          g.clientX <= r.right &&
+          g.clientY >= r.top &&
+          g.clientY <= r.bottom
+        );
+      });
+    if (!events && !tag && !inside("[data-petal-disc]")) {
+      const bucket = inside("[data-orbit-bucket]");
+      if (bucket) setExpanded(bucket.dataset.orbitBucket);
+    }
   }
   function scrollDrag() {
     const g = gesture.current;
@@ -243,6 +281,16 @@ export function OrbitSorter({
       e.currentTarget.releasePointerCapture(e.pointerId);
     if (target) choose(target, false);
   }
+  useEffect(() => {
+    const escape = (e) => {
+      if (e.key !== "Escape") return;
+      setExpanded("");
+      const g = gesture.current;
+      if (g) end({ currentTarget: g.element, pointerId: g.id }, true);
+    };
+    window.addEventListener("keydown", escape);
+    return () => window.removeEventListener("keydown", escape);
+  });
   if (!row)
     return (
       <div className="rv-empty-panel">
@@ -254,7 +302,20 @@ export function OrbitSorter({
     <section
       className={`os-sorter ${events ? "" : "os-categories"}`}
       ref={root}
-      aria-label={events ? "Event card sorter" : "Category card sorter"}
+      aria-label={events ? "Event card sorter" : "Tag card sorter"}
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setExpanded("");
+          if (gesture.current)
+            end(
+              {
+                currentTarget: gesture.current.element,
+                pointerId: gesture.current.id,
+              },
+              true,
+            );
+        }
+      }}
     >
       <div className="os-top">
         <div>
@@ -262,25 +323,25 @@ export function OrbitSorter({
           <p>
             {events
               ? "Events hold whole transactions. Select a container, or choose No event."
-              : "Drop onto a category to save. Click the card to split or edit."}
+              : "Hover over a category, then drop onto a tag. Click the card to split or edit."}
           </p>
         </div>
         <span>
           {index + 1} / {rows.length}
         </span>
       </div>
-      {entities.length > 6 && (
+      {!events && (
         <div className="os-target-search">
           <input
-            aria-label={events ? "Search events" : "Search categories"}
-            placeholder={events ? "Find an event…" : "Find a category…"}
+            aria-label={events ? "Search events" : "Search categories and tags"}
+            placeholder={events ? "Find an event…" : "Find a tag or category…"}
             value={query}
             onChange={(e) => {
               setQuery(e.target.value);
             }}
           />
           <span>
-            {targets.length} {events ? "events" : "categories"}
+            {targets.length} {events ? "events" : "tags"}
           </span>
         </div>
       )}
@@ -299,7 +360,10 @@ export function OrbitSorter({
             <div
               className="os-ring"
               aria-hidden="true"
-              style={{ width: layout.rx * 2, height: layout.ry * 2 }}
+              style={{
+                width: events ? layout.rx * 2 : 410,
+                height: events ? layout.ry * 2 : 410,
+              }}
             />
             <div className="os-stack" ref={stack}>
               <article
@@ -333,7 +397,7 @@ export function OrbitSorter({
                 onPointerUp={end}
                 onPointerCancel={(e) => end(e, true)}
               >
-                <div className="os-card-top">
+                <div className="os-card-top" key={row.id}>
                   <span>
                     {row.amountCents > 0
                       ? "Money in"
@@ -366,39 +430,56 @@ export function OrbitSorter({
                 </span>
               </article>
             </div>
-            {targets.map((entity, i) => {
-              const part = !events && values.find((p) => p.id === entity.id);
-              return (
-                <button
-                  key={entity.id}
-                  className={`os-target ${hover === entity.id ? "os-drop-ready" : ""}`}
-                  data-orbit-target={entity.id}
-                  style={{
-                    "--x": layout.targets[i].x + "px",
-                    "--y": layout.targets[i].y + "px",
-                    "--target-color": entity.color,
-                  }}
-                  aria-label={`${events ? "Event" : "Category"} ${entity.name}`}
-                  title={
-                    part ? `${entity.name} · ${money(part.cents)}` : entity.name
-                  }
-                  aria-pressed={selected(entity.id)}
-                  disabled={busy}
-                  onClick={() => choose(entity.id)}
-                >
-                  <span>
-                    <i />
-                    {entity.name}
-                    {selected(entity.id) && " ✓"}
-                  </span>
-                  {events && (
-                    <small>
-                      {selected(entity.id) ? "Selected" : "Add to event"}
-                    </small>
-                  )}
-                </button>
-              );
-            })}
+            {!events && (
+              <RadialHierarchy
+                tags={entities}
+                buckets={buckets}
+                expanded={expanded}
+                onExpand={setExpanded}
+                width={Math.max(560, bounds.width)}
+                query={query}
+                choose={choose}
+                selected={selected}
+                hover={hover}
+                busy={busy}
+              />
+            )}
+            {events &&
+              targets.map((entity, i) => {
+                const part = !events && values.find((p) => p.id === entity.id);
+                return (
+                  <button
+                    key={entity.id}
+                    className={`os-target ${hover === entity.id ? "os-drop-ready" : ""}`}
+                    data-orbit-target={entity.id}
+                    style={{
+                      "--x": layout.targets[i].x + "px",
+                      "--y": layout.targets[i].y + "px",
+                      "--target-color": entity.color,
+                    }}
+                    aria-label={`${events ? "Event" : "Category"} ${entity.name}`}
+                    title={
+                      part
+                        ? `${entity.name} · ${money(part.cents)}`
+                        : entity.name
+                    }
+                    aria-pressed={selected(entity.id)}
+                    disabled={busy}
+                    onClick={() => choose(entity.id)}
+                  >
+                    <span>
+                      <i />
+                      {entity.name}
+                      {selected(entity.id) && " ✓"}
+                    </span>
+                    {events && (
+                      <small>
+                        {selected(entity.id) ? "Selected" : "Add to event"}
+                      </small>
+                    )}
+                  </button>
+                );
+              })}
           </div>
           {!targets.length && (
             <p className="os-empty-targets">
@@ -483,14 +564,14 @@ export function OrbitSorter({
               <div className="os-progress-label">
                 <span>
                   {count} of {rows.length}{" "}
-                  {events ? "event decisions saved" : "categorized"}
+                  {events ? "event decisions saved" : "tagged"}
                 </span>
                 <span>{percent}%</span>
               </div>
               <div
                 className="os-progress"
                 role="progressbar"
-                aria-label={events ? "Event progress" : "Category progress"}
+                aria-label={events ? "Event progress" : "Tag progress"}
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={percent}
@@ -512,7 +593,7 @@ export function OrbitSorter({
                 ? "Draft stays with this card while you browse Review."
                 : events
                   ? "Drag the card or select the surrounding buttons."
-                  : "Drop to save. Click a selected category to remove it.")}
+                  : "Drop to save. Click a selected tag to remove it.")}
           </div>
           {count === rows.length && (
             <button className="os-continue" onClick={onContinue}>
@@ -523,7 +604,7 @@ export function OrbitSorter({
       </div>
       {!!entities.length && (
         <details className="os-manage">
-          <summary>Manage {events ? "events" : "categories"}</summary>
+          <summary>Manage {events ? "events" : "tags"}</summary>
           <div>
             {entities.map((e) => (
               <button key={e.id} onClick={() => onEdit(e)}>

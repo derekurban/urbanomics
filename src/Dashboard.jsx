@@ -60,6 +60,7 @@ export function Dashboard({ data, onSource }) {
     data.lastCompleteMonth;
   const [from, setFrom] = useState(latest + "-01"),
     [through, setThrough] = useState(monthEnd(latest));
+  const [layer, setLayer] = useState("categories");
   const [mode, setMode] = useState("spending"),
     [selected, setSelected] = useState([]),
     [later, setLater] = useState(false),
@@ -86,13 +87,20 @@ export function Dashboard({ data, onSource }) {
     };
   }, [data]);
   const valid = validDate(from) && validDate(through) && from <= through;
-  const options = { from, through, currency, categories: selected, later };
+  const options = {
+    from,
+    through,
+    currency,
+    categories: selected,
+    later,
+    layer,
+  };
   const model = useMemo(
     () =>
       source && valid
         ? dashboard(source.records, source.entities, options)
         : null,
-    [source, from, through, currency, selected, later, valid],
+    [source, from, through, currency, selected, later, layer, valid],
   );
   const drill = useMemo(
     () =>
@@ -118,10 +126,11 @@ export function Dashboard({ data, onSource }) {
             year,
             currency,
             categories: selected,
+            layer,
             later,
           })
         : [],
-    [source, year, currency, selected, later],
+    [source, year, currency, selected, later, layer],
   );
   const overview = useMemo(
     () =>
@@ -447,16 +456,31 @@ export function Dashboard({ data, onSource }) {
                 <span>
                   {selected.length
                     ? `${selected.length} selected`
-                    : "All categories"}{" "}
+                    : `All ${layer}`}{" "}
                   · multiple selections combine
                 </span>
+              </div>
+              <div className="rv-toggle" aria-label="Spending breakdown layer">
+                {["categories", "tags"].map((id) => (
+                  <button
+                    key={id}
+                    aria-pressed={layer === id}
+                    onClick={() => {
+                      setLayer(id);
+                      setSelected([]);
+                      setDetail(null);
+                    }}
+                  >
+                    {id === "categories" ? "Categories" : "Tags"}
+                  </button>
+                ))}
               </div>
               <div className="dash-filters" aria-label="Dashboard categories">
                 <button
                   aria-pressed={!selected.length}
                   onClick={() => filter("all")}
                 >
-                  All categories
+                  All {layer}
                 </button>
                 {visibleCategories.map((c) => (
                   <button

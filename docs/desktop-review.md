@@ -76,3 +76,7 @@ Schema 10 adds private `cash_receipts`, with its own review payload/version and 
 ## Organize and mapping rules
 
 Organize now opens on an Overview of definitions and cleanup items, with dedicated Categories, Events, People, Accounts, Aliases and Rules sections. Category/person rows show both transaction and rule usage. Transaction settings adds an independently editable associated person; financial editors can preselect that association when the user chooses a repayment. No financial purpose, share or deduction follows from a rule alone. Global description mappings run on newly inserted imports and can explicitly fill gaps in existing records. See [transaction rules](transaction-rules.md).
+
+## Current hierarchy (schema 13)
+
+The direct-category model above is superseded by [categories and tags](tag-hierarchy.md). The existing `review.tags` portions and leaf IDs are unchanged; the legacy entity kind `category` now presents as a tag. New broad categories use kind `bucket`, with optional `parentId` on leaves. Review → Tags replaces the growing circle with bounded category bubbles and expandable tag petals. Transaction settings, rules and management use tag terminology. Events, income, transfers, repayment allocations and import records are unchanged.

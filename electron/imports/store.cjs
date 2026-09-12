@@ -43,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 12) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 13) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -178,6 +178,24 @@ class ImportStore {
       this.db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS transfer_lab_config(id INTEGER PRIMARY KEY CHECK(id=1),maxDays INTEGER NOT NULL,basisPoints INTEGER NOT NULL,routes TEXT NOT NULL,version INTEGER NOT NULL);
         PRAGMA user_version=12; COMMIT;`);
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 13) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        if (
+          !this.db
+            .prepare("PRAGMA table_info(review_entities)")
+            .all()
+            .some((c) => c.name === "parentId")
+        )
+          this.db.exec(
+            "ALTER TABLE review_entities ADD COLUMN parentId TEXT NOT NULL DEFAULT ''",
+          );
+        this.db.exec("PRAGMA user_version=13; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
     }
     this.transferLab = new TransferLabStore(this);
     this.transactionRules = new TransactionRuleStore(this);

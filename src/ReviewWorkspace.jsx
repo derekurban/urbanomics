@@ -182,7 +182,7 @@ function FinanceEditor({
         <strong>{money(row.amountCents)}</strong>
       </div>
       <div className="rv-editor-tools">
-        <button onClick={() => onTags(row)}>Edit categories</button>
+        <button onClick={() => onTags(row)}>Edit tags</button>
         {row.manual ? (
           <button onClick={() => onCash(row)}>Edit cash receipt</button>
         ) : (
@@ -788,7 +788,7 @@ export function ReviewWorkspace({
       {!transactionList && (
         <nav className="rv-stages" aria-label="Transaction tools">
           {[
-            ["organize", "Categories"],
+            ["organize", "Tags"],
             ["moneyin", "Money in"],
             ["groups", "Events"],
             ["transfers", "Transfers"],
@@ -837,7 +837,7 @@ export function ReviewWorkspace({
         />
         <span>
           {scoped.length} transactions ·{" "}
-          {scoped.filter((t) => !t.review.tags.length).length} need categories
+          {scoped.filter((t) => !t.review.tags.length).length} need tags
         </span>
       </div>
       {error &&
@@ -860,13 +860,14 @@ export function ReviewWorkspace({
                 })
               }
             >
-              + New category
+              + New tag
             </button>
           </div>
           <OrbitSorter
             key={stage}
             rows={visible}
             entities={tags}
+            buckets={entities.filter((e) => e.kind === "bucket")}
             people={people}
             events={false}
             drafts={tagDrafts}
@@ -984,8 +985,8 @@ export function ReviewWorkspace({
                   ]
                 : [
                     ["all", "All states"],
-                    ["uncategorized", "Uncategorized"],
-                    ["categorized", "Categorized"],
+                    ["uncategorized", "Untagged"],
+                    ["categorized", "Tagged"],
                     ["deducted", "Has deductions"],
                     ["allocated", "Allocated"],
                     ["income", "Income"],
@@ -1116,9 +1117,9 @@ export function ReviewWorkspace({
       {stage === "categories" && (
         <>
           <div className="rv-section-title">
-            <p>Explore the amounts assigned to your categories.</p>
+            <p>Explore the amounts assigned to your tags.</p>
             <button onClick={() => editEntity({ kind: "category" })}>
-              + New category
+              + New tag
             </button>
           </div>
           <div className="rv-category-choices">
@@ -1126,7 +1127,7 @@ export function ReviewWorkspace({
               aria-pressed={!selectedViews.length}
               onClick={() => setViews([])}
             >
-              All categories
+              All tags
             </button>
             {categories.map((c) => (
               <div key={c.id}>
@@ -1137,7 +1138,7 @@ export function ReviewWorkspace({
                   {c.name}
                 </button>
                 <button
-                  aria-label={`Edit category ${c.name}`}
+                  aria-label={`Edit tag ${c.name}`}
                   onClick={() => editEntity(c)}
                 >
                   •••
@@ -1146,8 +1147,8 @@ export function ReviewWorkspace({
             ))}
           </div>
           <p className="rv-help">
-            Gross categorized cash flow, before personal shares and repayments.{" "}
-            {visible.filter((t) => !t.review.tags.length).length} uncategorized
+            Gross tagged cash flow, before personal shares and repayments.{" "}
+            {visible.filter((t) => !t.review.tags.length).length} untagged
             transactions are outside these totals.
           </p>
           <div className="rv-flow-summary">
@@ -1227,6 +1228,7 @@ export function ReviewWorkspace({
         <EntityEditor
           key={editor.id || editor.kind}
           entity={editor}
+          entities={entities}
           tags={tags}
           onClose={() => {
             setEditor(null);

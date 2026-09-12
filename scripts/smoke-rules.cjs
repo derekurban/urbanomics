@@ -114,7 +114,7 @@ async function newRule(name, pattern, cat, who) {
   await d.getByLabel("Name", { exact: true }).fill(name);
   await d.getByLabel("Direction", { exact: true }).selectOption("out");
   await d.getByLabel("Bank description regex", { exact: true }).fill(pattern);
-  if (cat) await d.getByLabel("Category", { exact: true }).selectOption(cat);
+  if (cat) await d.getByLabel("Tag", { exact: true }).selectOption(cat);
   if (who) await d.getByLabel("Person", { exact: true }).selectOption(who);
   return d;
 }
@@ -219,9 +219,7 @@ async function save(d) {
       .locator(".rv-task-list > button")
       .filter({ hasText: "Friendly market" })
       .click();
-    await page
-      .getByRole("button", { name: "Edit categories", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Edit tags", exact: true }).click();
     d = page.getByRole("dialog", { name: "Transaction settings", exact: true });
     assert.equal(
       await d.getByLabel("Associated person", { exact: true }).inputValue(),

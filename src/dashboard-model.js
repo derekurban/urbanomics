@@ -54,7 +54,7 @@ export function availableMonths(records, currency = "CAD") {
 export function monthlyDashboard(
   records,
   entities,
-  { year, currency = "CAD", categories = [], later = false },
+  { year, currency = "CAD", categories = [], later = false, layer = "tags" },
 ) {
   const available = new Set(availableMonths(records, currency));
   return Array.from({ length: 12 }, (_, i) => {
@@ -69,6 +69,7 @@ export function monthlyDashboard(
             currency,
             categories,
             later,
+            layer,
           })
         : null,
     };
@@ -219,10 +220,34 @@ function categoryParts(row) {
 export function dashboard(
   records,
   entities,
-  { from, through, currency = "CAD", categories = [], later = false },
+  {
+    from,
+    through,
+    currency = "CAD",
+    categories = [],
+    later = false,
+    layer = "tags",
+  },
 ) {
   const byId = new Map(records.map((t) => [t.id, t]));
-  const selected = new Set(categories);
+  const tags = entities.filter((e) => e.kind === "category");
+  const buckets = entities.filter((e) => e.kind === "bucket");
+  const bucketIds = new Set(buckets.map((e) => e.id));
+  const selected = new Set(
+    categories.flatMap((id) =>
+      bucketIds.has(id)
+        ? tags
+            .filter((t) => t.parentId === id)
+            .map((t) => t.id)
+            .concat(id)
+        : [id],
+    ),
+  );
+  const rollup = (id) =>
+    layer === "categories"
+      ? tags.find((t) => t.id === id && bucketIds.has(t.parentId))?.parentId ||
+        id
+      : id;
   const portion = (parts) =>
     sum(parts, (p) => (!selected.size || selected.has(p.id) ? p.cents : 0));
   const inPeriod = (t) => t.date >= from && t.date <= through;
@@ -319,7 +344,9 @@ export function dashboard(
     outflow = bank.filter((t) => t.row.amountCents < 0);
   const categoryMap = new Map();
   const categoryNames = new Map(
-    entities.filter((e) => e.kind === "category").map((e) => [e.id, e]),
+    entities
+      .filter((e) => e.kind === "category" || e.kind === "bucket")
+      .map((e) => [e.id, e]),
   );
   categoryNames.set(UNCATEGORIZED, {
     id: UNCATEGORIZED,
@@ -339,9 +366,10 @@ export function dashboard(
   for (const e of expenses)
     for (const p of e.grossParts) {
       if (selected.size && !selected.has(p.id)) continue;
-      if (!categoryMap.has(p.id))
-        categoryMap.set(p.id, {
-          ...(categoryNames.get(p.id) || {
+      const categoryId = rollup(p.id);
+      if (!categoryMap.has(categoryId))
+        categoryMap.set(categoryId, {
+          ...(categoryNames.get(categoryId) || {
             id: p.id,
             name: "Archived category",
             color: "#b9b2c7",
@@ -351,12 +379,12 @@ export function dashboard(
           net: 0,
           rows: [],
         });
-      const c = categoryMap.get(p.id),
+      const c = categoryMap.get(categoryId),
         net = e.netParts.find((n) => n.id === p.id).cents;
       c.gross += p.cents;
       c.net += net;
       c.repaid += p.cents - net;
-      c.rows.push(e);
+      if (!c.rows.some((r) => r.row.id === e.row.id)) c.rows.push(e);
     }
   const summarize = (list) => ({
     gross: sum(list, (e) => e.gross),
@@ -383,7 +411,14 @@ export function dashboard(
   return {
     expenses,
     categories: [...categoryMap.values()].sort((a, b) => b.net - a.net),
-    categoryOptions: [...categoryNames.values()],
+    categoryOptions: [...categoryNames.values()].filter(
+      (e) =>
+        !e.kind ||
+        (layer === "categories"
+          ? e.kind === "bucket" ||
+            (e.kind === "category" && !bucketIds.has(e.parentId))
+          : e.kind === "category"),
+    ),
     events,
     ...summarize(expenses),
     bank,

@@ -46,6 +46,7 @@ const configurationChanges = new Set([
   "aliases:save",
   "aliases:remove",
   "review:entity",
+  "review:hierarchy-starter",
   "review:entity-remove",
   "workspace:account",
   "workspace:account-update",
@@ -201,6 +202,7 @@ else {
       handle("review:entity", (kind, values) =>
         store.review.entity(kind, values),
       );
+      handle("review:hierarchy-starter", () => store.review.starterHierarchy());
       handle("review:entity-remove", (id) => store.review.removeEntity(id));
       handle("review:organize", (changes) => store.review.organize(changes));
       handle("review:cash-save", (values) => store.review.saveCash(values));

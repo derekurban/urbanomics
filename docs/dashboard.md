@@ -42,3 +42,7 @@ The requested current balances are only partially supported by the available exp
 Additional tests cover all twelve month positions, data availability by currency, exact monthly/category totals, year switching, alias grouping and expanded dated rows, balance absence and ambiguous dates, and cross-month transfer attribution. Electron checks verify chart selection, disabled empty months, vendor/list switching, balance observations, route inspection and narrow layouts without writing financial records.
 
 Boundary-flow regression checks cover cent conservation, fee/extra categories, cross-month links, hidden counterparts, unlinking, account-total reconciliation and no classification by category name. Network checks cover stable shared nodes, reciprocal curves, node highlighting and keyboard access to linked payments.
+
+## Category hierarchy
+
+The Categories / Tags switch selects broad parent rollups or individual tag breakdowns. Tags retain the legacy kind `category` in storage; broad categories use `bucket`. Rollups happen after per-tag repayment allocation, preserving cent rounding. Parent filters resolve to unique child IDs, and sibling portions show a transaction once in drilldowns. Ungrouped tags stay individually visible in the category view until assigned a parent. Moving a tag updates its category for historical and future reports without rewriting its transaction portions. See [hierarchy behavior](tag-hierarchy.md).

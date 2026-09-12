@@ -1,8 +1,16 @@
 import React, { useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 const api = window.urbanomics;
-export function EntityEditor({ entity, onClose, act, error }) {
-  const label = entity.kind === "group" ? "event" : entity.kind;
+export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
+  const label =
+    entity.kind === "group"
+      ? "event"
+      : entity.kind === "bucket"
+        ? "category"
+        : entity.kind === "category"
+          ? "tag"
+          : entity.kind;
+  const [parentId, setParentId] = useState(entity.parentId || "");
   const [name, setName] = useState(entity.name || ""),
     [color, setColor] = useState(entity.color || "#78976A"),
     [confirm, setConfirm] = useState(false);
@@ -25,6 +33,7 @@ export function EntityEditor({ entity, onClose, act, error }) {
                 color,
                 startDate,
                 endDate,
+                parentId,
               }),
             )) !== false
           )
@@ -48,6 +57,29 @@ export function EntityEditor({ entity, onClose, act, error }) {
             onChange={(e) => setColor(e.target.value)}
           />
         </label>
+        {entity.kind === "category" && (
+          <label>
+            Category
+            <select
+              aria-label="Tag category"
+              value={parentId}
+              onChange={(e) => setParentId(e.target.value)}
+            >
+              <option value="">Ungrouped tags</option>
+              {entities
+                .filter((e) => e.kind === "bucket")
+                .map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.name}
+                  </option>
+                ))}
+            </select>
+            <small>
+              Moving a tag changes its category rollup, preserving every
+              transaction split.
+            </small>
+          </label>
+        )}
         {entity.kind === "group" && (
           <>
             <div className="event-date-inputs">
@@ -103,9 +135,9 @@ export function EntityEditor({ entity, onClose, act, error }) {
         {confirm && (
           <div className="rv-confirm">
             <p>
-              Delete this {label}? Transactions stay intact. Categories and
-              people already in use must be removed from their transactions
-              first.
+              Delete this {label}? Transactions stay intact. Tags and people
+              already in use must be removed from their transactions first. Move
+              child tags before deleting a category.
             </p>
             <button
               type="button"

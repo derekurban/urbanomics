@@ -35,7 +35,9 @@ export function TransactionSettings({
   async function save() {
     if (
       saving.current ||
-      (!parts.length && assignedPerson === (row.review.assignedPersonId || ""))
+      (!parts.length &&
+        !row.review.tags.length &&
+        assignedPerson === (row.review.assignedPersonId || ""))
     )
       return;
     saving.current = true;
@@ -82,6 +84,7 @@ export function TransactionSettings({
             disabled={
               busy ||
               (!parts.length &&
+                !row.review.tags.length &&
                 assignedPerson === (row.review.assignedPersonId || ""))
             }
             onClick={save}
@@ -132,28 +135,27 @@ export function TransactionSettings({
           </label>
         )}
         <label className="ts-search">
-          Categories
+          Tags
           <input
             type="search"
-            placeholder="Search categories…"
+            placeholder="Search tags…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
         </label>
-        <div className="ts-selected" aria-label="Selected categories">
+        <div className="ts-selected" aria-label="Selected tags">
           {parts.map((p) => (
             <button
               key={p.id}
               onClick={() => toggle(p.id)}
-              aria-label={`Remove ${categories.find((c) => c.id === p.id)?.name || "category"}`}
+              aria-label={`Remove ${categories.find((c) => c.id === p.id)?.name || "tag"}`}
             >
-              {categories.find((c) => c.id === p.id)?.name ||
-                "Removed category"}
+              {categories.find((c) => c.id === p.id)?.name || "Removed tag"}
               <span aria-hidden="true"> ×</span>
             </button>
           ))}
         </div>
-        <div className="ts-options" role="group" aria-label="Category choices">
+        <div className="ts-options" role="group" aria-label="Tag choices">
           {matches.map((c) => (
             <label key={c.id}>
               <input
@@ -168,8 +170,8 @@ export function TransactionSettings({
           {!matches.length && (
             <p>
               {categories.length
-                ? "No matching categories."
-                : "Create a category in Organize to start."}
+                ? "No matching tags."
+                : "Create a tag in Organize to start."}
             </p>
           )}
         </div>
@@ -183,7 +185,7 @@ export function TransactionSettings({
         )}
         {parts.length === 1 && (
           <p className="rv-help">
-            The full {money(Math.abs(row.amountCents))} goes to this category.
+            The full {money(Math.abs(row.amountCents))} goes to this tag.
           </p>
         )}
         {parts.length > 1 && (
