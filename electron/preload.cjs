@@ -9,7 +9,10 @@ contextBridge.exposeInMainWorld("urbanomics", {
   transferLabState: () => invoke("transfer-lab:state"),
   saveTransferLab: (values, version) =>
     invoke("transfer-lab:save", values, version),
-  previewTransferLab: (values) => invoke("transfer-lab:preview", values),
+  previewTransferLab: (values, simulation) =>
+    invoke("transfer-lab:preview", values, simulation),
+  validateTransferLab: (values, token, keys) =>
+    invoke("transfer-lab:validate", values, token, keys),
   applyTransferLab: (values, token, keys) =>
     invoke("transfer-lab:apply", values, token, keys),
   reviewState: () => invoke("review:state"),

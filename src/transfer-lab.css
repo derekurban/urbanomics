@@ -48,41 +48,6 @@
   padding: 0;
   min-width: 0;
 }
-.tl-route-scroll {
-  overflow: auto;
-  padding: 4px;
-}
-.tl-routes {
-  width: 100%;
-  border-collapse: separate;
-  border-spacing: 4px;
-  font-size: 12px;
-}
-.tl-routes th {
-  text-align: left;
-  padding: 8px;
-  max-width: 180px;
-  overflow-wrap: anywhere;
-}
-.tl-routes thead th {
-  text-align: center;
-}
-.tl-routes td {
-  text-align: center;
-  border-radius: 7px;
-  background: #f0f3ed;
-  padding: 9px;
-}
-.tl-routes td:has(input:checked) {
-  background: #dcebdd;
-}
-.tl-routes input {
-  accent-color: #286248;
-  width: 17px;
-  height: 17px;
-  cursor: pointer;
-}
-.tl-routes i,
 .tl-transaction i {
   display: inline-block;
   width: 9px;
@@ -266,13 +231,6 @@
     position: static;
     flex-wrap: wrap;
   }
-  .tl-routes th {
-    padding: 5px;
-    font-size: 11px;
-  }
-  .tl-routes td {
-    padding: 7px;
-  }
 }
 @media (prefers-reduced-motion: no-preference) {
   .tl-pair {
@@ -292,5 +250,26 @@
 
 .tl-intro > button {
   flex-shrink: 0;
+  white-space: nowrap;
+}
+
+.tl-mode {
+  background: #eeeaf6;
+  border: 1px solid #ded5ee;
+  border-radius: 12px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+}
+.tl-mode p {
+  font-size: 12px;
+  color: #665677;
+  flex: 1;
+  min-width: 220px;
+  margin: 0;
+}
+.tl-mode button {
   white-space: nowrap;
 }

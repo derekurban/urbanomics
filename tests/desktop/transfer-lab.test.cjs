@@ -320,3 +320,32 @@ test("schema 12 upgrade adds empty configuration without changing populated tabl
     0,
   );
 });
+
+test("unlinked sandbox includes saved pairs in main candidates, validates without writes, and cannot feed live apply", (t) => {
+  const f = fixture(t),
+    { store } = f;
+  const initial = store.transferLab.preview(f.config),
+    pair = initial.edges.find((e) => e.unique);
+  store.transferLab.apply(f.config, initial.token, [pair.key]);
+  const before = store.review.records();
+  const simulated = store.transferLab.preview(f.config, true),
+    live = store.transferLab.preview(f.config, false);
+  assert.ok(simulated.edges.some((e) => e.key === pair.key));
+  assert.ok(!live.edges.some((e) => e.key === pair.key));
+  const copy = simulated.edges.find((e) => e.key === pair.key);
+  assert.equal(copy.outgoing.review.transferId, "");
+  assert.equal(copy.outgoing.review.transferFeeCents, 0);
+  assert.deepEqual(
+    store.transferLab.validate(f.config, simulated.token, [pair.key]),
+    { validated: 1, simulation: true },
+  );
+  assert.throws(
+    () => store.transferLab.apply(f.config, simulated.token, [pair.key]),
+    /changed/,
+  );
+  assert.deepEqual(store.review.records(), before);
+  assert.throws(
+    () => store.transferLab.validate(f.config, live.token, [live.edges[0].key]),
+    /changed/,
+  );
+});

@@ -138,6 +138,7 @@ else {
                 "review:state",
                 "transfer-lab:state",
                 "transfer-lab:preview",
+                "transfer-lab:validate",
                 "aliases:state",
                 "aliases:preview",
                 "transaction-rules:state",
@@ -165,8 +166,11 @@ else {
       handle("transfer-lab:save", (values, version) =>
         store.transferLab.save(values, version),
       );
-      handle("transfer-lab:preview", (values) =>
-        store.transferLab.preview(values),
+      handle("transfer-lab:preview", (values, simulation) =>
+        store.transferLab.preview(values, simulation),
+      );
+      handle("transfer-lab:validate", (values, token, keys) =>
+        store.transferLab.validate(values, token, keys),
       );
       handle("transfer-lab:apply", (values, token, keys) =>
         store.transferLab.apply(values, token, keys),

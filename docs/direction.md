@@ -217,3 +217,7 @@ The user has now requested integration of the accepted review prototypes with im
 Repository setup is complete when a private GitHub remote exists, the initial files are pushed, and the working tree is clean. Product discovery and application implementation remain open.
 
 Category targets use compact two-line chips and footprint-aware spacing around the ring, with a smaller center card and reduced padding. Keep all categories available without paging; selected amounts remain in the selected-assignment chips and transaction editor. Grow vertically only as needed to avoid overlaps.
+
+## Tactile transfer lab — September 12, 2026
+
+The user requested movable account nodes and drawing directional transfer connections, plus testing as if previous transfers did not exist. The lab now defaults to an in-memory unlinked sandbox with read-only selected-pair validation. Pending only retains explicit live linking. Node layout is a local preference; route and tolerance definitions remain saved configuration. Actual saved transfers and archives are preserved.

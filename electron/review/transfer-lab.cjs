@@ -1,6 +1,7 @@
 const { createHash } = require("node:crypto");
 const {
   suggestedRoutes,
+  unlinkedTransferCopy,
   transferLabCandidates,
   transferLabBacktest,
 } = require("./transfer-lab-model.mjs");
@@ -89,52 +90,72 @@ class TransferLabStore {
       return this.config();
     });
   }
-  preview(values) {
+  preview(values, simulation = false) {
+    if (typeof simulation !== "boolean")
+      throw new Error("Choose a valid preview mode.");
     const settings = this.normalize(values),
       records = this.imports.review.records(),
       accounts = this.accounts();
     const token = createHash("sha256")
       .update(
-        JSON.stringify({ settings, accounts, config: this.config(), records }),
+        JSON.stringify({
+          settings,
+          accounts,
+          config: this.config(),
+          records,
+          simulation,
+        }),
       )
       .digest("hex");
     return {
-      ...transferLabCandidates(records, settings),
+      ...transferLabCandidates(
+        simulation ? unlinkedTransferCopy(records) : records,
+        settings,
+      ),
+      simulation,
       backtest: transferLabBacktest(records, settings),
       settings,
       token,
     };
   }
+  selection(values, token, keys, simulation) {
+    const preview = this.preview(values, simulation);
+    if (token !== preview.token)
+      throw new Error(
+        "Transactions or setup changed. Run the preview again before linking.",
+      );
+    if (
+      !Array.isArray(keys) ||
+      !keys.length ||
+      new Set(keys).size !== keys.length
+    )
+      throw new Error("Select one or more distinct pairs.");
+    const edges = new Map(preview.edges.map((e) => [e.key, e])),
+      used = new Set();
+    const chosen = keys.map((key) => {
+      const e = edges.get(key);
+      if (!e)
+        throw new Error(
+          "A selected pair no longer qualifies. Run the preview again.",
+        );
+      for (const id of [e.outgoing.id, e.incoming.id]) {
+        if (used.has(id))
+          throw new Error(
+            "A transaction can only belong to one selected pair.",
+          );
+        used.add(id);
+      }
+      return e;
+    });
+    return { preview, chosen };
+  }
+  validate(values, token, keys) {
+    const { chosen } = this.selection(values, token, keys, true);
+    return { validated: chosen.length, simulation: true };
+  }
   apply(values, token, keys) {
     return this.imports.review.atomic(() => {
-      const preview = this.preview(values);
-      if (token !== preview.token)
-        throw new Error(
-          "Transactions or setup changed. Run the preview again before linking.",
-        );
-      if (
-        !Array.isArray(keys) ||
-        !keys.length ||
-        new Set(keys).size !== keys.length
-      )
-        throw new Error("Select one or more distinct pairs.");
-      const edges = new Map(preview.edges.map((e) => [e.key, e])),
-        used = new Set();
-      const chosen = keys.map((key) => {
-        const e = edges.get(key);
-        if (!e)
-          throw new Error(
-            "A selected pair no longer qualifies. Run the preview again.",
-          );
-        for (const id of [e.outgoing.id, e.incoming.id]) {
-          if (used.has(id))
-            throw new Error(
-              "A transaction can only belong to one selected pair.",
-            );
-          used.add(id);
-        }
-        return e;
-      });
+      const { preview, chosen } = this.selection(values, token, keys, false);
       for (const { outgoing, incoming } of chosen)
         this.imports.review.financialWrite(
           outgoing.id,

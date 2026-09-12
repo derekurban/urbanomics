@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import "./transfer-lab.css";
+import { AccountRouteNetwork } from "./AccountRouteNetwork.jsx";
 const api = window.urbanomics;
 const count = (n, s, p = s + "s") => `${n} ${n === 1 ? s : p}`;
 const cash = (n, currency) =>
@@ -35,7 +36,8 @@ export function TransferLab({ records, act, busy, onSource }) {
     [page, setPage] = useState(0),
     [error, setError] = useState(""),
     [notice, setNotice] = useState(""),
-    [working, setWorking] = useState(false);
+    [working, setWorking] = useState(false),
+    [simulation, setSimulation] = useState(true);
   async function load() {
     setWorking(true);
     setError("");
@@ -120,7 +122,7 @@ export function TransferLab({ records, act, busy, onSource }) {
     setNotice("");
     setSelected([]);
     try {
-      setPreview(await api.previewTransferLab(settings));
+      setPreview(await api.previewTransferLab(settings, simulation));
       setPage(0);
     } catch (e) {
       setPreview(null);
@@ -155,6 +157,17 @@ export function TransferLab({ records, act, busy, onSource }) {
     setWorking(true);
     setError("");
     try {
+      if (preview.simulation) {
+        const result = await api.validateTransferLab(
+          preview.settings,
+          preview.token,
+          selected,
+        );
+        setNotice(
+          `Test passed: ${count(result.validated, "pair")} can be linked without reusing an entry. Your saved transactions are unchanged.`,
+        );
+        return;
+      }
       const result = await act(() =>
         api.applyTransferLab(preview.settings, preview.token, selected),
       );
@@ -214,7 +227,7 @@ export function TransferLab({ records, act, busy, onSource }) {
           <h2>Find the other half.</h2>
           <p>
             Compare opposite amounts, nearby dates and allowed account routes.
-            Preview first, then link the pairs you choose.
+            Arrange the network, draw allowed directions, then test the matches.
           </p>
         </div>
         <button disabled={locked} onClick={load}>
@@ -224,58 +237,16 @@ export function TransferLab({ records, act, busy, onSource }) {
       <details className="tl-setup" open>
         <summary>Allowed routes & matching settings</summary>
         <p>
-          Rows send money; columns receive it. Each direction is independent.
-          Unchecked routes are excluded from this experiment.
+          Connect accounts in the direction money is allowed to travel. Reverse
+          connections are independent.
         </p>
         <fieldset disabled={locked}>
-          <div className="tl-route-scroll">
-            <table className="tl-routes">
-              <thead>
-                <tr>
-                  <th scope="col">From ↓ / To →</th>
-                  {state.accounts.map((a) => (
-                    <th key={a.id} scope="col">
-                      {a.name}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {state.accounts.map((a) => (
-                  <tr key={a.id}>
-                    <th scope="row">
-                      <i style={{ background: a.color }} />
-                      {a.name}
-                    </th>
-                    {state.accounts.map((b) => (
-                      <td key={b.id}>
-                        {a.id === b.id ? (
-                          <span aria-label="Same account">—</span>
-                        ) : (
-                          <input
-                            type="checkbox"
-                            aria-label={`Allow ${a.name} to ${b.name}`}
-                            checked={draft.routes.some(
-                              (r) => r.from === a.id && r.to === b.id,
-                            )}
-                            onChange={(e) =>
-                              change({
-                                routes: e.target.checked
-                                  ? [...draft.routes, { from: a.id, to: b.id }]
-                                  : draft.routes.filter(
-                                      (r) => r.from !== a.id || r.to !== b.id,
-                                    ),
-                              })
-                            }
-                          />
-                        )}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <AccountRouteNetwork
+            accounts={state.accounts}
+            routes={draft.routes}
+            onChange={(routes) => change({ routes })}
+            disabled={locked}
+          />
           <div className="tl-controls">
             <label>
               Date distance (± days)
@@ -320,11 +291,44 @@ export function TransferLab({ records, act, busy, onSource }) {
           </p>
         )}
       </details>
+      <div className="tl-mode">
+        <div className="rv-toggle" aria-label="Preview data mode">
+          <button
+            disabled={locked}
+            aria-pressed={simulation}
+            onClick={() => {
+              setSimulation(true);
+              setPreview(null);
+              setSelected([]);
+              setNotice("");
+            }}
+          >
+            Start unlinked
+          </button>
+          <button
+            disabled={locked}
+            aria-pressed={!simulation}
+            onClick={() => {
+              setSimulation(false);
+              setPreview(null);
+              setSelected([]);
+              setNotice("");
+            }}
+          >
+            Pending only
+          </button>
+        </div>
+        <p>
+          {simulation
+            ? "Sandbox: existing transfer links are ignored in a copy of your data. Test selections without saving or replacing any transfers."
+            : "Live pending entries only. Linking a selection here updates your saved transfers."}
+        </p>
+      </div>
       <div className="tl-run">
         <p>
           Scans all imported months and active accounts. The Review month and
-          search filters do not limit this lab. Existing links, income,
-          repayments, shared costs and manual cash remain protected.
+          search filters do not limit this lab. Income, repayments, shared costs
+          and manual cash remain protected.
         </p>
         <button className="primary" disabled={locked || !valid} onClick={run}>
           {working ? "Working…" : "Run preview"}
@@ -518,7 +522,8 @@ export function TransferLab({ records, act, busy, onSource }) {
                 disabled={locked || !selected.length}
                 onClick={link}
               >
-                Link {count(selected.length, "selected pair")}
+                {preview.simulation ? "Test" : "Link"}{" "}
+                {count(selected.length, "selected pair")}
               </button>
             </div>
           )}

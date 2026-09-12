@@ -93,21 +93,84 @@ async function launch() {
       await page.getByLabel("Lab amount tolerance").inputValue(),
       "0",
     );
-    assert.ok(
+    const route = (a, b) =>
+      page.getByRole("button", {
+        name: `Remove route ${a} to ${b}`,
+        exact: true,
+      });
+    assert.equal(await route("Chequing", "Mastercard").count(), 1);
+    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    const body = page.getByRole("button", {
+      name: "Move Chequing",
+      exact: true,
+    });
+    await body.scrollIntoViewIfNeeded();
+    let box = await body.boundingBox();
+    await page.mouse.move(box.x + 50, box.y + 25);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 85, box.y + 45, { steps: 8 });
+    await page.mouse.up();
+    let moved = await body.boundingBox();
+    assert.ok(moved.x > box.x + 20);
+    await body.focus();
+    await page.keyboard.press("ArrowDown");
+    assert.ok((await body.boundingBox()).y > moved.y + 5);
+    await click("Arrange nodes");
+    // Remove and redraw a directed route with actual pointer events.
+    await route("Chequing", "Mastercard").click();
+    const output = page.getByRole("button", {
+      name: "Connect from Chequing",
+      exact: true,
+    });
+    const target = page.getByRole("button", {
+      name: "Move Mastercard",
+      exact: true,
+    });
+    await output.scrollIntoViewIfNeeded();
+    const from = await output.boundingBox(),
+      to = await target.boundingBox();
+    await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, {
+      steps: 12,
+    });
+    await shot("drawing-route");
+    await page.mouse.up();
+    await route("Chequing", "Mastercard").waitFor();
+    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    // Keyboard source/destination, removal and Escape cancellation.
+    await page
+      .getByRole("button", { name: "Connect from Mastercard", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await page
+      .getByRole("button", { name: "Connect to Chequing", exact: true })
+      .focus();
+    await page.keyboard.press("Enter");
+    await route("Mastercard", "Chequing").waitFor();
+    await route("Mastercard", "Chequing").click();
+    await click("Connect from Mastercard");
+    await page.keyboard.press("Escape");
+    await click("Connect to Chequing");
+    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    await click("Run preview");
+    await page.getByText("2 unique pairs", { exact: true }).waitFor();
+    await page
+      .getByLabel("Select pair Old send to Old receive", { exact: true })
+      .waitFor();
+    const sandboxBefore = await records();
+    await click("Select all 2 unique pairs");
+    await click("Test 2 selected pairs");
+    await page.getByText(/Test passed: 2 pairs/).waitFor();
+    assert.deepEqual(await records(), sandboxBefore);
+    await shot("sandbox-results");
+    assert.equal(
       await page
-        .getByLabel("Allow Chequing to Mastercard", { exact: true })
-        .isChecked(),
+        .getByRole("button", { name: "Link 2 selected pairs", exact: true })
+        .count(),
+      0,
     );
-    assert.ok(
-      !(await page
-        .getByLabel("Allow Mastercard to Chequing", { exact: true })
-        .isChecked()),
-    );
-    assert.ok(
-      !(await page
-        .getByLabel("Allow Savings to Simplii", { exact: true })
-        .isChecked()),
-    );
+    await click("Pending only");
     await click("Run preview");
     await page.getByText("1 unique pair", { exact: true }).waitFor();
     await shot("lab-default");
@@ -183,9 +246,7 @@ async function launch() {
       .check();
     await click("Link 1 selected pair");
     await page.getByText(/1 pair linked\./).waitFor();
-    await page
-      .getByLabel("Allow Chequing to Mastercard", { exact: true })
-      .uncheck();
+    await route("Chequing", "Mastercard").click();
     await click("Run preview");
     await click("Existing pairs");
     await page
@@ -196,9 +257,8 @@ async function launch() {
       (await records()).filter((r) => r.review.kind === "transfer").length,
       8,
     );
-    await page
-      .getByLabel("Allow Chequing to Mastercard", { exact: true })
-      .check();
+    await click("Connect from Chequing");
+    await click("Connect to Mastercard");
     await page.getByLabel("Lab date window").fill("5");
     await click("Run preview");
     await click("Unique");
@@ -248,7 +308,7 @@ async function launch() {
         ok: true,
         root,
         checks:
-          "directional defaults; cross-month preview; ambiguity/reuse prevention; historical simulation; stale batch; exact and fee links; existing pair protection; date changes; configuration restart; narrow layout",
+          "node dragging; pointer and keyboard connections; Escape cancellation; read-only unlinked sandbox; directional defaults; cross-month preview; ambiguity/reuse prevention; historical simulation; stale batch; exact and fee links; existing pair protection; date changes; configuration restart; narrow layout",
       }),
     );
   } catch (e) {

@@ -108,20 +108,7 @@ export function transferLabBacktest(records, settings) {
         ? [{ outgoing, incoming }]
         : [];
     });
-  const ids = new Set(known.flatMap((p) => [p.outgoing.id, p.incoming.id]));
-  const copies = records.map((r) =>
-    ids.has(r.id)
-      ? {
-          ...r,
-          review: {
-            ...r.review,
-            kind: "unreviewed",
-            transferId: "",
-            shares: null,
-          },
-        }
-      : r,
-  );
+  const copies = unlinkedTransferCopy(records);
   const trial = transferLabCandidates(copies, settings),
     edges = new Map(trial.edges.map((e) => [e.key, e]));
   const pairs = known.map((p) => {
@@ -147,4 +134,24 @@ export function transferLabBacktest(records, settings) {
     ambiguous: pairs.filter((p) => p.status === "ambiguous").length,
     excluded: pairs.filter((p) => p.status === "excluded").length,
   };
+}
+
+// Sandbox input only. Never persist these copied reviews.
+export function unlinkedTransferCopy(records) {
+  return records.map((r) =>
+    !r.deleted && !r.manual && r.review.kind === "transfer"
+      ? {
+          ...r,
+          review: {
+            ...r.review,
+            kind: "unreviewed",
+            reviewed: false,
+            transferId: "",
+            transferFeeCents: 0,
+            transferExcessCents: 0,
+            shares: null,
+          },
+        }
+      : r,
+  );
 }
