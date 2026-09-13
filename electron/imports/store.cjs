@@ -1,3 +1,4 @@
+const { AdminStore } = require("../review/admin.cjs");
 const fs = require("node:fs");
 const path = require("node:path");
 const { randomUUID } = require("node:crypto");
@@ -168,6 +169,7 @@ class ImportStore {
     }
     this.aliases = new AliasStore(this);
     this.review = new ReviewStore(this);
+    this.admin = new AdminStore(this);
     if (this.db.prepare("PRAGMA user_version").get().user_version < 11) {
       this.db.exec(`BEGIN IMMEDIATE;
         CREATE TABLE IF NOT EXISTS transaction_rules(id TEXT PRIMARY KEY,name TEXT NOT NULL,pattern TEXT NOT NULL,categoryId TEXT NOT NULL DEFAULT '',personId TEXT NOT NULL DEFAULT '',direction TEXT NOT NULL,enabled INTEGER NOT NULL CHECK(enabled IN (0,1)),version INTEGER NOT NULL);

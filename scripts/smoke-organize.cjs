@@ -212,6 +212,61 @@ async function create(kind, name, selected = []) {
     await d.getByLabel("Name", { exact: true }).focus();
     await snapshot("focused-editor");
     await d.getByRole("button", { name: "Cancel", exact: true }).click();
+    await section("Admin");
+    await page
+      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .click();
+    let adminDialog = page.getByRole("dialog", {
+      name: "Untag all transactions?",
+      exact: true,
+    });
+    await adminDialog.waitFor({ state: "visible" });
+    await snapshot("admin-confirm-narrow");
+    const beforeAdmin = await state();
+    await page.keyboard.press("Escape");
+    assert.deepEqual(await state(), beforeAdmin);
+    await page
+      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.deepEqual(await state(), beforeAdmin);
+    await app.evaluate(({ BrowserWindow }) =>
+      BrowserWindow.getAllWindows()[0].setSize(1329, 920),
+    );
+    await snapshot("admin-actions");
+    const beforeAdminSQL = fs.readFileSync(
+      path.join(root, "configuration/workspace.sql"),
+      "utf8",
+    );
+    await page
+      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .click();
+    await page
+      .getByRole("button", { name: "Confirm untag all", exact: true })
+      .click();
+    await adminDialog.waitFor({ state: "hidden" });
+    await page
+      .getByRole("status")
+      .getByText("1 transaction untagged.", { exact: true })
+      .waitFor();
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Untag all transactions", exact: true })
+        .isDisabled(),
+      true,
+    );
+    const afterAdmin = await state();
+    assert.deepEqual(afterAdmin.entities, beforeAdmin.entities);
+    for (const row of afterAdmin.records) {
+      const old = beforeAdmin.records.find((r) => r.id === row.id);
+      assert.deepEqual(row.review, { ...old.review, tags: [] });
+    }
+    assert.equal(
+      fs.readFileSync(path.join(root, "configuration/workspace.sql"), "utf8"),
+      beforeAdminSQL,
+    );
+    assert.equal(fs.readdirSync(path.join(dataDir, "backups/admin")).length, 1);
+    await snapshot("admin-results");
     const saved = await state();
     await app.close();
     app = null;
@@ -229,7 +284,7 @@ async function create(kind, name, selected = []) {
         ok: true,
         root,
         checks:
-          "four sections, CRUD, direct categories, shared Review entities, protected deletion, narrow/focused layout, persistence",
+          "four sections, CRUD, direct categories, shared Review entities, protected deletion, narrow/focused layout, Admin confirm/cancel, atomic untag, private recovery copy, persistence",
       }),
     );
   } finally {

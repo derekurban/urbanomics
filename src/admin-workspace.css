@@ -1,0 +1,74 @@
+.admin-workspace {
+  display: grid;
+  gap: 18px;
+}
+.admin-workspace h2 {
+  margin: 0 0 6px;
+  font-size: 22px;
+}
+.admin-workspace header p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 13px;
+}
+.admin-action {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 24px;
+  border: 1px solid #e4d6cf;
+  border-radius: 18px;
+  background: #fffaf6;
+}
+.admin-action > div {
+  flex: 1;
+}
+.admin-action h3 {
+  margin: 8px 0;
+  font-size: 18px;
+}
+.admin-action p,
+.admin-result p {
+  font-size: 13px;
+  line-height: 1.6;
+  max-width: 660px;
+}
+.admin-action small {
+  color: var(--muted);
+  font-size: 12px;
+}
+.admin-action-label {
+  font-size: 11px;
+  color: #925c45;
+}
+.admin-action button {
+  flex-shrink: 0;
+}
+.admin-confirm {
+  font-size: 14px;
+  line-height: 1.65;
+}
+.admin-confirm p:first-child {
+  font-size: 17px;
+}
+.admin-confirm-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+.admin-result {
+  padding: 18px 22px;
+  border-radius: 14px;
+  background: #e7eee1;
+  color: #365740;
+}
+.admin-result p {
+  margin: 7px 0 0;
+}
+@media (max-width: 1000px) {
+  .admin-action {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
+}

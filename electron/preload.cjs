@@ -15,6 +15,8 @@ contextBridge.exposeInMainWorld("urbanomics", {
     invoke("transfer-lab:validate", values, token, keys),
   applyTransferLab: (values, token, keys) =>
     invoke("transfer-lab:apply", values, token, keys),
+  previewUntagAll: () => invoke("admin:untag-preview"),
+  untagAll: (token) => invoke("admin:untag-all", token),
   reviewState: () => invoke("review:state"),
   transactionRulesState: () => invoke("transaction-rules:state"),
   previewTransactionRule: (values) =>

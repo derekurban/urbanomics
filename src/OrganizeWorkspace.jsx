@@ -1,3 +1,4 @@
+import { AdminWorkspace } from "./AdminWorkspace.jsx";
 import { categoryColors } from "./category-colors.js";
 import { eventDateLabel } from "../electron/review/event-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
@@ -16,6 +17,7 @@ const sections = [
   ["accounts", "Accounts"],
   ["aliases", "Aliases"],
   ["rules", "Rules"],
+  ["admin", "Admin"],
 ];
 const titles = Object.fromEntries(sections);
 const singular = {
@@ -560,7 +562,9 @@ export function OrganizeWorkspace({
           );
         })}
       </nav>
-      {section === "accounts" ? (
+      {section === "admin" ? (
+        <AdminWorkspace data={data} act={act} busy={busy} />
+      ) : section === "accounts" ? (
         accounts
       ) : section === "aliases" ? (
         <AliasesWorkspace

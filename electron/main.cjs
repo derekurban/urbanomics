@@ -199,6 +199,8 @@ else {
       handle("aliases:remove", (id, version) =>
         store.aliases.remove(id, version),
       );
+      handle("admin:untag-preview", () => store.admin.preview());
+      handle("admin:untag-all", (token) => store.admin.untagAll(token));
       handle("review:entity", (kind, values) =>
         store.review.entity(kind, values),
       );
