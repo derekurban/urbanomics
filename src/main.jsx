@@ -1,3 +1,4 @@
+import "./browser-api.js";
 import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -173,8 +174,10 @@ function App() {
   if (!api)
     return (
       <div className="launch-message">
-        <h1>Urbanomics is a desktop app.</h1>
-        <p>Launch with npm start to connect to your local workspace.</p>
+        <h1>Open your Urbanomics workspace.</h1>
+        <p>
+          Use npm run web for browser verification, or npm start for Electron.
+        </p>
       </div>
     );
   if (!data)
@@ -223,6 +226,13 @@ function App() {
           urbanomics<span>●</span>
         </div>
         <p className="brand-sub">A little order. A clearer picture.</p>
+        {api.host === "browser" && (
+          <p className="browser-workspace-note">
+            Browser verification
+            <br />
+            <small>Separate local workspace · starts with sample data</small>
+          </p>
+        )}
         <nav>
           {tabs.map(([id, icon, label]) => (
             <button

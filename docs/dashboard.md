@@ -1,5 +1,7 @@
 # Dashboard
 
+Expense category rows include an alphabetical tag breakdown with inherited gradient colors. Hover or keyboard-focus a category or tag for its net total, gross paid, repayments and top three alias-grouped vendors ranked by net cost. Split expenses contribute only their selected tag portions to vendor totals. Escape dismisses the card; clicking opens the existing vendor/transaction drilldown. Tooltips remain within the viewport and preserve keyboard focus when a target scrolls into view.
+
 The sidebar Dashboard implements the accepted Expenses / Income / Cash flow / Events mockup against the current local ledger and saved assignments. It is read-only: it uses `reviewState`, and source actions open the existing original-transaction inspector. Nothing is exported to a service, added to configuration SQL, or written back as a financial decision.
 
 ## Scope and measurements

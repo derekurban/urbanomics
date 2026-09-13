@@ -1003,3 +1003,16 @@ tbody tr:hover {
     scroll-behavior: auto !important;
   }
 }
+
+.browser-workspace-note {
+  font-size: 12px;
+  background: #e7efde;
+  padding: 10px;
+  border-radius: 10px;
+  margin: 0 0 12px;
+}
+.browser-workspace-note small {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+}

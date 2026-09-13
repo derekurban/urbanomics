@@ -1,0 +1,131 @@
+import channels from "../electron/api-channels.json";
+if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
+  const session = fetch("/api/session").then(async (r) => {
+    if (!r.ok) throw new Error("Start the browser workspace with npm run web.");
+    return r.json();
+  });
+  const listeners = { progress: new Set(), changed: new Set() };
+  const events = new EventSource("/api/events");
+  for (const type of Object.keys(listeners))
+    events.addEventListener(type, (event) => {
+      for (const callback of listeners[type]) callback(JSON.parse(event.data));
+    });
+  const response = async (res) => {
+    const value = await res.json();
+    if (!res.ok || !value.ok) throw new Error(value.error || "Request failed.");
+    return value.value;
+  };
+  const invoke = async (method, args) =>
+    response(
+      await fetch("/api/call", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Urbanomics-Token": (await session).token,
+        },
+        body: JSON.stringify({ method, args }),
+      }),
+    );
+  const drop = async (files) => {
+    if (files.length > 250)
+      throw new Error("Choose up to 250 CSV files at a time.");
+    const received = { ids: [], skipped: 0 };
+    for (const file of files) {
+      if (
+        !/\.csv$/i.test(file.name) ||
+        file.size > 20 * 1024 * 1024 ||
+        file.webkitRelativePath?.split("/").length > 2
+      ) {
+        received.skipped++;
+        continue;
+      }
+      const value = await response(
+        await fetch("/api/upload", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/octet-stream",
+            "X-File-Name": encodeURIComponent(file.name),
+            "X-Urbanomics-Token": (await session).token,
+          },
+          body: file,
+        }),
+      );
+      received.ids.push(...value.ids);
+      received.skipped += value.skipped || 0;
+      if (value.result) {
+        const prior = received.result;
+        received.result = { ...value.result };
+        if (prior) {
+          for (const field of [
+            "attempted",
+            "completed",
+            "added",
+            "matched",
+            "excluded",
+          ])
+            received.result[field] =
+              (prior[field] || 0) + (value.result[field] || 0);
+          received.result.months = [
+            ...new Set([...prior.months, ...value.result.months]),
+          ];
+          received.result.files = [
+            ...(prior.files || []),
+            ...(value.result.files || []),
+          ];
+        }
+      }
+    }
+    return received;
+  };
+  window.urbanomics = {
+    ...Object.fromEntries(
+      Object.keys(channels).map((method) => [
+        method,
+        (...args) => invoke(method, args),
+      ]),
+    ),
+    host: "browser",
+    onProgress: (callback) => {
+      listeners.progress.add(callback);
+      return () => listeners.progress.delete(callback);
+    },
+    onChanged: (callback) => {
+      listeners.changed.add(callback);
+      return () => listeners.changed.delete(callback);
+    },
+    drop,
+    choose: (folder = false) =>
+      new Promise((resolve, reject) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".csv";
+        input.multiple = true;
+        if (folder) input.webkitdirectory = true;
+        input.hidden = true;
+        document.body.append(input);
+        const cleanup = () => input.remove();
+        input.addEventListener(
+          "cancel",
+          () => {
+            cleanup();
+            resolve({ ids: [], skipped: 0 });
+          },
+          { once: true },
+        );
+        input.addEventListener(
+          "change",
+          async () => {
+            try {
+              resolve(await drop([...input.files]));
+            } catch (error) {
+              reject(error);
+            } finally {
+              cleanup();
+            }
+          },
+          { once: true },
+        );
+        input.click();
+      }),
+  };
+}

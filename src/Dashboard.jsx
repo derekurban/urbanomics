@@ -1,3 +1,4 @@
+import { ExpenseCategoryBreakdown } from "./ExpenseCategoryBreakdown.jsx";
 import { IncomeDashboard } from "./IncomeDashboard.jsx";
 import { categoryColors } from "./category-colors.js";
 import React, { useEffect, useMemo, useState } from "react";
@@ -115,6 +116,16 @@ export function Dashboard({ data, onSource }) {
       valid,
       mode,
     ],
+  );
+  const tagBreakdown = useMemo(
+    () =>
+      source && valid
+        ? dashboard(source.records, source.entities, {
+            ...options,
+            layer: "tags",
+          }).categories
+        : [],
+    [model, source, valid],
   );
   const drill = useMemo(
     () =>
@@ -647,37 +658,16 @@ export function Dashboard({ data, onSource }) {
                           Repaid
                         </span>
                       </div>
-                      <div className="dash-bars">
-                        {model.categories.map((c) => (
-                          <button
-                            key={c.id}
-                            className="dash-bar"
-                            onClick={() => (
-                              setDetailLayout("vendors"),
-                              setDetail({ title: c.name, category: c.id })
-                            )}
-                          >
-                            <span className="dash-between">
-                              <span>
-                                <i style={{ background: c.color }} />
-                                {c.name}
-                              </span>
-                              <strong>{money(c.net)}</strong>
-                            </span>
-                            <Stacked
-                              gross={c.gross}
-                              net={c.net}
-                              max={Math.max(
-                                1,
-                                ...model.categories.map((c) => c.gross),
-                              )}
-                            />
-                            <small>
-                              {money(c.gross)} paid · {money(c.repaid)} repaid
-                            </small>
-                          </button>
-                        ))}
-                      </div>
+                      <ExpenseCategoryBreakdown
+                        categories={model.categories}
+                        tags={tagBreakdown}
+                        layer={layer}
+                        money={money}
+                        onOpen={(c) => {
+                          setDetailLayout("vendors");
+                          setDetail({ title: c.name, category: c.id });
+                        }}
+                      />
                       {!model.expenses.length && (
                         <p className="dash-empty-text">
                           No expense records match these dates and {layer}.

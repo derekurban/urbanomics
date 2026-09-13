@@ -8,6 +8,12 @@ The desktop app combines real CSV imports, a local SQLite ledger, immutable sour
 
 **Dashboard** brings together Spending, Cash flow and Events with a data-backed year/month picker and category filters. Compare monthly stacked expense trends and money-in/money-out bars, then inspect a month through composition bars and expandable vendor totals. Cash flow shows latest exported balance observations where available, per-account external movements and a network of linked transfers. See gross expenses, repayments and amounts still paid by you; inspect recorded amounts friends still owe; compare money entering and leaving the boundary of your accounts, excluding matched internal principal. Open any total, category or event to trace its contributing records and original sources. The optional later-repayments switch updates expense costs across month boundaries. Manual cash stays separate from bank totals, and linked transfers contribute only their fees to spending. See [dashboard definitions](docs/dashboard.md).
 
+## Verify in a browser
+
+Run `npm run web` and open [Urbanomics locally](http://127.0.0.1:4173). This uses the same UI and finance service as Electron, with a separate sample workspace under `private/browser/`. Browser uploads and edits persist locally without touching desktop finances. See [browser verification](docs/browser-verification.md).
+
+Expense categories include their alphabetical tags and an inherited-color breakdown. Hover or keyboard-focus a category or tag to see its total and top three vendors after repayments; click for vendor and transaction details.
+
 ## Run the desktop app
 
 Requires Node.js 24 and npm. From this directory:

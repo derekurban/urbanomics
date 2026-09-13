@@ -22,7 +22,8 @@
     "test:aliases": "node scripts/smoke-aliases.cjs",
     "test:transfer-lab": "node scripts/smoke-transfer-lab.cjs",
     "test:transfers": "node scripts/smoke-transfers.cjs",
-    "package:win": "npm run build && electron-builder --win dir"
+    "package:win": "npm run build && electron-builder --win dir",
+    "web": "npm run build && node electron/web-server.cjs"
   },
   "dependencies": {
     "csv-parse": "7.0.2",

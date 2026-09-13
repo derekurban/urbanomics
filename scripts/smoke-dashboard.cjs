@@ -153,7 +153,13 @@ const stat = (label) =>
     .locator("strong");
 (async () => {
   try {
-    app = await _electron.launch({ args: [repo], cwd: repo, env });
+    app = await _electron.launch({
+      ...(process.env.URBANOMICS_TEST_EXECUTABLE
+        ? { executablePath: process.env.URBANOMICS_TEST_EXECUTABLE }
+        : { args: [repo] }),
+      cwd: repo,
+      env,
+    });
     page = await app.firstWindow();
     page.setDefaultTimeout(10000);
     page.on("pageerror", (e) => errors.push(e.message));
@@ -202,6 +208,26 @@ const stat = (label) =>
         .count(),
       0,
     );
+    const groceryChip = page.getByLabel("Tags in Food", { exact: true }).getByRole("button", { name: /Groceries/ });
+    const spendTooltip = page.getByRole("tooltip");
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await groceryChip.focus();
+    await spendTooltip.waitFor();
+    const tooltipBounds = await spendTooltip.boundingBox();
+    assert.ok(tooltipBounds.x >= 0 && tooltipBounds.y >= 0);
+    await page.keyboard.press("Escape");
+    await groceryChip.hover();
+    await spendTooltip.waitFor();
+    assert.match(await spendTooltip.textContent(), /Groceries.*119\.99.*180\.00 paid.*60\.01 repaid.*Household shopping.*119\.99/s);
+    await shot("nested-tag-hover");
+    await page.keyboard.press("Escape");
+    await spendTooltip.waitFor({ state: "hidden" });
+    await page.keyboard.press("Tab");
+    await groceryChip.focus();
+    await spendTooltip.waitFor();
+    await groceryChip.click();
+    await page.getByRole("dialog", { name: "Groceries", exact: true }).waitFor();
+    await page.keyboard.press("Escape");
     await page.locator(".dash-bar").filter({ hasText: "Food" }).click();
     let hierarchyDialog = page.getByRole("dialog", {
       name: "Food",
@@ -427,6 +453,13 @@ const stat = (label) =>
       BrowserWindow.getAllWindows()[0].setSize(900, 760),
     );
     await shot("narrow");
+    await page.getByLabel("Spending breakdown layer", { exact: true }).getByRole("button", { name: "Categories", exact: true }).click();
+    await groceryChip.focus();
+    await spendTooltip.waitFor();
+    await page.screenshot({ path: path.join(root, "nested-tag-narrow.png"), animations: "disabled" });
+    const narrowTooltip = await spendTooltip.boundingBox();
+    assert.ok(narrowTooltip.x >= 0 && narrowTooltip.x + narrowTooltip.width <= 900);
+    await page.keyboard.press("Escape");
     assert.ok(
       await page.evaluate(
         () => document.documentElement.scrollWidth <= innerWidth,

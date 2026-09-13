@@ -1022,3 +1022,106 @@
   border-radius: 50%;
   margin-right: 8px;
 }
+
+.dash-category-breakdown {
+  padding: 6px 0 12px;
+  border-bottom: 1px solid var(--line);
+}
+.dash-category-breakdown:last-child {
+  border-bottom: 0;
+}
+.dash-category-breakdown > .dash-bar {
+  width: 100%;
+}
+.dash-category-tags {
+  margin: 4px 8px 0;
+  padding: 10px;
+  border-radius: 12px;
+  background: #f6f8f3;
+}
+.dash-tag-stack {
+  display: flex;
+  height: 8px;
+  overflow: hidden;
+  border-radius: 6px;
+  background: #e8eee3;
+  margin-bottom: 8px;
+}
+.dash-tag-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.dash-tag-chip {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  padding: 5px 8px;
+  font-size: 11px;
+  min-height: 30px;
+  min-width: 0;
+  max-width: 100%;
+  border-radius: 8px;
+}
+.dash-tag-chip span {
+  overflow-wrap: anywhere;
+  text-align: left;
+}
+.dash-tag-chip strong {
+  white-space: nowrap;
+  font-size: 11px;
+}
+.dash-tag-chip i {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+.dash-spend-tooltip {
+  position: fixed;
+  z-index: 500;
+  width: min(320px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  overflow: auto;
+  padding: 16px;
+  border: 1px solid #d9e2d4;
+  border-radius: 15px;
+  box-shadow: 0 12px 40px #253d2524;
+  background: #fffffc;
+  color: var(--ink);
+  font-size: 12px;
+}
+.dash-spend-tooltip .dash-between {
+  gap: 12px;
+  align-items: start;
+}
+.dash-spend-tooltip .dash-between > strong:first-child {
+  overflow-wrap: anywhere;
+}
+.dash-spend-tooltip .dash-between > strong:last-child {
+  white-space: nowrap;
+}
+.dash-spend-tooltip small {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+}
+.dash-spend-tooltip h4 {
+  margin: 14px 0 7px;
+  font-size: 11px;
+  color: var(--muted);
+  font-weight: 500;
+}
+.dash-tooltip-vendor {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 5px 0;
+}
+.dash-tooltip-vendor span {
+  overflow-wrap: anywhere;
+}
+.dash-tooltip-vendor strong {
+  flex-shrink: 0;
+}
