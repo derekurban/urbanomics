@@ -1,19 +1,16 @@
-// Fixed-size targets on as many rings as needed; never page or shrink them.
+// One circle: grow its radius to preserve the gap between fixed-size bubbles.
 export function ringSlots(count, firstRadius = 123, spacing = 90) {
-  const points = [];
-  let radius = firstRadius;
-  while (points.length < count) {
-    const size = Math.min(
-      count - points.length,
-      Math.floor((2 * Math.PI * radius) / spacing),
-    );
-    for (let i = 0; i < size; i++) {
-      const a = -Math.PI / 2 + (i * 2 * Math.PI) / size;
-      points.push({ x: Math.cos(a) * radius, y: Math.sin(a) * radius });
-    }
-    if (points.length < count) radius += spacing;
-  }
-  return { points, radius: count ? radius : 0 };
+  const radius = count
+    ? Math.max(
+        firstRadius,
+        count > 1 ? spacing / (2 * Math.sin(Math.PI / count)) : 0,
+      )
+    : 0;
+  const points = Array.from({ length: count }, (_, i) => {
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / count;
+    return { x: Math.cos(angle) * radius, y: Math.sin(angle) * radius };
+  });
+  return { points, radius };
 }
 export function radialSize(tags, buckets, lens = "expense") {
   const counts =

@@ -89,6 +89,7 @@ const button = (name) => page.getByRole("button", { name, exact: true });
 async function open(group) {
   await page.keyboard.press("Escape");
   await button("Category " + group).focus();
+  await button("Category " + group).press("Enter");
   await button(
     "Tag " + (group === "Food" ? "Groceries" : "Clothing"),
   ).waitFor();
@@ -120,7 +121,12 @@ async function drag(group, tag, cancel = false) {
       ),
     "card stack is below petals during actual drag",
   );
-  await shot("two-motion-drag");
+  // A full-page screenshot resizes the viewport mid-drag and moves the circle away from the pointer.
+  await page.screenshot({
+    path: path.join(root, "two-motion-drag.png"),
+    animations: "disabled",
+    fullPage: false,
+  });
   if (cancel) await page.keyboard.press("Escape");
   await page.mouse.up();
 }
@@ -130,6 +136,40 @@ async function drag(group, tag, cancel = false) {
     const initial = await state();
     const initialBox = await page.locator(".os-transaction").boundingBox();
     await shot("category-orbit");
+    // Hover into a category, then leave the actual circle (not just its square bounds).
+    await button("Category Food").hover();
+    await button("Tag Groceries").waitFor();
+    let circle = await page.locator("[data-petal-disc]").evaluate((el) => {
+      const s = el.closest(".os-orbit").getBoundingClientRect();
+      return {
+        x: s.left + el.offsetLeft,
+        y: s.top + el.offsetTop,
+        r: el.offsetWidth / 2,
+      };
+    });
+    await page.mouse.move(circle.x, circle.y);
+    assert.equal(await page.locator(".rh-tag").count(), 8);
+    await page.mouse.move(circle.x + circle.r - 6, circle.y + circle.r - 6);
+    await page.locator(".rh-expanded").waitFor({ state: "hidden" });
+    assert.deepEqual((await state()).records, initial.records);
+    // Pointer capture must still let an unfinished drag leave and close the circle.
+    await page.locator(".os-transaction").scrollIntoViewIfNeeded();
+    const card = await page.locator(".os-transaction").boundingBox(),
+      bucket = await button("Category Food").boundingBox();
+    await page.mouse.move(card.x + card.width / 2, card.y + card.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(
+      bucket.x + bucket.width / 2,
+      bucket.y + bucket.height / 2,
+      { steps: 12 },
+    );
+    await button("Tag Groceries").waitFor();
+    const canvas = await page.locator(".os-orbit").boundingBox();
+    await page.mouse.move(canvas.x + 8, canvas.y + 8, { steps: 15 });
+    await page.locator(".rh-expanded").waitFor({ state: "hidden" });
+    await page.mouse.up();
+    assert.deepEqual((await state()).records, initial.records);
+    await shot("radial-closed-after-drag-leave");
     await drag("Food", "Groceries");
     await page.getByText("1 of 2 tagged", { exact: true }).waitFor();
     assert.match(await page.locator(".os-transaction").textContent(), /Dinner/);
@@ -268,7 +308,9 @@ async function drag(group, tag, cancel = false) {
       .browserWindow(page)
       .then((w) => w.evaluate((w) => w.setSize(900, 850)));
     await page.locator(".os-orbit").scrollIntoViewIfNeeded();
+    await open("Food");
     await shot("hierarchy-narrow");
+    await open("Food");
     const geometry = await page.evaluate(() => {
       const stage = document.querySelector(".os-orbit").getBoundingClientRect();
       return {
@@ -293,10 +335,12 @@ async function drag(group, tag, cancel = false) {
       };
     });
     assert.equal(geometry.overflow, false);
+    assert.equal(geometry.tags.length, 8);
     assert.ok(geometry.tags.every(Boolean));
     assert.equal(geometry.card.width, initialBox.width);
     assert.equal(geometry.card.height, initialBox.height);
     await page.emulateMedia({ reducedMotion: "reduce" });
+    await open("Food");
     assert.equal(
       await page
         .locator(".rh-tag")
@@ -304,7 +348,7 @@ async function drag(group, tag, cancel = false) {
         .evaluate((e) => getComputedStyle(e).animationName),
       "none",
     );
-    // Overflow and search keep every tag reachable without resizing the stage.
+    // All tags stay on one growing circle; search keeps each one reachable.
     await page.evaluate(async () => {
       const s = await window.urbanomics.reviewState();
       const parent = s.entities.find(
@@ -470,7 +514,7 @@ async function drag(group, tag, cancel = false) {
         ok: true,
         root,
         checks:
-          "two-motion pointer drag; exactly one save; first-only advance; edit and removal stay; Escape cancels; modal cancel and exact-cent split; keyboard and drag hierarchy moves and drag; deletion guard; fixed geometry at 900px; reduced motion; restart",
+          "two-motion pointer drag; exactly one save; first-only advance; edit and removal stay; Escape cancels; modal cancel and exact-cent split; keyboard and drag hierarchy moves; circular hover/drag exit; single growing ring; deletion guard; fixed geometry at 900px; reduced motion; restart",
       }),
     );
   } catch (error) {

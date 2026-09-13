@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { alphabetical } from "../electron/review/tag-model.mjs";
 import { ringSlots } from "./radial-hierarchy-layout.js";
 export function RadialHierarchy({
@@ -16,6 +16,7 @@ export function RadialHierarchy({
   lens = "expense",
   ungroupedColor = "#9AA993",
 }) {
+  const expandedRef = useRef(null);
   const matches = (name) =>
     name.toLowerCase().includes(query.trim().toLowerCase());
   const sorted = alphabetical(tags);
@@ -55,6 +56,33 @@ export function RadialHierarchy({
       lens === "income"
         ? height / 2
         : clamp(height / 2 + (points[anchor]?.y || 0), height);
+  useEffect(() => {
+    if (lens !== "expense" || !active) return;
+    const leave = (event) => {
+      const stage = expandedRef.current?.parentElement;
+      if (!stage) return;
+      const rect = stage.getBoundingClientRect();
+      // Use the final circle, not its animated bounding box. Pointer capture
+      // redirects drag events to the card, so listen at the document level.
+      if (
+        Math.hypot(
+          event.clientX - rect.left - cx,
+          event.clientY - rect.top - cy,
+        ) >
+        disc / 2
+      )
+        onExpand("");
+    };
+    const exitWindow = (event) => {
+      if (!event.relatedTarget) onExpand("");
+    };
+    document.addEventListener("pointermove", leave);
+    document.addEventListener("pointerout", exitWindow);
+    return () => {
+      document.removeEventListener("pointermove", leave);
+      document.removeEventListener("pointerout", exitWindow);
+    };
+  }, [lens, active?.id, cx, cy, disc, onExpand]);
   return (
     <>
       {lens === "expense" &&
@@ -85,7 +113,11 @@ export function RadialHierarchy({
         </p>
       )}
       {active && (
-        <div className="rh-expanded" style={{ "--bubble-color": active.color }}>
+        <div
+          ref={expandedRef}
+          className="rh-expanded"
+          style={{ "--bubble-color": active.color }}
+        >
           {lens === "expense" && (
             <>
               <div

@@ -241,9 +241,19 @@ export function OrbitSorter({
           g.clientY <= r.bottom
         );
       });
-    if (!events && !tag && !inside("[data-petal-disc]")) {
+    const disc = root.current.querySelector("[data-petal-disc]");
+    const stage = orbit.current?.getBoundingClientRect();
+    const inDisc =
+      disc &&
+      stage &&
+      Math.hypot(
+        g.clientX - stage.left - disc.offsetLeft,
+        g.clientY - stage.top - disc.offsetTop,
+      ) <=
+        disc.offsetWidth / 2;
+    if (!events && !tag && !inDisc) {
       const bucket = inside("[data-orbit-bucket]");
-      if (bucket) setExpanded(bucket.dataset.orbitBucket);
+      setExpanded(bucket?.dataset.orbitBucket || "");
     }
   }
   function scrollDrag() {
