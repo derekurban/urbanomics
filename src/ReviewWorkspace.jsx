@@ -42,7 +42,7 @@ const toggle = (list, id) =>
   list.includes(id) ? list.filter((v) => v !== id) : [...list, id];
 
 function FinanceEditor({
-  row,
+  row: currentRow,
   records,
   people,
   groups,
@@ -58,7 +58,11 @@ function FinanceEditor({
   onCash,
   onDeduct,
   initialExpense,
+  onReload,
 }) {
+  // Keep a draft's original version when another connected screen changes this row.
+  const [row] = useState(currentRow);
+  const changedElsewhere = currentRow.version !== row.version;
   const [kind, setKind] = useState(
     initialPurpose ||
       (row.review.kind === "unreviewed"
@@ -182,6 +186,7 @@ function FinanceEditor({
   };
   return (
     <section className="rv-finance" aria-label="Transaction details">
+      {changedElsewhere && <div className="rv-confirm" role="status"><p>This transaction changed while this editor was open. Your draft is still here; reload the saved version before making further changes.</p><button onClick={onReload}>Reload saved version</button></div>}
       <div className="rv-editor-title">
         <div>
           <small>
@@ -666,6 +671,7 @@ export function ReviewWorkspace({
 }) {
   const tagMode = "expense";
   const [financialId, setFinancialId] = useState("");
+  const [editorEpoch, setEditorEpoch] = useState(0);
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState("");
@@ -1079,12 +1085,14 @@ export function ReviewWorkspace({
             </aside>
             {focus && (
               <FinanceEditor
-                key={`${focus.id}:${focus.version}`}
+                key={`${focus.id}:${editorEpoch}`}
                 row={focus}
                 onSaved={() => {
+                  setEditorEpoch(value => value + 1);
                   setPaymentIntent(null);
                   setExpenseIntent(null);
                 }}
+                onReload={() => setEditorEpoch(value => value + 1)}
                 onCash={(row) => {
                   setError("");
                   setCashEditor(row);
@@ -1136,7 +1144,8 @@ export function ReviewWorkspace({
       {stage === "categories" && <ReviewOverview records={records} visible={visible} entities={entities} onStage={setStage} onSource={onSource} />}
       {!transactionList && stage !== "categories" && <div className="rv-next-step"><span>Keep going when you’re ready. Every step remains editable.</span><button className="primary" onClick={() => { setStage(({transfers:"groups", groups:"moneyin", moneyin:"organize", organize:"categories"})[stage]); setActive(""); setStatusFilter("all"); }}>Continue to {({transfers:"events", groups:"income", moneyin:"expenses", organize:"overview"})[stage]} →</button></div>}
       {financialId && records.find(t => t.id === financialId) && <WorkspaceModal title="Expense people & repayments" onClose={() => setFinancialId("")}><FinanceEditor
-        row={records.find(t => t.id === financialId)} key={financialId + ":" + records.find(t => t.id === financialId).version}
+        row={records.find(t => t.id === financialId)} key={financialId + ":" + editorEpoch}
+        onReload={() => setEditorEpoch(value => value + 1)}
         records={records} people={people} groups={groups} act={act} busy={busy} error={error}
         onEntity={editEntity} onTags={row => {setFinancialId(""); editTags(row);}} onSource={onSource}
         onSaved={() => setFinancialId("")} onCash={setCashEditor}

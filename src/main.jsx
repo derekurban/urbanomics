@@ -9,6 +9,7 @@ import { ReviewWorkspace } from "./ReviewWorkspace.jsx";
 import { OrganizeWorkspace } from "./OrganizeWorkspace.jsx";
 import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
+import "./mobile.css";
 
 const api = window.urbanomics;
 const banks = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
@@ -37,9 +38,15 @@ function App() {
   const [organizeSection, setOrganizeSection] = useState("overview");
   const [reviewStart, setReviewStart] = useState(null);
   const [data, setData] = useState(null),
-    [page, setPage] = useState("data"),
+    [page, setPage] = useState(() => matchMedia("(max-width: 720px)").matches ? "dashboard" : "data"),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
+  const [connected, setConnected] = useState(true);
+  useEffect(() => {
+    const update = event => setConnected(event.detail);
+    window.addEventListener("urbanomics-connection", update);
+    return () => window.removeEventListener("urbanomics-connection", update);
+  }, []);
   const [progress, setProgress] = useState(null);
   const [processResult, setProcessResult] = useState(null);
   useEffect(
@@ -228,9 +235,9 @@ function App() {
         <p className="brand-sub">A little order. A clearer picture.</p>
         {api.host === "browser" && (
           <p className="browser-workspace-note">
-            Browser verification
+            {api.workspaceMode === "desktop" ? "Connected to your desktop" : "Browser verification"}
             <br />
-            <small>Separate local workspace · starts with sample data</small>
+            <small>{api.workspaceMode === "desktop" ? "Your files and changes stay there" : "Separate local workspace · starts with sample data"}</small>
           </p>
         )}
         <nav>
@@ -289,6 +296,7 @@ function App() {
         </div>
       </aside>
       <div className="workspace">
+        <div className="mobile-topbar"><strong>urbanomics<span>●</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
         <header className="topbar">
           <div>
             <span className="breadcrumb">Workspace</span>
@@ -297,6 +305,7 @@ function App() {
           </div>
         </header>
         <main>
+          {!connected && api.host === "browser" && <div className="alert error" role="status">Connection lost. Keep your desktop awake, Urbanomics open, and Tailscale connected. New changes need a connection to save.</div>}
           {(error || data.archiveError || data.configurationError) && (
             <div className="alert error" role="alert">
               {error || data.archiveError || data.configurationError}

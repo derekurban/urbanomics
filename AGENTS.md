@@ -1,5 +1,11 @@
 # Working on Urbanomics
 
+## Desktop and phone — September 13, 2026
+
+The user authorized remote phone access over their existing Tailscale connection, using the live desktop ledger and desktop-resident archives. Electron remains the single owner of the store and finance service; its optional HTTP host receives that same service/store, never opens another connection or seeds sample data. Direct mode binds only the configured Tailscale IPv4 address and authorizes the socket peer with Tailscale whois against the configured personal login, ignoring forwarded identity headers. Optional HTTPS Serve mode stays loopback-only and requires the exact Serve host plus the verified owner identity header. Neither mode uses Funnel or public hosting. Keep remote settings and connection identities in ignored private/desktop/remote-access.json. See docs/mobile-remote.md.
+
+Phone UI uses bottom navigation, responsive panels and a card with tap-to-select category/tag buttons; preserve the desktop radial. Remote browsers upload CSV bytes, inspect records and download only ID-resolved archived sources/snapshots. Never expose arbitrary filesystem paths or remotely invoke native folder/file-picker dialogs. Shared service changes notify both clients; financial drafts retain their starting version and stale saves remain rejected. Verify with synthetic touch tests, and inspect real data read-only. npm run web continues to use its separate sample workspace.
+
 ## Current review workflow — September 12, 2026
 
 Review follows Transfers → Events → Income → Expenses → Overview. Linked transfers form a third system lens, excluded from income/expense tag queues and uncategorized counts; preserved tags return if unlinked. Transfer fees remain external expenses. Pending transfer matching supports drag-to-pair, explicit Link, undo, account/search/date/amount filters and keyboard linking; retain the existing protected-pair guards and Auto-link lab. Events are optional. Income includes purpose, income tags and repayment allocations. Expenses use the radial and People & repayments editor. Overview includes all selected-period records, even untagged ones, separates currencies and bank/cash, excludes internal principal, and reports incoming allocations, claims and repayments. Later repayments may reduce selected expense costs and are labeled accordingly.

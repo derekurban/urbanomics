@@ -1,5 +1,7 @@
 # Browser verification
 
+This page describes the isolated sample host. Phone access to the live desktop workspace uses the embedded host described in [mobile and remote access](mobile-remote.md). Never point the sample host at the live ledger.
+
 Run `npm run web` from the repository, then open `http://127.0.0.1:4173`. This builds the same React interface used by Electron and serves it through a local Node host. `PORT` changes the listening port. Stop the server with Ctrl+C and rerun after source changes; reload the browser after rebuilding.
 
 The browser has a separate persistent workspace in ignored `private/browser/`, initially seeded with three months of synthetic transactions. Its accounts, configuration SQL, reviews, uploads, archives and snapshots stay there. It does not open or seed from the desktop ledger or write the repository's configuration SQL. The sidebar identifies this verification workspace. Electron continues to own the desktop workspace and native folder dialogs.

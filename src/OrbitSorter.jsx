@@ -38,6 +38,7 @@ export function OrbitSorter({
   onFinance,
 }) {
   const [expanded, setExpanded] = useState("");
+  const [mobileCategory, setMobileCategory] = useState(null);
   const [active, setActive] = useState(""),
     [query, setQuery] = useState(""),
     [message, setMessage] = useState(""),
@@ -372,6 +373,20 @@ export function OrbitSorter({
         </div>
       )}
       <div className="os-body">
+        {!events && <div className="mobile-sorter">
+          <button className="mobile-transaction" aria-label={`Edit transaction ${row.description}`} disabled={busy} onClick={() => {setActive(row.id); setEditing(row);}}>
+            <span>{complete(row, events) ? "✓ Tagged" : "Next expense"}<small>{index + 1} of {rows.length}</small></span>
+            <h3>{row.description}</h3><strong>{money(Math.abs(row.amountCents))}</strong>
+            <small>{row.account} · {row.date}</small><span className="mobile-card-hint">Tap for split tags & details ↗</span>
+          </button>
+          <div className="mobile-tag-heading"><strong>{query ? "Matching tags" : mobileCategory === null ? "Choose a category" : buckets.find(b => b.id === mobileCategory)?.name || "Ungrouped tags"}</strong>{mobileCategory !== null && <button onClick={() => setMobileCategory(null)}>All categories</button>}</div>
+          <div className="mobile-tag-grid">
+            {mobileCategory === null && !query ? <>
+              {buckets.filter(b => entities.some(t => t.parentId === b.id)).map(b => <button key={b.id} style={{"--tag-color":b.color}} onClick={() => setMobileCategory(b.id)}><i/>{b.name}<small>{entities.filter(t => t.parentId === b.id).length} tags</small></button>)}
+              {entities.some(t => !t.parentId) && <button onClick={() => setMobileCategory("")}><i/>Ungrouped<small>{entities.filter(t => !t.parentId).length} tags</small></button>}
+            </> : entities.filter(t => query ? `${t.name} ${buckets.find(b => b.id === t.parentId)?.name || ""}`.toLowerCase().includes(query.toLowerCase()) : (t.parentId || "") === mobileCategory).map(t => <button key={t.id} aria-label={`Tag ${t.name}`} aria-pressed={selected(t.id)} disabled={busy} style={{"--tag-color":t.color}} onClick={() => choose(t.id)}><i/>{t.name}{selected(t.id) && " ✓"}</button>)}
+          </div>
+        </div>}
         <div className="os-stage">
           <div
             className="os-orbit"

@@ -10,6 +10,8 @@ The desktop app combines real CSV imports, a local SQLite ledger, immutable sour
 
 ## Verify in a browser
 
+For phone access to your **real desktop workspace**, run `npm run remote:setup`, open Urbanomics on the desktop, and use the printed Tailscale address on your phone. Changes and uploads persist on the desktop. Keep both devices connected to your personal Tailscale account and the desktop awake with Urbanomics running. The phone uses bottom navigation and tap-based expense cards; the desktop keeps its radial. See [mobile and remote access](docs/mobile-remote.md).
+
 Run `npm run web` and open [Urbanomics locally](http://127.0.0.1:4173). This uses the same UI and finance service as Electron, with a separate sample workspace under `private/browser/`. Browser uploads and edits persist locally without touching desktop finances. See [browser verification](docs/browser-verification.md).
 
 Expense categories include tags in your chosen order and an inherited-color breakdown. Hover or keyboard-focus a category or tag to see its total and top three vendors after repayments; click for vendor and transaction details.

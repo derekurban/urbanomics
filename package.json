@@ -17,6 +17,7 @@
     "test:events": "node scripts/smoke-events.cjs",
     "test:review": "node scripts/smoke-review.cjs",
     "test:review-flow": "node scripts/smoke-review-flow.cjs",
+    "test:mobile": "node scripts/smoke-mobile.cjs",
     "test:orbit": "node scripts/smoke-orbit.cjs",
     "test:organize": "node scripts/smoke-organize.cjs",
     "test:rules": "node scripts/smoke-rules.cjs",
@@ -24,7 +25,8 @@
     "test:transfer-lab": "node scripts/smoke-transfer-lab.cjs",
     "test:transfers": "node scripts/smoke-transfers.cjs",
     "package:win": "npm run build && electron-builder --win dir",
-    "web": "npm run build && node electron/web-server.cjs"
+    "web": "npm run build && node electron/web-server.cjs",
+    "remote:setup": "node scripts/setup-remote.cjs"
   },
   "dependencies": {
     "csv-parse": "7.0.2",

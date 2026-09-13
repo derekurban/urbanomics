@@ -3,10 +3,21 @@ function createWorkspaceService({
   store,
   configurationDir,
   platform,
-  emit = () => {},
+  emit: platformEmit = () => {},
   onIdle = () => {},
 }) {
   let processing = false;
+  const subscribers = new Set();
+  const emit = (event, value) => {
+    platformEmit(event, value);
+    for (const callback of subscribers) callback(event, value);
+  };
+  const readOnly = new Set([
+    "workspace:state", "review:state", "transfer-lab:state", "transfer-lab:preview", "transfer-lab:validate",
+    "aliases:state", "aliases:preview", "transaction-rules:state", "transaction-rules:preview",
+    "admin:untag-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
+    "workspace:reveal", "workspace:prefix-test",
+  ]);
   const handlers = new Map();
   const handle = (channel, fn) => handlers.set(channel, fn);
   let configurationError = "";
@@ -162,6 +173,10 @@ function createWorkspaceService({
   handle("workspace:reveal", (...args) => platform.reveal(...args));
 
   return {
+    subscribe(callback) {
+      subscribers.add(callback);
+      return () => subscribers.delete(callback);
+    },
     get processing() {
       return processing;
     },
@@ -192,6 +207,7 @@ function createWorkspaceService({
           throw new Error("Wait for Dropbox processing to finish.");
         const value = await handlers.get(channel)(...args);
         if (configurationChanges.has(channel)) syncConfiguration();
+        if (!readOnly.has(channel)) emit("changed");
         return { ok: true, value };
       } catch (error) {
         return { ok: false, error: error.message };

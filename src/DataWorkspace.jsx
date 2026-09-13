@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
+const browserHost = window.urbanomics?.host === "browser";
 
 const monthName = (value, short = false) =>
   new Date(`${value}-15T12:00:00`).toLocaleDateString("en-CA", {
@@ -86,7 +87,7 @@ function History({ data, onReveal }) {
                 {item.error && <p className="dr-error-text">{item.error}</p>}
               </div>
               <button onClick={() => onReveal("source", item.source_hash)}>
-                Show original ↗
+                {browserHost ? "Download original ↓" : "Show original ↗"}
               </button>
             </div>
           </details>
@@ -106,7 +107,7 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
     <>
       <div className="dr-modal-intro">
         <p>One snapshot per account, per month.</p>
-        <button onClick={() => onReveal("archive")}>Open archive ↗</button>
+        {!browserHost && <button onClick={() => onReveal("archive")}>Open archive ↗</button>}
       </div>
       <div className="dr-archive-months">
         {[...new Set(data.snapshotIndex.map((s) => s.month))]
@@ -144,7 +145,7 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
                           aria-label={`Show file for ${account.name}, ${monthName(month)}`}
                           onClick={() => onReveal("snapshot-file", saved.id)}
                         >
-                          Show file ↗
+                          {browserHost ? "Download ↓" : "Show file ↗"}
                         </button>
                       </div>
                     )
@@ -176,7 +177,7 @@ function Archive({ data, onReveal, onOpenSnapshot }) {
               </small>
             </div>
             <button onClick={() => onReveal("source", source.hash)}>
-              Show original ↗
+              {browserHost ? "Download original ↓" : "Show original ↗"}
             </button>
           </div>
         ))}
@@ -353,9 +354,9 @@ export function DataWorkspace({
                 Dropbox <span className="dr-count">{data.jobs.length}</span>
               </h2>
             </div>
-            <button disabled={busy} onClick={() => onReveal("dropbox")}>
+            {!browserHost && <button disabled={busy} onClick={() => onReveal("dropbox")}>
               Open folder ↗
-            </button>
+            </button>}
           </div>
           <div className={`dr-drop-pad ${progress ? "processing" : ""}`}>
             {progress ? (
@@ -537,8 +538,8 @@ export function DataWorkspace({
                   Latest results <span>↗</span>
                 </button>
               )}
-              <button disabled={busy} onClick={() => onReveal("archive")}>
-                Open archive folder <span>↗</span>
+              <button disabled={busy} onClick={() => browserHost ? setModal("archive") : onReveal("archive")}>
+                {browserHost ? "Browse archive" : "Open archive folder"} <span>↗</span>
               </button>
             </div>
           </section>
@@ -578,12 +579,12 @@ export function DataWorkspace({
               >
                 Inspect snapshot
               </button>
-              <button
+              {!browserHost && <button
                 className="dr-link"
                 onClick={() => onReveal("month", selected.month)}
               >
                 Open month folder ↗
-              </button>
+              </button>}
             </>
           ) : (
             <p>No snapshot has been uploaded for this account and month.</p>

@@ -40,6 +40,13 @@ test('local browser host persists isolated changes and deduplicates CSV uploads'
     assert.equal((await upload()).ok, true);
     assert.equal((await call('reviewState')).value.records.length, 16);
     assert.deepEqual(fs.readdirSync(path.join(root, 'web-uploads')), []);
+    const source=app.store.db.prepare('SELECT hash FROM sources LIMIT 1').get();
+    const original=await fetch(origin+'/api/files/source/'+source.hash);
+    assert.equal(original.status,200);assert.match(original.headers.get('content-disposition'),/attachment/);
+    assert.deepEqual(Buffer.from(await original.arrayBuffer()),fs.readFileSync(path.join(root,'archive/sources',source.hash+'.csv')));
+    const snapshot=app.store.db.prepare('SELECT id FROM snapshots LIMIT 1').get();
+    assert.equal((await fetch(origin+'/api/files/snapshot/'+snapshot.id)).status,200);
+    assert.equal((await fetch(origin+'/api/files/source/..%2F..%2Fprivate')).status,404);
     assert.equal((await call('drop', [['C:/arbitrary/private.csv']])).ok, false);
     assert.equal((await call('choose')).ok, false);
     assert.equal((await call('__proto__')).ok, false);

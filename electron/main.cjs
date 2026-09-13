@@ -35,6 +35,7 @@ const appURL = dev
 let window,
   store,
   service,
+  remoteServer,
   quitAfterProcessing = false;
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
@@ -171,6 +172,21 @@ else {
         },
       });
       service.syncConfiguration();
+      const remoteConfig = path.join(privateRoot, "remote-access.json");
+      if (fs.existsSync(remoteConfig)) {
+        try {
+          const remote = JSON.parse(fs.readFileSync(remoteConfig, "utf8"));
+          if (remote.enabled) {
+            remoteServer = await require("./web-server.cjs").startWebServer({
+              root: privateRoot, port: remote.port || 4174, seed: false,
+              sharedStore: store, sharedService: service, remote,
+            });
+            fs.writeFileSync(path.join(privateRoot, "remote-status.json"), JSON.stringify({ok:true,url:remote.origin,started:new Date().toISOString()}));
+          }
+        } catch (error) {
+          fs.writeFileSync(path.join(privateRoot, "remote-status.json"), JSON.stringify({ok:false,error:error.message}));
+        }
+      }
       for (const channel of service.channels)
         ipcMain.handle(channel, async (event, ...args) => {
           if (
@@ -227,6 +243,13 @@ else {
     if (service?.processing) {
       event.preventDefault();
       quitAfterProcessing = true;
+      return;
+    }
+    if (remoteServer) {
+      event.preventDefault();
+      const closing = remoteServer;
+      remoteServer = null;
+      closing.close().finally(() => app.quit());
       return;
     }
     store?.close();

@@ -1,5 +1,9 @@
 # Direction note
 
+## Phone access and responsive review — September 13, 2026
+
+The next priority is a usable mobile experience alongside desktop. The user requested live access through their existing Tailscale connection, with all persistent files on the desktop. Electron now optionally serves its existing workspace service to authenticated personal-tailnet clients. This supersedes the earlier browser-only sample restriction specifically for the embedded remote host; standalone browser verification remains isolated. The first mobile iteration uses bottom navigation, touch controls, stacked panels and category/tag selection below an expense card. The desktop radial remains. See `mobile-remote.md` for connection, limits and verification.
+
 ## Transfers first and user-ordered tags — September 12, 2026
 
 The accepted workflow is now Transfers → Events → Income → Expenses → Overview. Transfers are their own system lens and linked entries leave income/expense tagging. Pairing is tactile but always requires explicit Link. Events remain optional, income can be classified or allocated to expenses, and expense claims use the existing financial editor. Overview measures the full selected period regardless of tags. Manual within-category tag ordering supersedes alphabetical-only lists and drives inherited gradient steps. See `review-workflow.md` for implemented behavior and verification.

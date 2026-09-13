@@ -1,11 +1,20 @@
 import channels from "../electron/api-channels.json";
 if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
-  const session = fetch("/api/session").then(async (r) => {
-    if (!r.ok) throw new Error("Start the browser workspace with npm run web.");
-    return r.json();
-  });
+  let session;
+  const getSession = () => session ||= fetch("/api/session").then(async (r) => {
+    if (!r.ok) throw new Error("Cannot connect. Check Tailscale and keep Urbanomics open on your desktop.");
+    const value = await r.json();
+    window.urbanomics.workspaceMode = value.workspaceMode;
+    return value;
+  }).catch(error => { session = null; throw error; });
   const listeners = { progress: new Set(), changed: new Set() };
   const events = new EventSource("/api/events");
+  events.addEventListener("open", () => {
+    session = null;
+    window.dispatchEvent(new CustomEvent("urbanomics-connection", {detail:true}));
+    for (const callback of listeners.changed) callback();
+  });
+  events.addEventListener("error", () => window.dispatchEvent(new CustomEvent("urbanomics-connection", {detail:false})));
   for (const type of Object.keys(listeners))
     events.addEventListener(type, (event) => {
       for (const callback of listeners[type]) callback(JSON.parse(event.data));
@@ -21,7 +30,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-Urbanomics-Token": (await session).token,
+          "X-Urbanomics-Token": (await getSession()).token,
         },
         body: JSON.stringify({ method, args }),
       }),
@@ -45,7 +54,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
           headers: {
             "Content-Type": "application/octet-stream",
             "X-File-Name": encodeURIComponent(file.name),
-            "X-Urbanomics-Token": (await session).token,
+            "X-Urbanomics-Token": (await getSession()).token,
           },
           body: file,
         }),
@@ -85,6 +94,17 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
       ]),
     ),
     host: "browser",
+    workspaceMode: "sample",
+    reveal: async (kind, id) => {
+      const type = kind === "source" ? "source" : kind === "snapshot-file" ? "snapshot" : null;
+      if (!type) throw new Error("Use Upload history or Archive to browse desktop files. Folder windows open only on the desktop.");
+      const response = await fetch(`/api/files/${type}/${encodeURIComponent(id)}`);
+      if (!response.ok) throw new Error("Archive file unavailable. Reconnect to your desktop and try again.");
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement("a"); link.href = url;
+      link.download = response.headers.get("Content-Disposition")?.match(/filename="([^"]+)"/)?.[1] || "archive-file";
+      link.click(); setTimeout(() => URL.revokeObjectURL(url), 30000);
+    },
     onProgress: (callback) => {
       listeners.progress.add(callback);
       return () => listeners.progress.delete(callback);
