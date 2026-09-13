@@ -1,11 +1,9 @@
+import { IncomeDashboard } from "./IncomeDashboard.jsx";
 import { categoryColors } from "./category-colors.js";
-import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
 import {
   dashboard,
-  UNCATEGORIZED,
-  TRANSFER_FEES,
-  TRANSFER_EXCESS,
+  UNGROUPED,
   availableMonths,
   monthlyDashboard,
   vendorGroups,
@@ -95,10 +93,10 @@ export function Dashboard({ data, onSource }) {
     from,
     through,
     currency,
-    categories: selected,
+    categories: mode === "income" ? [] : selected,
     later,
     layer,
-    incomeTags,
+    incomeTags: mode === "spending" || mode === "events" ? [] : incomeTags,
   };
   const model = useMemo(
     () =>
@@ -115,6 +113,7 @@ export function Dashboard({ data, onSource }) {
       layer,
       incomeTags,
       valid,
+      mode,
     ],
   );
   const drill = useMemo(
@@ -126,6 +125,17 @@ export function Dashboard({ data, onSource }) {
           })
         : model,
     [model, detail, source],
+  );
+  const drillTags = useMemo(
+    () =>
+      detail?.category && source && valid
+        ? dashboard(source.records, source.entities, {
+            ...options,
+            categories: [detail.category],
+            layer: "tags",
+          }).categories
+        : [],
+    [source, model, detail, valid],
   );
   const populatedMonths = useMemo(
     () => (source ? availableMonths(source.records, currency) : []),
@@ -140,13 +150,14 @@ export function Dashboard({ data, onSource }) {
         ? monthlyDashboard(source.records, source.entities, {
             year,
             currency,
-            categories: selected,
-            incomeTags,
+            categories: mode === "income" ? [] : selected,
+            incomeTags:
+              mode === "spending" || mode === "events" ? [] : incomeTags,
             layer,
             later,
           })
         : [],
-    [source, year, currency, selected, later, layer, incomeTags],
+    [source, year, currency, selected, later, layer, incomeTags, mode],
   );
   const overview = useMemo(
     () =>
@@ -178,13 +189,14 @@ export function Dashboard({ data, onSource }) {
     setDetail(null);
   }
   function filter(id) {
-    (filterLens === "income" && mode === "cash" ? setIncomeTags : setSelected)(
-      (old) =>
-        id === "all"
-          ? []
-          : old.includes(id)
-            ? old.filter((v) => v !== id)
-            : [...old, id],
+    (mode === "income" || (filterLens === "income" && mode === "cash")
+      ? setIncomeTags
+      : setSelected)((old) =>
+      id === "all"
+        ? []
+        : old.includes(id)
+          ? old.filter((v) => v !== id)
+          : [...old, id],
     );
     setDetail(null);
   }
@@ -265,7 +277,9 @@ export function Dashboard({ data, onSource }) {
             setError("");
             window.urbanomics
               .reviewState()
-              .then(setSource)
+              .then((s) =>
+                setSource({ ...s, entities: categoryColors(s.entities) }),
+              )
               .catch((e) => setError(e.message));
           }}
         >
@@ -277,27 +291,12 @@ export function Dashboard({ data, onSource }) {
   const currencies = [
     ...new Set(source.records.filter((t) => !t.deleted).map((t) => t.currency)),
   ].sort();
-  const expenseOptions =
-    model?.categoryOptions.filter(
-      (c) =>
-        ![UNCATEGORIZED, TRANSFER_FEES, TRANSFER_EXCESS].includes(c.id) ||
-        source.records.some((t) =>
-          c.id === UNCATEGORIZED
-            ? !t.review.tags.length
-            : c.id === TRANSFER_EXCESS
-              ? (t.review.transferExcessCents || 0) > 0
-              : (t.review.transferFeeCents || 0) > 0,
-        ),
-    ) || [];
-  const incomeLens = filterLens === "income" && mode === "cash";
+  const incomeLens =
+    mode === "income" || (filterLens === "income" && mode === "cash");
   const activeFilters = incomeLens ? incomeTags : selected;
-  const visibleCategories = alphabetical(
-    incomeLens
-      ? source.entities.filter(
-          (e) => e.kind === "category" && tagType(e) === "income",
-        )
-      : expenseOptions.filter((e) => tagType(e) !== "income"),
-  );
+  const visibleCategories = incomeLens
+    ? model?.incomeOptions || []
+    : model?.categoryOptions || [];
   const activeCount = source.records.filter((t) => !t.deleted).length;
   return (
     <div className="dash-workspace">
@@ -457,7 +456,8 @@ export function Dashboard({ data, onSource }) {
             <>
               <nav className="dash-tabs" aria-label="Dashboard views">
                 {[
-                  ["spending", "Spending"],
+                  ["spending", "Expenses"],
+                  ["income", "Income"],
                   ["cash", "Cash flow"],
                   ["events", "Events"],
                 ].map(([id, label]) => (
@@ -494,11 +494,7 @@ export function Dashboard({ data, onSource }) {
               )}
               <div className="dash-filter-heading">
                 <strong>
-                  {mode === "cash"
-                    ? incomeLens
-                      ? "Income tags"
-                      : "Expense categories & tags"
-                    : "Expense categories"}
+                  {incomeLens ? "Income tags" : `Expense ${layer}`}
                 </strong>
                 <span>
                   {activeFilters.length
@@ -549,11 +545,19 @@ export function Dashboard({ data, onSource }) {
               </div>
               {mode === "cash" && (
                 <p className="rv-help">
-                  Expense filters affect money out; income tags filter money in
-                  independently. Repayments remain receipts, not earned income.
+                  Money out:{" "}
+                  {selected.length
+                    ? `${selected.length} expense filters`
+                    : "all expense tags"}{" "}
+                  · Money in:{" "}
+                  {incomeTags.length
+                    ? `${incomeTags.length} income tags`
+                    : "all income tags"}
+                  . Filters are independent; account standing and routes show
+                  whole accounts.
                 </p>
               )}
-              {mode !== "cash" && (
+              {(mode === "spending" || mode === "events") && (
                 <label className="dash-later">
                   <input
                     type="checkbox"
@@ -579,6 +583,7 @@ export function Dashboard({ data, onSource }) {
                     onMonth={period}
                     year={year}
                     later={later}
+                    layer={layer}
                   />
                   <div className="dash-stats">
                     <Stat
@@ -614,6 +619,7 @@ export function Dashboard({ data, onSource }) {
                   </div>
                   <Composition
                     model={model}
+                    layer={layer}
                     money={money}
                     onCategory={(c) => {
                       setDetailLayout("vendors");
@@ -624,7 +630,11 @@ export function Dashboard({ data, onSource }) {
                   <div className="dash-grid">
                     <section className="dash-panel">
                       <div className="dash-panel-heading">
-                        <h2>Where it went</h2>
+                        <h2>
+                          {layer === "categories"
+                            ? "Expense categories"
+                            : "Expense tags"}
+                        </h2>
                         <span>{model.expenses.length} expense records</span>
                       </div>
                       <div className="dash-legend">
@@ -670,7 +680,7 @@ export function Dashboard({ data, onSource }) {
                       </div>
                       {!model.expenses.length && (
                         <p className="dash-empty-text">
-                          No expense records match these dates and categories.
+                          No expense records match these dates and {layer}.
                         </p>
                       )}
                     </section>
@@ -734,6 +744,23 @@ export function Dashboard({ data, onSource }) {
                     </section>
                   </div>
                 </>
+              )}
+              {mode === "income" && (
+                <IncomeDashboard
+                  model={model}
+                  months={trends}
+                  currency={currency}
+                  selectedMonth={
+                    from === from.slice(0, 7) + "-01" &&
+                    through === monthEnd(from.slice(0, 7))
+                      ? from.slice(0, 7)
+                      : null
+                  }
+                  onMonth={period}
+                  year={year}
+                  money={money}
+                  onOpen={(title, rows) => open(title, rows, "cash")}
+                />
               )}
               {mode === "cash" && (
                 <>
@@ -887,7 +914,7 @@ export function Dashboard({ data, onSource }) {
                   {currency} only
                 </span>
                 <span>
-                  {mode === "cash"
+                  {mode === "cash" || mode === "income"
                     ? "Bank cash flow excludes manual cash receipts."
                     : `${model.provisional.length} unclassified debits treated as expenses until linked or assigned.`}
                 </span>
@@ -919,8 +946,8 @@ export function Dashboard({ data, onSource }) {
                   "Follow the expense they reduce, even if received in a different month or hidden account. By default include payments received by the range end; the later-payments switch includes all saved repayments. Unallocated income does not reduce expenses.",
                 ],
                 [
-                  "Category deductions",
-                  "Allocate each repayment proportionally across remaining category costs, with exact-cent rounding and per-category caps. Filtered deductions follow those expense portions, not the incoming payment’s category.",
+                  "Categories and tags",
+                  "Expense tags own portions of each transaction. Categories roll those tags up after exact-cent repayment allocation. Untagged means no tag was assigned; Ungrouped tags have no parent category. Income tags are independent, and tagging a receipt never decides its income or repayment purpose. Older cross-type assignments remain visible as legacy tags.",
                 ],
                 [
                   "Agreed shares",
@@ -1114,6 +1141,51 @@ export function Dashboard({ data, onSource }) {
                   · recorded shares only
                 </p>
               )}
+              {detail.parent && (
+                <button
+                  className="text-button"
+                  onClick={() => setDetail(detail.parent)}
+                >
+                  ← Back to {detail.parent.title}
+                </button>
+              )}
+              {detail.category &&
+                (detail.category === UNGROUPED ||
+                  source.entities.some(
+                    (e) => e.id === detail.category && e.kind === "bucket",
+                  )) && (
+                  <section
+                    className="dash-drill-tags"
+                    aria-label="Tags in this category"
+                  >
+                    <h3>Tags in {detail.title}</h3>
+                    {drillTags.map((tag) => (
+                      <button
+                        key={tag.id}
+                        className="dash-cash-row"
+                        onClick={() =>
+                          setDetail({
+                            title: tag.name,
+                            category: tag.id,
+                            parent: detail,
+                          })
+                        }
+                      >
+                        <span>
+                          <i
+                            className="dash-tag-dot"
+                            style={{ background: tag.color }}
+                          />
+                          {tag.name}
+                        </span>
+                        <span>
+                          <strong>{money(tag.net)}</strong>
+                          <small>{money(tag.repaid)} repaid</small>
+                        </span>
+                      </button>
+                    ))}
+                  </section>
+                )}
               {detail.category && (
                 <div
                   className="dash-segmented dash-detail-toggle"

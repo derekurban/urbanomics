@@ -72,6 +72,16 @@ const food = store.review.entity("category", {
     startDate: "2026-08-01",
     endDate: "2026-08-31",
   });
+const foodBucket = store.review.entity("bucket", {
+  name: "Food",
+  color: "#7baa73",
+  gradientStart: "#427651",
+  gradientEnd: "#b5d394",
+});
+store.review.entity("category", {
+  ...store.review.entities().find((e) => e.id === food),
+  parentId: foodBucket,
+});
 const row = (n) => store.review.records().find((t) => t.description === n);
 const organize = (n, values) => {
   const t = row(n);
@@ -185,6 +195,36 @@ const stat = (label) =>
     assert.equal(await stat("Paid for expenses").textContent(), "$40.00");
     await button("August 2026").click();
     await shot("spending");
+    assert.equal(
+      await page
+        .locator(".dash-filters")
+        .getByRole("button", { name: "Groceries", exact: true })
+        .count(),
+      0,
+    );
+    await page.locator(".dash-bar").filter({ hasText: "Food" }).click();
+    let hierarchyDialog = page.getByRole("dialog", {
+      name: "Food",
+      exact: true,
+    });
+    await hierarchyDialog
+      .getByRole("region", { name: "Tags in this category" })
+      .getByRole("button", { name: /Groceries/ })
+      .click();
+    hierarchyDialog = page.getByRole("dialog", {
+      name: "Groceries",
+      exact: true,
+    });
+    assert.match(await hierarchyDialog.textContent(), /119.99/);
+    await hierarchyDialog
+      .getByRole("button", { name: "← Back to Food", exact: true })
+      .click();
+    await shot("hierarchy-drilldown");
+    await page.keyboard.press("Escape");
+    await page
+      .getByLabel("Spending breakdown layer", { exact: true })
+      .getByRole("button", { name: "Tags", exact: true })
+      .click();
     await page
       .locator(".dash-filters")
       .getByRole("button", { name: "Groceries", exact: true })
@@ -214,15 +254,12 @@ const stat = (label) =>
     await page.keyboard.press("Escape");
     await page
       .locator(".dash-filters")
-      .getByRole("button", { name: "All categories", exact: true })
+      .getByRole("button", { name: "All tags", exact: true })
       .click();
     assert.equal(await stat("Paid for expenses").textContent(), "$401.00");
     await button("All dates").click();
-    await page
-      .locator(".dash-bar")
-      .filter({ hasText: "Uncategorized" })
-      .click();
-    modal = page.getByRole("dialog", { name: "Uncategorized", exact: true });
+    await page.locator(".dash-bar").filter({ hasText: "Untagged" }).click();
+    modal = page.getByRole("dialog", { name: "Untagged", exact: true });
     assert.equal(await modal.locator(".dash-vendor").count(), 1);
     assert.match(
       await modal.locator(".dash-vendor > summary").textContent(),
@@ -236,6 +273,52 @@ const stat = (label) =>
     await button("August 2026").click();
     await page.getByRole("checkbox", { name: /Include repayments/ }).check();
     assert.equal(await stat("Still paid by you").textContent(), "$251.00");
+    await page
+      .getByRole("navigation", { name: "Dashboard views" })
+      .getByRole("button", { name: "Income", exact: true })
+      .click();
+    assert.equal(await stat("Income received").textContent(), "$1,000.00");
+    assert.equal(await stat("Repayment receipts").textContent(), "$120.01");
+    assert.equal(
+      await page
+        .getByLabel("Monthly income tag chart", { exact: true })
+        .locator(".dash-month-bar")
+        .count(),
+      12,
+    );
+    assert.equal(
+      await page
+        .locator(".dash-filters")
+        .getByRole("button", { name: "Groceries", exact: true })
+        .count(),
+      0,
+    );
+    await shot("income-view");
+    await page
+      .getByRole("button", {
+        name: "September 2026: external receipts $49.99",
+        exact: true,
+      })
+      .click();
+    assert.equal(await stat("Repayment receipts").textContent(), "$49.99");
+    await button("August 2026").click();
+    await page
+      .locator(".dash-filters")
+      .getByRole("button", { name: "Untagged", exact: true })
+      .click();
+    assert.equal(await stat("Income received").textContent(), "$0.00");
+    assert.equal(await stat("Repayment receipts").textContent(), "$120.01");
+    await page.locator(".dash-bar").filter({ hasText: "Untagged" }).click();
+    await page.getByRole("dialog", { name: "Untagged", exact: true }).waitFor();
+    assert.equal(
+      await page.getByRole("dialog").locator(".dash-detail-row").count(),
+      2,
+    );
+    await page.keyboard.press("Escape");
+    await page
+      .locator(".dash-filters")
+      .getByRole("button", { name: "All income tags", exact: true })
+      .click();
     await page
       .getByRole("navigation", { name: "Dashboard views" })
       .getByRole("button", { name: "Cash flow", exact: true })
@@ -332,7 +415,7 @@ const stat = (label) =>
       .fill("2027-01-31");
     await page
       .getByRole("navigation", { name: "Dashboard views" })
-      .getByRole("button", { name: "Spending", exact: true })
+      .getByRole("button", { name: "Expenses", exact: true })
       .click();
     assert.equal(await stat("Paid for expenses").textContent(), "$0.00");
     assert.match(
@@ -349,6 +432,16 @@ const stat = (label) =>
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
+    await page
+      .getByRole("navigation", { name: "Dashboard views" })
+      .getByRole("button", { name: "Income", exact: true })
+      .click();
+    await shot("income-narrow");
+    assert.ok(
+      await page.evaluate(
+        () => document.documentElement.scrollWidth <= innerWidth,
+      ),
+    );
     await button("Cash flow").click();
     await shot("cash-narrow");
     assert.ok(
@@ -356,7 +449,7 @@ const stat = (label) =>
         () => document.documentElement.scrollWidth <= innerWidth,
       ),
     );
-    await button("Spending").click();
+    await button("Expenses").click();
     await button("About these numbers").click();
     await shot("methods-narrow");
     await page.keyboard.press("Escape");
@@ -370,7 +463,7 @@ const stat = (label) =>
         ok: true,
         root,
         checks:
-          "date/category/currency-aware totals, source drilldown, later repayments, cash flow, events, empty/invalid dates, narrow layout, no data mutations",
+          "separate income/expense lenses, category-to-tag drilldown, income tag trends and receipt purposes, date/category/currency-aware totals, source drilldown, later repayments, cash flow, events, empty/invalid dates, narrow layout, no data mutations",
       }),
     );
   } finally {

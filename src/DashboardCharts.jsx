@@ -23,17 +23,6 @@ const tones = [
   "#e3b9be",
   "#d3cea6",
 ];
-const pastel = (color) =>
-  /^#[0-9a-f]{6}$/i.test(color || "")
-    ? "#" +
-      [1, 3, 5]
-        .map((i) =>
-          Math.round(parseInt(color.slice(i, i + 2), 16) * 0.65 + 255 * 0.35)
-            .toString(16)
-            .padStart(2, "0"),
-        )
-        .join("")
-    : tones[0];
 const compact = (n, currency) =>
   new Intl.NumberFormat("en-CA", {
     style: "currency",
@@ -42,44 +31,64 @@ const compact = (n, currency) =>
     maximumFractionDigits: 1,
   }).format(n / 100);
 
-function YearChart({ months, currency, kind, selectedMonth, onMonth, cost }) {
+export function YearChart({
+  months,
+  currency,
+  kind,
+  selectedMonth,
+  onMonth,
+  cost = "net",
+}) {
   const [hover, setHover] = useState(null);
-  const expense = kind === "expenses";
+  const expense = kind === "expenses",
+    incoming = kind === "income",
+    stacked = expense || incoming;
+  const groups = (m) =>
+    incoming ? m.model?.incomeBreakdown || [] : m.model?.categories || [];
+  const value = (m) => (incoming ? m.model.cashIn : m.model[cost]);
+  const partValue = (c) => (incoming ? c.cents : c[cost]);
   const maxValue = Math.max(
     1,
     ...months.map((m) =>
       !m.model
         ? 0
-        : expense
-          ? m.model[cost]
+        : stacked
+          ? value(m)
           : Math.max(m.model.cashIn, m.model.cashOut),
     ),
   );
   const magnitude = 10 ** Math.floor(Math.log10(maxValue));
   const max = Math.ceil(maxValue / magnitude) * magnitude;
   const point = months.find((m) => m.month === hover);
-  const categoryIds = [
-    ...new Set(
-      months.flatMap((m) => m.model?.categories.map((c) => c.id) || []),
-    ),
-  ];
-  const color = (id) =>
-    pastel(
-      months.flatMap((m) => m.model?.categories || []).find((c) => c.id === id)
-        ?.color,
-    );
+  const categoryDefinitions = new Map(
+    months.flatMap(groups).map((c) => [c.id, c]),
+  );
+  const categoryIds = [...categoryDefinitions.keys()].sort((a, b) =>
+    categoryDefinitions
+      .get(a)
+      .name.localeCompare(categoryDefinitions.get(b).name, undefined, {
+        sensitivity: "base",
+      }),
+  );
+  const color = (id) => categoryDefinitions.get(id)?.color || tones[0];
   const label = (m) =>
     !m.model
       ? `${fullMonth(m.month)}: no imported data`
-      : expense
-        ? `${fullMonth(m.month)}: ${cost === "net" ? "after repayments" : "gross expenses"} ${currencyMoney(m.model[cost], currency)}`
-        : `${fullMonth(m.month)}: money in ${currencyMoney(m.model.cashIn, currency)}, money out ${currencyMoney(m.model.cashOut, currency)}`;
+      : incoming
+        ? `${fullMonth(m.month)}: external receipts ${currencyMoney(m.model.cashIn, currency)}`
+        : expense
+          ? `${fullMonth(m.month)}: ${cost === "net" ? "after repayments" : "gross expenses"} ${currencyMoney(m.model[cost], currency)}`
+          : `${fullMonth(m.month)}: money in ${currencyMoney(m.model.cashIn, currency)}, money out ${currencyMoney(m.model.cashOut, currency)}`;
   return (
     <div className="dash-chart-wrap">
       <div
         className="dash-year-chart"
         aria-label={
-          expense ? "Monthly expense chart" : "Monthly money in and out chart"
+          incoming
+            ? "Monthly income tag chart"
+            : expense
+              ? "Monthly expense chart"
+              : "Monthly money in and out chart"
         }
       >
         <div className="dash-axis" aria-hidden="true">
@@ -108,19 +117,19 @@ function YearChart({ months, currency, kind, selectedMonth, onMonth, cost }) {
               <span className="dash-columns" aria-hidden="true">
                 {!m.available ? (
                   <span className="dash-missing">—</span>
-                ) : expense ? (
+                ) : stacked ? (
                   <span
                     className="dash-column dash-expense-column"
-                    style={{ height: `${(100 * m.model[cost]) / max}%` }}
+                    style={{ height: `${(100 * value(m)) / max}%` }}
                   >
                     {categoryIds
-                      .map((id) => m.model.categories.find((c) => c.id === id))
+                      .map((id) => groups(m).find((c) => c.id === id))
                       .filter(Boolean)
                       .map((c) => (
                         <i
                           key={c.id}
                           style={{
-                            height: `${(100 * c[cost]) / Math.max(1, m.model[cost])}%`,
+                            height: `${(100 * partValue(c)) / Math.max(1, value(m))}%`,
                             background: color(c.id),
                           }}
                         />
@@ -149,12 +158,10 @@ function YearChart({ months, currency, kind, selectedMonth, onMonth, cost }) {
           ? label(point)
           : "Select a bar to open that month. — means no imported data."}
       </div>
-      {expense ? (
+      {stacked ? (
         <div className="dash-chart-key">
           {categoryIds.map((id) => {
-            const c = months
-              .flatMap((m) => m.model?.categories || [])
-              .find((c) => c.id === id);
+            const c = months.flatMap(groups).find((c) => c.id === id);
             return (
               <span key={id}>
                 <i style={{ background: color(id) }} />
@@ -186,6 +193,7 @@ export function TrendPanels({
   onMonth,
   year,
   later,
+  layer = "categories",
 }) {
   const [cost, setCost] = useState("net");
   return (
@@ -213,7 +221,7 @@ export function TrendPanels({
           kind="expenses"
         />
         <p className="dash-caption">
-          Selected expense categories ·{" "}
+          Selected expense {layer} ·{" "}
           {later
             ? "all saved repayments"
             : "repayments received by each month end"}
@@ -229,26 +237,23 @@ export function TrendPanels({
           kind="cash"
         />
         <p className="dash-caption">
-          Selected bank-entry categories · internal transfer principal excluded.
-          Fees and unexplained extra remain separate; manual cash excluded.
+          External bank movement · internal transfer principal excluded. Fees
+          and unexplained extra remain separate; manual cash excluded.
         </p>
       </section>
     </div>
   );
 }
 
-export function Composition({ model, money, onCategory, onCash }) {
-  const incoming = model.cashGroups
-    .slice(0, 4)
-    .map((g, i) => ({
-      ...g,
-      value: sum(g.rows, (t) => t.cents),
-      color: tones[(i + 1) % tones.length],
-    }))
-    .filter((g) => g.value);
+export function Composition({ model, money, onCategory, onCash, layer }) {
+  const incoming = model.incomeBreakdown.map((g) => ({
+    ...g,
+    label: g.name,
+    value: g.cents,
+  }));
   const expenses = model.categories
     .filter((c) => c.net > 0)
-    .map((c) => ({ ...c, value: c.net, color: pastel(c.color) }));
+    .map((c) => ({ ...c, value: c.net, color: c.color }));
   const max = Math.max(1, model.net, model.cashIn);
   return (
     <section className="dash-panel dash-composition">
@@ -258,13 +263,13 @@ export function Composition({ model, money, onCategory, onCash }) {
       </div>
       {[
         {
-          name: "Expenses after repayments",
+          name: `Expense ${layer || "categories"} · after repayments`,
           total: model.net,
           items: expenses,
           expense: true,
         },
         {
-          name: "Money in · external receipts",
+          name: "Income tags · external receipts",
           total: model.cashIn,
           items: incoming,
         },

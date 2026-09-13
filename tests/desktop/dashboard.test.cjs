@@ -112,7 +112,7 @@ test("monthly trends preserve missing months and reconcile category filters and 
     categories: ["food"],
   });
   assert.equal(food[7].model.net, 11999);
-  assert.equal(food[7].model.cashIn, 0);
+  assert.equal(food[7].model.cashIn, 112001);
   assert.equal(food[7].model.cashOut, 18000);
   assert.equal(food[6].available, true);
   assert.equal(food[6].model.net, 0);
@@ -229,7 +229,7 @@ test("dashboard reconciles cash, deductions, cross-month receipts, overlapping e
   assert.equal(food.gross, 18000);
   assert.equal(food.repaid, 6001);
   assert.equal(food.net, 11999);
-  assert.equal(food.cashIn, 0);
+  assert.equal(food.cashIn, 112001);
   const home = dashboard(f.records, f.entities, {
     ...opts,
     categories: ["home"],
@@ -317,7 +317,7 @@ test("boundary cash flow excludes linked principal across dates and hidden accou
     100,
   );
   assert.equal(
-    dashboard(rows, [], { ...opts, categories: [TRANSFER_EXCESS] }).cashIn,
+    dashboard(rows, [], { ...opts, incomeTags: [TRANSFER_EXCESS] }).cashIn,
     500,
   );
   assert.equal(
@@ -468,4 +468,146 @@ test("income tags filter receipts independently of expense tags without reclassi
   assert.equal(income.net, all.net);
   assert.equal(all.cashGroups.find((g) => g.id === "repayment").rows.length, 2);
   assert.equal(all.cashGroups.find((g) => g.id === "income").rows.length, 1);
+});
+
+test("typed dashboard layers conserve split tags, category rollups and income receipt purposes", async () => {
+  const { dashboard, monthlyDashboard, UNGROUPED, UNCATEGORIZED } =
+    await import("../../src/dashboard-model.js");
+  const { categoryColors } = await import("../../src/category-colors.js");
+  const f = fixture();
+  f.entities.push(
+    {
+      id: "living",
+      kind: "bucket",
+      name: "Living",
+      gradientStart: "#306090",
+      gradientEnd: "#90c0f0",
+    },
+    {
+      id: "food",
+      kind: "category",
+      name: "Food",
+      parentId: "living",
+      flowType: "expense",
+    },
+    {
+      id: "home",
+      kind: "category",
+      name: "Home",
+      parentId: "living",
+      flowType: "expense",
+    },
+    { id: "income", kind: "category", name: "Salary", flowType: "income" },
+    { id: "interest", kind: "category", name: "Interest", flowType: "income" },
+    {
+      id: "unused",
+      kind: "category",
+      name: "Unused expense",
+      flowType: "expense",
+    },
+    {
+      id: "income",
+      kind: "palette",
+      gradientStart: "#123456",
+      gradientEnd: "#abcdef",
+    },
+  );
+  const salary = f.records.find((r) => r.id === "salary");
+  salary.review.tags = [
+    { id: "income", cents: 70000 },
+    { id: "interest", cents: 30000 },
+  ];
+  const original = structuredClone(f);
+  const opts = {
+    from: "2026-08-01",
+    through: "2026-08-31",
+    layer: "categories",
+  };
+  const m = dashboard(f.records, f.entities, opts);
+  assert.equal(m.categories.find((c) => c.id === "living").gross, 30000);
+  assert.equal(m.categories.find((c) => c.id === "living").repaid, 10001);
+  assert.equal(m.categories.find((c) => c.id === "living").rows.length, 1);
+  assert.ok(
+    !m.categoryOptions.some((c) => c.id === "food" || c.id === "income"),
+  );
+  assert.ok(m.categoryOptions.some((c) => c.id === UNGROUPED));
+  assert.ok(!m.incomeOptions.some((c) => c.id === "living" || c.id === "food"));
+  assert.equal(m.incomeReceived, 100000);
+  assert.equal(m.repaymentReceived, 12001);
+  assert.equal(m.otherReceived, 0);
+  assert.equal(
+    m.incomeBreakdown.reduce((n, g) => n + g.cents, 0),
+    m.cashIn,
+  );
+  const salaryGroup = m.incomeBreakdown.find((c) => c.id === "income");
+  assert.equal(salaryGroup.cents, 70000);
+  assert.equal(salaryGroup.rows[0].cents, 70000);
+  assert.equal(
+    salaryGroup.color,
+    categoryColors(f.entities).find(
+      (e) => e.id === "income" && e.kind === "category",
+    ).color,
+  );
+  const scoped = dashboard(f.records, f.entities, {
+    ...opts,
+    categories: ["living"],
+    incomeTags: ["interest"],
+  });
+  assert.equal(scoped.net, 19999);
+  assert.equal(scoped.cashIn, 30000);
+  assert.equal(scoped.incomeReceived, 30000);
+  assert.equal(scoped.repaymentReceived, 0);
+  const series = monthlyDashboard(f.records, f.entities, {
+    year: "2026",
+    ...opts,
+    incomeTags: ["interest"],
+  });
+  assert.equal(series[7].model.cashIn, 30000);
+  assert.equal(series[8].model.cashIn, 0);
+  assert.equal(series[0].available, false);
+  assert.equal(
+    dashboard(f.records, f.entities, { ...opts, categories: [UNGROUPED] })
+      .gross,
+    0,
+  );
+  assert.equal(
+    dashboard(f.records, f.entities, { ...opts, incomeTags: [UNCATEGORIZED] })
+      .cashIn,
+    12001,
+  );
+  assert.equal(
+    dashboard(
+      f.records,
+      f.entities.filter((e) => e.id !== "unused"),
+      { ...opts, categories: [UNGROUPED] },
+    ).gross,
+    0,
+  );
+  assert.deepEqual(f, original);
+});
+
+test("legacy cross-type assignments stay visible without rolling income tags into expense parents", async () => {
+  const { dashboard } = await import("../../src/dashboard-model.js");
+  const f = fixture();
+  f.entities.push(
+    { id: "food", kind: "category", name: "Groceries", flowType: "expense" },
+    { id: "income", kind: "category", name: "Income", flowType: "income" },
+  );
+  f.records.find((r) => r.id === "salary").review.tags = [
+    { id: "food", cents: 100000 },
+  ];
+  const view = dashboard(f.records, f.entities, {
+    from: "2026-08-01",
+    through: "2026-08-31",
+    layer: "categories",
+  });
+  assert.equal(
+    view.incomeBreakdown.find((g) => g.id === "food").name,
+    "Groceries (legacy expense tag)",
+  );
+  assert.equal(view.incomeReceived, 100000);
+  assert.equal(
+    view.incomeOptions.find((g) => g.id === "food").name,
+    "Groceries (legacy expense tag)",
+  );
 });

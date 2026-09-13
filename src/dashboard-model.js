@@ -1,4 +1,8 @@
+import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { categoryColors } from "./category-colors.js";
+import { systemPalette } from "../electron/review/palette.mjs";
 export const UNCATEGORIZED = "dashboard:uncategorized";
+export const UNGROUPED = "dashboard:ungrouped";
 export const TRANSFER_FEES = "dashboard:transfer-fees";
 export const TRANSFER_EXCESS = "dashboard:transfer-excess";
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
@@ -60,7 +64,7 @@ export function monthlyDashboard(
     categories = [],
     later = false,
     layer = "tags",
-    incomeTags,
+    incomeTags = [],
   },
 ) {
   const available = new Set(availableMonths(records, currency));
@@ -235,30 +239,40 @@ export function dashboard(
     categories = [],
     later = false,
     layer = "tags",
-    incomeTags,
+    incomeTags = [],
   },
 ) {
+  entities = categoryColors(entities);
   const byId = new Map(records.map((t) => [t.id, t]));
   const tags = entities.filter((e) => e.kind === "category");
   const buckets = entities.filter((e) => e.kind === "bucket");
   const bucketIds = new Set(buckets.map((e) => e.id));
   const selected = new Set(
     categories.flatMap((id) =>
-      bucketIds.has(id)
+      id === UNGROUPED
         ? tags
-            .filter((t) => t.parentId === id)
+            .filter(
+              (t) => tagType(t) === "expense" && !bucketIds.has(t.parentId),
+            )
             .map((t) => t.id)
             .concat(id)
-        : [id],
+        : bucketIds.has(id)
+          ? tags
+              .filter((t) => t.parentId === id && tagType(t) === "expense")
+              .map((t) => t.id)
+              .concat(id)
+          : [id],
     ),
   );
-  const rollup = (id) =>
-    layer === "categories"
-      ? tags.find((t) => t.id === id && bucketIds.has(t.parentId))?.parentId ||
-        id
+  const rollup = (id) => {
+    const tag = tags.find((t) => t.id === id);
+    return layer === "categories" && tag && tagType(tag) === "expense"
+      ? bucketIds.has(tag.parentId)
+        ? tag.parentId
+        : UNGROUPED
       : id;
-  const incomingSelection =
-    incomeTags === undefined ? selected : new Set(incomeTags);
+  };
+  const incomingSelection = new Set(incomeTags);
   const portion = (parts, incoming = false) => {
     const selection = incoming ? incomingSelection : selected;
     return sum(parts, (p) =>
@@ -368,7 +382,7 @@ export function dashboard(
   );
   categoryNames.set(UNCATEGORIZED, {
     id: UNCATEGORIZED,
-    name: "Uncategorized",
+    name: "Untagged",
     color: "#b9b2c7",
   });
   categoryNames.set(TRANSFER_FEES, {
@@ -381,15 +395,47 @@ export function dashboard(
     name: "Unexplained transfer extra",
     color: "#b9b2c7",
   });
+  categoryNames.set(UNGROUPED, {
+    ...systemPalette(entities, "ungrouped"),
+    id: UNGROUPED,
+    kind: "bucket",
+    name: "Ungrouped tags",
+  });
+  const expenseUsed = new Set(
+    expenses.flatMap((e) => e.grossParts.map((p) => p.id)),
+  );
+  const incomeUsed = new Set(inflow.flatMap((e) => e.parts.map((p) => p.id)));
+  const definition = (id, lens) => {
+    const entity = categoryNames.get(id);
+    if (!entity) return { id, name: "Archived tag", color: "#b9b2c7" };
+    return entity.kind === "category" && tagType(entity) !== lens
+      ? { ...entity, name: `${entity.name} (legacy ${tagType(entity)} tag)` }
+      : entity;
+  };
+  const incomeMap = new Map();
+  for (const entry of inflow)
+    for (const part of entry.parts) {
+      if (incomingSelection.size && !incomingSelection.has(part.id)) continue;
+      if (!part.cents) continue;
+      if (!incomeMap.has(part.id))
+        incomeMap.set(part.id, {
+          ...definition(part.id, "income"),
+          cents: 0,
+          rows: [],
+        });
+      const group = incomeMap.get(part.id);
+      group.cents += part.cents;
+      group.rows.push({ ...entry, cents: part.cents });
+    }
   for (const e of expenses)
     for (const p of e.grossParts) {
       if (selected.size && !selected.has(p.id)) continue;
       const categoryId = rollup(p.id);
       if (!categoryMap.has(categoryId))
         categoryMap.set(categoryId, {
-          ...(categoryNames.get(categoryId) || {
+          ...(definition(categoryId, "expense") || {
             id: p.id,
-            name: "Archived category",
+            name: "Archived tag",
             color: "#b9b2c7",
           }),
           gross: 0,
@@ -428,14 +474,47 @@ export function dashboard(
     .map((t) => ({ row: t, other: byId.get(t.review.transferId) }));
   return {
     expenses,
-    categories: [...categoryMap.values()].sort((a, b) => b.net - a.net),
-    categoryOptions: [...categoryNames.values()].filter(
-      (e) =>
-        !e.kind ||
-        (layer === "categories"
-          ? e.kind === "bucket" ||
-            (e.kind === "category" && !bucketIds.has(e.parentId))
-          : e.kind === "category"),
+    categories:
+      layer === "tags"
+        ? alphabetical([...categoryMap.values()])
+        : [...categoryMap.values()].sort((a, b) => b.net - a.net),
+    categoryOptions: alphabetical(
+      [
+        ...new Set([
+          ...tags
+            .filter((t) => tagType(t) === "expense")
+            .map((t) => rollup(t.id)),
+          ...(layer === "categories" ? buckets.map((b) => b.id) : []),
+          ...[...expenseUsed].map(rollup),
+          UNCATEGORIZED,
+          TRANSFER_FEES,
+        ]),
+      ].map((id) => definition(id, "expense")),
+    ),
+    incomeOptions: alphabetical(
+      [
+        ...new Set([
+          ...tags.filter((t) => tagType(t) === "income").map((t) => t.id),
+          ...incomeUsed,
+          UNCATEGORIZED,
+          TRANSFER_EXCESS,
+        ]),
+      ].map((id) => definition(id, "income")),
+    ),
+    incomeBreakdown: alphabetical([...incomeMap.values()]),
+    incomeReceived: sum(
+      inflow.filter((t) => t.row.review.kind === "income"),
+      (t) => t.cents,
+    ),
+    repaymentReceived: sum(
+      inflow.filter((t) => t.row.review.kind === "repayment"),
+      (t) => t.cents,
+    ),
+    otherReceived: sum(
+      inflow.filter(
+        (t) => !["income", "repayment"].includes(t.row.review.kind),
+      ),
+      (t) => t.cents,
     ),
     events,
     ...summarize(expenses),

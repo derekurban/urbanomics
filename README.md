@@ -115,3 +115,5 @@ Run the current prototype's calculation checks with `node --test tests/insights-
 The explicitly approved configuration definitions and synthetic examples belong in this repository. Personal imports, financial decisions, snapshots, generated reports and agent proposals remain under ignored `private/`.
 
 Review radial refinement: each category and tag level uses one growing circle with fixed-size targets, never concentric overflow rings or pages. The expanded tag circle closes when the pointer leaves its circular boundary, including during captured card drags; moving between its tags keeps it open. Keyboard expansion stays until pointer movement leaves, Escape, or Back. Keep the dragged stack below the tags and preserve single-save/cancel behavior.
+
+Dashboard now separates **Expenses** and **Income** alongside Cash flow and Events. Expenses rolls tags into broad categories with tag/vendor drilldowns. Income shows flat income tags, monthly receipts, and saved income versus repayments and unassigned money. Filters are independent; palettes match Organize.

@@ -970,7 +970,9 @@
   stroke: #5d825f;
   stroke-width: 3;
 }
-.dash-network-label:focus-visible { outline: none; }
+.dash-network-label:focus-visible {
+  outline: none;
+}
 .dash-network-hit {
   cursor: pointer;
 }
@@ -991,4 +993,32 @@
     grid-template-columns: minmax(0, 1fr) minmax(135px, 1fr) minmax(0, 1fr);
     padding: 12px;
   }
+}
+
+.dash-income-view {
+  display: grid;
+  gap: 20px;
+}
+.dash-drill-tags {
+  margin: 12px 0 20px;
+  padding: 12px 16px;
+  background: #f3f6f0;
+  border-radius: 14px;
+}
+.dash-drill-tags h3 {
+  margin: 0 0 8px;
+  font-size: 14px;
+}
+.dash-drill-tags small {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  text-align: right;
+}
+.dash-tag-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  margin-right: 8px;
 }

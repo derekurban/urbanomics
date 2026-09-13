@@ -1,6 +1,6 @@
 # Dashboard
 
-The sidebar Dashboard implements the accepted Spending / Cash flow / Events mockup against the current local ledger and saved assignments. It is read-only: it uses `reviewState`, and source actions open the existing original-transaction inspector. Nothing is exported to a service, added to configuration SQL, or written back as a financial decision.
+The sidebar Dashboard implements the accepted Expenses / Income / Cash flow / Events mockup against the current local ledger and saved assignments. It is read-only: it uses `reviewState`, and source actions open the existing original-transaction inspector. Nothing is exported to a service, added to configuration SQL, or written back as a financial decision.
 
 ## Scope and measurements
 
@@ -15,7 +15,7 @@ The sidebar Dashboard implements the accepted Spending / Cash flow / Events mock
 
 ## Category attribution
 
-Cash flow filters use each unlinked transaction’s own category portions; linked fee and unexplained extra use their own derived categories, so internal principal cannot return through a category filter. Spending filters use the expense's portions, so a repayment categorized differently still reduces its linked expense. Missing assignments use an explicit Uncategorized bucket. No income purpose, transfer link, event membership or sender is inferred from a category's name.
+Cash flow filters use each unlinked transaction’s own category portions; linked fee and unexplained extra use their own derived categories, so internal principal cannot return through a category filter. Spending filters use the expense's portions, so a repayment categorized differently still reduces its linked expense. Missing assignments use an explicit Untagged bucket. No income purpose, transfer link, event membership or sender is inferred from a category's name.
 
 For each expense, process payments in stable date/ID order. Distribute each applied amount proportionally across its remaining category costs, using integer largest-remainder rounding with BigInt multiplication. This conserves every cent and prevents repeated small payments from overdrawing one category. Filtering happens after allocation, so independent category totals and combined selections reconcile. Outstanding agreed shares are apportioned over remaining costs; original own shares are apportioned over gross costs. Display allocation is derived and does not change saved repayment links or splits.
 
@@ -31,7 +31,7 @@ The dashboard does not estimate unrecorded debt, auto-identify refunds or transf
 
 ## Monthly trends, vendors and account standing
 
-The Spending view leads with two zero-based year charts: stacked expense categories and paired bank money-in/money-out bars. Each uses its own labeled amount scale. Selecting a bar selects that month without shortening the year comparison. Category filters apply throughout the year; a month with imports but no matching expense has zero expenses, while a month with no imported data has a gap. Expense trends switch between gross and after repayments. The default receipt cutoff is each expense month's end; the later-payments option applies all saved receipts to their original expense months. Category colors and stack order stay consistent across months. The selected period also has stacked expense and incoming-money composition bars on a shared amount scale, with exact amounts and drilldowns in their legends.
+The Expenses view leads with two zero-based year charts: stacked expense categories and paired bank money-in/money-out bars. Each uses its own labeled amount scale. Selecting a bar selects that month without shortening the year comparison. Category filters apply throughout the year; a month with imports but no matching expense has zero expenses, while a month with no imported data has a gap. Expense trends switch between gross and after repayments. The default receipt cutoff is each expense month's end; the later-payments option applies all saved receipts to their original expense months. Category colors and stack order stay consistent across months. The selected period also has stacked expense and incoming-money composition bars on a shared amount scale, with exact amounts and drilldowns in their legends.
 
 Category drilldowns default to **By vendor**, grouping by saved alias identity when available, otherwise the normalized displayed transaction name (trimmed and case-insensitive). No fuzzy merchant inference occurs. Groups sum selected gross portions, received repayments and remaining costs exactly. Expand a vendor to see individual payment dates and accounts; expand a payment for deductions and original-source actions. **Full list** shows the same contributing expenses without vendor groups.
 
@@ -45,6 +45,17 @@ Boundary-flow regression checks cover cent conservation, fee/extra categories, c
 
 ## Category hierarchy
 
-The Categories / Tags switch selects broad parent rollups or individual tag breakdowns. Tags retain the legacy kind `category` in storage; broad categories use `bucket`. Rollups happen after per-tag repayment allocation, preserving cent rounding. Parent filters resolve to unique child IDs, and sibling portions show a transaction once in drilldowns. Ungrouped tags stay individually visible in the category view until assigned a parent. Moving a tag updates its category for historical and future reports without rewriting its transaction portions. See [hierarchy behavior](tag-hierarchy.md).
+The Categories / Tags switch selects broad parent rollups or individual tag breakdowns. Tags retain the legacy kind `category` in storage; broad categories use `bucket`. Rollups happen after per-tag repayment allocation, preserving cent rounding. Parent filters resolve to unique child IDs, and sibling portions show a transaction once in drilldowns. Ungrouped expense tags roll into **Ungrouped tags** in the category view; this is distinct from **Untagged**, which means no assignment. Moving a tag updates its category for historical and future reports without rewriting its transaction portions. See [hierarchy behavior](tag-hierarchy.md).
 
 Cash flow now has independent expense-category/tag and income-tag filters. Selecting expense tags does not discard incoming receipts. Selecting income tags does not change expense totals or repayment attribution. Tagging never changes the financial-purpose classifications used for income versus repayments.
+
+
+## Separate income and expense views — September 12
+
+Expenses shows gross costs, received deductions and remaining costs, grouped by broad expense categories or alphabetical expense tags. Opening a broad category shows its tag portions before the vendor/list breakdown; opening a child tag keeps an explicit Back control. Categories aggregate after exact-cent tag-level allocation, preserving split expenses and shared-cost deductions. Ungrouped tags and untagged transactions remain distinct. Category midpoints and inherited tag gradients come from the same palettes as Organize, without a second pastel transformation.
+
+Income has its own flat tag selection, twelve-month stacked incoming-money chart, per-tag receipts and source drilldowns. Its cards separate saved income purposes, repayment receipts (including any unallocated remainder), and other/unassigned receipts including transfer extra. Tagging alone never promotes money to earned income. The tag breakdown and monthly stacks include all selected external bank receipts and reconcile to their total; each tag drilldown uses only that tag's portion. Manual cash is shown separately from bank totals.
+
+Expense and income filters are independent even for direct model callers. Expenses/Events ignore saved income selections; Income ignores saved expense selections. Cash flow uses both filters and displays each selection's scope, while account standing/routes remain whole-account views. Linked principal stays excluded; outgoing fees and unexplained incoming extra remain derived portions. Legacy cross-type or missing tag definitions remain inspectable, with explicit labels rather than disappearing from totals or being rewritten. No schema, transaction or configuration migration is required for this dashboard update.
+
+Validation adds typed split-tag receipt conservation, category and child drilldown totals, inherited palette colors, independent monthly/filter results, empty ungrouped selections, legacy assignments, and input immutability. Electron checks cover the category → tag → vendor path, Income trend month selection, Untagged receipt filtering, source details, narrow layouts and unchanged saved records.
