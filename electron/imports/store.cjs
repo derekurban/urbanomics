@@ -44,7 +44,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 15) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 16) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -236,6 +236,26 @@ class ImportStore {
         this.db.exec(
           "CREATE TABLE IF NOT EXISTS category_palettes (id TEXT PRIMARY KEY CHECK(id IN ('income','ungrouped')), gradientStart TEXT NOT NULL, gradientEnd TEXT NOT NULL); PRAGMA user_version=15; COMMIT",
         );
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 16) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        const columns = this.db
+          .prepare("PRAGMA table_info(transaction_rules)")
+          .all();
+        if (!columns.some((c) => c.name === "matchType"))
+          this.db.exec(
+            "ALTER TABLE transaction_rules ADD COLUMN matchType TEXT NOT NULL DEFAULT 'regex' CHECK(matchType IN ('regex','aliases'))",
+          );
+        if (!columns.some((c) => c.name === "aliasIds"))
+          this.db.exec(
+            "ALTER TABLE transaction_rules ADD COLUMN aliasIds TEXT NOT NULL DEFAULT '[]'",
+          );
+        this.db.exec("PRAGMA user_version=16; COMMIT");
       } catch (error) {
         this.db.exec("ROLLBACK");
         throw error;

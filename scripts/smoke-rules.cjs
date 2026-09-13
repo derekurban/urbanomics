@@ -69,6 +69,7 @@ store.review.linkTransfer(
   200,
 );
 store.aliases.save({ name: "Friendly market", pattern: "^MARKET 100" });
+store.aliases.save({ name: "Corner cafe", pattern: "^CORNER" });
 const rawBefore = store.db
   .prepare("SELECT * FROM transactions ORDER BY id")
   .all();
@@ -113,6 +114,7 @@ async function newRule(name, pattern, cat, who) {
   const d = page.getByRole("dialog", { name: "New rule", exact: true });
   await d.getByLabel("Name", { exact: true }).fill(name);
   await d.getByLabel("Direction", { exact: true }).selectOption("out");
+  await d.getByRole("button", { name: "Regex", exact: true }).click();
   await d.getByLabel("Bank description regex", { exact: true }).fill(pattern);
   if (cat) await d.getByLabel("Tag", { exact: true }).selectOption(cat);
   if (who) await d.getByLabel("Person", { exact: true }).selectOption(who);
@@ -147,7 +149,87 @@ async function save(d) {
       "true",
     );
     await freshRules();
-    let d = await newRule("Market groceries", "^MARKET", category, person);
+    await page
+      .getByRole("button", { name: "+ New rule", exact: true })
+      .first()
+      .click();
+    let d = page.getByRole("dialog", { name: "New rule", exact: true });
+    assert.equal(
+      await d
+        .getByRole("button", { name: "Aliases / vendors", exact: true })
+        .getAttribute("aria-pressed"),
+      "true",
+    );
+    assert.equal(
+      await d.getByLabel("Bank description regex", { exact: true }).count(),
+      0,
+    );
+    await d.getByLabel("Name", { exact: true }).fill("Saved vendors");
+    await d.getByLabel("Tag", { exact: true }).selectOption(category);
+    await d.getByLabel("Person", { exact: true }).selectOption(person);
+    await d
+      .getByRole("checkbox", { name: "Friendly market", exact: true })
+      .check();
+    await d
+      .getByLabel("Search aliases / vendors", { exact: true })
+      .fill("corner");
+    await d.getByRole("checkbox", { name: "Corner cafe", exact: true }).check();
+    assert.equal(
+      await d
+        .getByRole("button", { name: "Remove Friendly market", exact: true })
+        .count(),
+      1,
+    );
+    await d.getByText("1 match", { exact: true }).waitFor();
+    await shot("alias-rule-picker");
+    await page.setViewportSize({ width: 900, height: 720 });
+    await d.getByLabel("Search aliases / vendors", { exact: true }).fill("");
+    await shot("alias-rule-narrow");
+    const bounds = await d.evaluate((el) => ({
+      width: el.clientWidth,
+      scroll: el.scrollWidth,
+    }));
+    assert.ok(
+      bounds.scroll <= bounds.width + 1,
+      "alias editor fits without horizontal overflow",
+    );
+    await save(d);
+    let aliasState = await state();
+    const aliasRule = aliasState.rules.find((r) => r.name === "Saved vendors");
+    assert.equal(aliasRule.matchType, "aliases");
+    assert.equal(aliasRule.aliasIds.length, 2);
+    assert.equal(aliasRule.pattern, "");
+    assert.equal(
+      aliasState.records.find((r) => r.description === "Friendly market").review
+        .tags.length,
+      0,
+    );
+    await page
+      .getByRole("button", { name: "Edit rule Saved vendors", exact: true })
+      .first()
+      .click();
+    d = page.getByRole("dialog", { name: "Edit rule", exact: true });
+    assert.ok(
+      await d
+        .getByRole("checkbox", { name: "Friendly market", exact: true })
+        .isChecked(),
+    );
+    await d
+      .getByRole("button", { name: "Remove Corner cafe", exact: true })
+      .click();
+    await d.getByRole("button", { name: "Cancel", exact: true }).click();
+    assert.equal(
+      (await state()).rules.find((r) => r.id === aliasRule.id).aliasIds.length,
+      2,
+    );
+    // Clear only the synthetic rule so the established regression flow starts clean.
+    await page.evaluate(
+      (r) => window.urbanomics.removeTransactionRule(r.id, r.version),
+      aliasRule,
+    );
+    await page.setViewportSize({ width: 1440, height: 1000 });
+    await freshRules();
+    d = await newRule("Market groceries", "^MARKET", category, person);
     await d.getByText("2 matches", { exact: true }).waitFor();
     assert.equal((await state()).rules.length, 0);
     await shot("rule-preview");
@@ -376,7 +458,7 @@ async function save(d) {
         ok: true,
         root,
         checks:
-          "overview linked navigation; live previews; conflicts; explicit apply; manual protection; person edit; stale apply; new-vs-repeat imports; regex errors; deletion; narrow/focused layouts; raw preservation",
+          "alias multi-select/search/persistence/cancel; regex mode; overview linked navigation; live previews; conflicts; explicit apply; manual protection; person edit; stale apply; new-vs-repeat imports; regex errors; deletion; narrow/focused layouts; raw preservation",
       }),
     );
   } finally {

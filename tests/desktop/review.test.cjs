@@ -185,7 +185,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
   assert.deepEqual(c.store.review.records(), records);
   assert.equal(
     c.store.db.prepare("PRAGMA user_version").get().user_version,
-    15,
+    16,
   );
   assert.equal(
     c.store.review.entities().filter((e) => e.kind === "tag").length,

@@ -231,10 +231,22 @@ function CandidateList({ candidates, byId, onEditRule, pageSize = 25 }) {
   );
 }
 
-function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
+function RuleEditor({
+  rule,
+  aliases,
+  categories,
+  people,
+  byId,
+  act,
+  busy,
+  onClose,
+}) {
+  const [aliasQuery, setAliasQuery] = useState("");
   const [draft, setDraft] = useState({
     name: rule.name || "",
     pattern: rule.pattern || "",
+    matchType: rule.matchType || (rule.id ? "regex" : "aliases"),
+    aliasIds: rule.aliasIds || [],
     categoryId: rule.categoryId || "",
     personId: rule.personId || "",
     direction: rule.direction || "any",
@@ -252,7 +264,9 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
     () => ({
       ...(rule.id ? { id: rule.id, version: rule.version } : {}),
       name: draft.name.trim(),
-      pattern: draft.pattern,
+      pattern: draft.matchType === "regex" ? draft.pattern : "",
+      matchType: draft.matchType,
+      aliasIds: draft.matchType === "aliases" ? draft.aliasIds : [],
       categoryId: draft.categoryId || null,
       personId: draft.personId || null,
       direction: draft.direction,
@@ -262,7 +276,13 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
   );
   const signature = JSON.stringify(values);
   const mapped = !!(values.categoryId || values.personId),
-    complete = !!(values.name && values.pattern.trim() && mapped);
+    complete = !!(
+      values.name &&
+      (values.matchType === "aliases"
+        ? values.aliasIds.length
+        : values.pattern.trim()) &&
+      mapped
+    );
   const fresh = preview && preview.signature === signature,
     failed = previewError && previewError.signature === signature;
 
@@ -372,21 +392,120 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
               ))}
             </select>
           </label>
-          <label className="rl-span">
-            Bank description regex
-            <input
-              className="rl-regex"
-              maxLength={256}
-              spellCheck={false}
-              placeholder={"e.g. ^GREEN GROCER(?:\\s|$)"}
-              value={draft.pattern}
-              onChange={(e) => update("pattern", e.target.value)}
-            />
-          </label>
-          <p className="rv-help rl-span">
-            Matches the original bank description, not its alias. Use ^ and $ to
-            anchor. RE2 syntax; no / delimiters, lookarounds or backreferences.
-          </p>
+          <div
+            className="rl-span segmented"
+            role="group"
+            aria-label="Match using"
+          >
+            {[
+              ["aliases", "Aliases / vendors"],
+              ["regex", "Regex"],
+            ].map(([id, label]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={draft.matchType === id}
+                className={draft.matchType === id ? "selected" : ""}
+                onClick={() => update("matchType", id)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {draft.matchType === "regex" ? (
+            <>
+              <label className="rl-span">
+                Bank description regex
+                <input
+                  className="rl-regex"
+                  maxLength={256}
+                  spellCheck={false}
+                  placeholder={"e.g. ^GREEN GROCER(?:\\s|$)"}
+                  value={draft.pattern}
+                  onChange={(e) => update("pattern", e.target.value)}
+                />
+              </label>
+              <p className="rv-help rl-span">
+                Matches the original bank description, not its alias. Use ^ and
+                $ to anchor. RE2 syntax; no / delimiters, lookarounds or
+                backreferences.
+              </p>
+            </>
+          ) : (
+            <div className="rl-span rl-alias-picker">
+              <label>
+                Search aliases / vendors
+                <input
+                  type="search"
+                  placeholder="Find a saved vendor…"
+                  value={aliasQuery}
+                  onChange={(e) => setAliasQuery(e.target.value)}
+                />
+              </label>
+              <div className="rl-alias-selected" aria-label="Selected aliases">
+                {draft.aliasIds.map((id) => (
+                  <button
+                    type="button"
+                    key={id}
+                    aria-label={`Remove ${aliases.find((a) => a.id === id)?.name || "missing alias"}`}
+                    onClick={() =>
+                      update(
+                        "aliasIds",
+                        draft.aliasIds.filter((x) => x !== id),
+                      )
+                    }
+                  >
+                    {aliases.find((a) => a.id === id)?.name || "Missing alias"}{" "}
+                    <span aria-hidden="true">×</span>
+                  </button>
+                ))}
+              </div>
+              <div
+                className="rl-alias-options"
+                role="group"
+                aria-label="Available aliases"
+              >
+                {alphabetical(aliases)
+                  .filter((a) =>
+                    a.name
+                      .toLowerCase()
+                      .includes(aliasQuery.trim().toLowerCase()),
+                  )
+                  .map((a) => (
+                    <label key={a.id} className="rl-alias-option">
+                      <input
+                        type="checkbox"
+                        checked={draft.aliasIds.includes(a.id)}
+                        onChange={(e) =>
+                          update(
+                            "aliasIds",
+                            e.target.checked
+                              ? [...draft.aliasIds, a.id]
+                              : draft.aliasIds.filter((id) => id !== a.id),
+                          )
+                        }
+                      />
+                      <span>{a.name}</span>
+                    </label>
+                  ))}
+                {!aliases.length ? (
+                  <p className="rl-muted">
+                    Create vendors in Organize → Aliases first, or use Regex.
+                  </p>
+                ) : (
+                  !aliases.some((a) =>
+                    a.name
+                      .toLowerCase()
+                      .includes(aliasQuery.trim().toLowerCase()),
+                  ) && <p className="rl-muted">No aliases match this search.</p>
+                )}
+              </div>
+              <p className="rv-help">
+                {draft.aliasIds.length} selected · Matches any selected alias
+                using its current definition. Ambiguous aliases are skipped.
+              </p>
+            </div>
+          )}
           <label>
             Tag
             <select
@@ -455,7 +574,8 @@ function RuleEditor({ rule, categories, people, byId, act, busy, onClose }) {
           </div>
           {!complete ? (
             <p className="rl-muted">
-              Add a name, a pattern and at least one mapping to see matches.
+              Add a name, aliases or a regex, and at least one mapping to see
+              matches.
             </p>
           ) : failed ? (
             <p role="alert" className="dr-error-text">
@@ -581,6 +701,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
 
   const rules = state?.rules || [],
     entities = state?.entities || [],
+    aliases = state?.aliases || [],
     candidates = state?.candidates || [];
   const byId = useMemo(
     () => new Map(entities.map((e) => [e.id, e])),
@@ -608,7 +729,9 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
     (r) => !r.deleted && !r.review?.tags?.length,
   ).length;
   const shownRules = rules.filter((r) =>
-    `${r.name} ${r.pattern}`.toLowerCase().includes(query.toLowerCase()),
+    `${r.name} ${r.pattern} ${(r.aliasIds || []).map((id) => aliases.find((a) => a.id === id)?.name || "").join(" ")}`
+      .toLowerCase()
+      .includes(query.toLowerCase()),
   );
   const editByName = (name) => {
     const rule = rules.find((r) => r.name === name);
@@ -621,8 +744,8 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
         <div>
           <h2>Rules</h2>
           <p>
-            Match the original bank description and fill in a tag or a person
-            automatically.
+            Match saved vendors or a bank-description regex to fill in a tag or
+            person automatically.
           </p>
         </div>
         <button
@@ -743,9 +866,8 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
             <div className="og-empty rl-empty">
               <h3>No rules yet.</h3>
               <p>
-                A rule watches the original bank description, like a recurring
-                merchant or a payroll line, and fills in a tag or person on
-                import.
+                Choose your saved vendors or a description regex, then assign a
+                tag or person for future imports.
                 {uncategorized
                   ? ` Right now ${plural(uncategorized, "active transaction has", "active transactions have")} no tag.`
                   : ""}
@@ -765,7 +887,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
                   className="og-search"
                   type="search"
                   aria-label="Search rules"
-                  placeholder="Find a rule name or regex…"
+                  placeholder="Find a rule, vendor or regex…"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
@@ -776,7 +898,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
               {!shownRules.length ? (
                 <div className="og-empty">
                   <h3>No matching rules.</h3>
-                  <p>Try another name or part of the regex.</p>
+                  <p>Try another name, vendor or part of the regex.</p>
                 </div>
               ) : (
                 <div className="rl-rules">
@@ -800,7 +922,29 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
                               </span>
                             )}
                           </div>
-                          <code title={r.pattern}>{r.pattern}</code>
+                          {r.matchType === "aliases" ? (
+                            <div
+                              className="rl-vendor-summary"
+                              title={(r.aliasIds || [])
+                                .map(
+                                  (id) =>
+                                    aliases.find((a) => a.id === id)?.name ||
+                                    "Missing alias",
+                                )
+                                .join(", ")}
+                            >
+                              Vendors ·{" "}
+                              {(r.aliasIds || [])
+                                .map(
+                                  (id) =>
+                                    aliases.find((a) => a.id === id)?.name ||
+                                    "Missing alias",
+                                )
+                                .join(", ")}
+                            </div>
+                          ) : (
+                            <code title={r.pattern}>{r.pattern}</code>
+                          )}
                           <Mapping
                             categoryId={r.categoryId}
                             personId={r.personId}
@@ -872,6 +1016,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
         <RuleEditor
           key={editing.id || "new"}
           rule={editing}
+          aliases={aliases}
           categories={categories}
           people={people}
           byId={byId}

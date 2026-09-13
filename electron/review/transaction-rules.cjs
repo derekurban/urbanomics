@@ -10,7 +10,11 @@ class TransactionRuleStore {
     return this.db
       .prepare("SELECT * FROM transaction_rules ORDER BY name,id")
       .all()
-      .map((r) => ({ ...r, enabled: !!r.enabled }));
+      .map((r) => ({
+        ...r,
+        aliasIds: JSON.parse(r.aliasIds),
+        enabled: !!r.enabled,
+      }));
   }
   normalize(values, preview = false) {
     if (!values || typeof values !== "object")
@@ -20,7 +24,25 @@ class TransactionRuleStore {
       typeof values.pattern === "string" ? values.pattern.trim() : "";
     if ((!preview && !name) || name.length > 80)
       throw new Error("Give the rule a name of up to 80 characters.");
-    this.imports.aliases.regex(pattern);
+    const matchType = values.matchType || "regex";
+    if (!["regex", "aliases"].includes(matchType))
+      throw new Error("Choose aliases or a regex to match.");
+    let aliasIds = [];
+    if (matchType === "regex") this.imports.aliases.regex(pattern);
+    else {
+      if (
+        !Array.isArray(values.aliasIds) ||
+        !values.aliasIds.length ||
+        values.aliasIds.some((id) => typeof id !== "string")
+      )
+        throw new Error("Select at least one existing alias.");
+      aliasIds = [...new Set(values.aliasIds)].sort();
+      const available = new Set(this.imports.aliases.rules().map((a) => a.id));
+      if (aliasIds.some((id) => !available.has(id)))
+        throw new Error(
+          "A selected alias is no longer available. Refresh and select again.",
+        );
+    }
     const categoryId = values.categoryId || "",
       personId = values.personId || "",
       direction = values.direction || "any";
@@ -54,7 +76,9 @@ class TransactionRuleStore {
     return {
       id: values.id || "",
       name: name || "Draft rule",
-      pattern,
+      pattern: matchType === "regex" ? pattern : "",
+      matchType,
+      aliasIds,
       categoryId,
       personId,
       direction,
@@ -76,7 +100,7 @@ class TransactionRuleStore {
       const id = old?.id || randomUUID();
       this.db
         .prepare(
-          "INSERT INTO transaction_rules(id,name,pattern,categoryId,personId,direction,enabled,version) VALUES(?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,pattern=excluded.pattern,categoryId=excluded.categoryId,personId=excluded.personId,direction=excluded.direction,enabled=excluded.enabled,version=excluded.version",
+          "INSERT INTO transaction_rules(id,name,pattern,categoryId,personId,direction,enabled,version,matchType,aliasIds) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,pattern=excluded.pattern,categoryId=excluded.categoryId,personId=excluded.personId,direction=excluded.direction,enabled=excluded.enabled,version=excluded.version,matchType=excluded.matchType,aliasIds=excluded.aliasIds",
         )
         .run(
           id,
@@ -87,6 +111,8 @@ class TransactionRuleStore {
           r.direction,
           +r.enabled,
           (old?.version || 0) + 1,
+          r.matchType,
+          JSON.stringify(r.aliasIds),
         );
       return id;
     });
@@ -102,8 +128,15 @@ class TransactionRuleStore {
     const entities = this.imports.review.entities();
     const compiled = rules
       .filter((r) => r.enabled)
-      .map((r) => ({ ...r, regex: this.imports.aliases.regex(r.pattern) }));
-    return records
+      .map((r) => ({
+        ...r,
+        regex:
+          r.matchType === "aliases"
+            ? null
+            : this.imports.aliases.regex(r.pattern),
+      }));
+    return this.imports.aliases
+      .decorate(records)
       .filter((t) => !t.deleted && !t.manual)
       .flatMap((row) => {
         const matched = compiled.filter(
@@ -116,7 +149,11 @@ class TransactionRuleStore {
               !r.categoryId ||
               tagType(entities.find((e) => e.id === r.categoryId)) ===
                 tagLens(row)) &&
-            r.regex.test(row.originalDescription ?? row.description),
+            (r.matchType === "aliases"
+              ? !!row.aliasId &&
+                !row.aliasConflicts?.length &&
+                r.aliasIds.includes(row.aliasId)
+              : r.regex.test(row.originalDescription ?? row.description)),
         );
         if (!matched.length) return [];
         const categoryIds = [
@@ -147,13 +184,11 @@ class TransactionRuleStore {
               );
             else if (!row.review.tags.length && row.amountCents !== 0)
               changes.categoryId = categoryId;
-            else if (
-              !(
-                row.review.tags.length === 1 &&
-                row.review.tags[0].id === categoryId &&
-                row.review.tags[0].cents === Math.abs(row.amountCents)
-              )
-            )
+            else if (!(
+              row.review.tags.length === 1 &&
+              row.review.tags[0].id === categoryId &&
+              row.review.tags[0].cents === Math.abs(row.amountCents)
+            ))
               reasons.push(
                 "Existing categories or a zero amount are protected.",
               );
@@ -198,11 +233,13 @@ class TransactionRuleStore {
   }
   state() {
     const rules = this.rules(),
-      { records, entities } = this.imports.review.state();
+      { records, entities } = this.imports.review.state(),
+      aliases = this.imports.aliases.rules();
     const token = createHash("sha256")
       .update(
         JSON.stringify({
           rules,
+          aliases,
           entities,
           records: records.map((r) => [
             r.id,
@@ -219,6 +256,7 @@ class TransactionRuleStore {
       .digest("hex");
     return {
       rules,
+      aliases,
       records,
       entities,
       candidates: this.candidates(records, rules),

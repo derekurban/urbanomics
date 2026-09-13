@@ -32,6 +32,8 @@ const tables = {
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [
+    "matchType",
+    "aliasIds",
     "id",
     "name",
     "pattern",

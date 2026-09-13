@@ -299,7 +299,7 @@ test("schema 11 adds empty rule tables without rewriting existing ledger or revi
   s.close();
   s = new ImportStore(root);
   try {
-    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 15);
+    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 16);
     for (const [name, rows] of Object.entries(before))
       assert.deepEqual(
         s.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),
@@ -346,4 +346,208 @@ test("linked transfer metadata and source rows are protected from automatic mapp
   assert.ok(state.candidates.every((c) => c.status === "protected"));
   assert.equal(store.transactionRules.apply(state.token).applied, 0);
   assert.deepEqual(store.review.records(), before);
+});
+
+test("alias-set rules reuse live definitions, preserve decisions, reject stale alias previews and round-trip configuration", (t) => {
+  const f = setup(t),
+    { store } = f;
+  const market = store.aliases.save({
+    name: "Friendly market",
+    pattern: "^MARKET",
+  });
+  const cafe = store.aliases.save({ name: "Cafe", pattern: "^CAFE" });
+  f.importRows([
+    ["MARKET private purchase", -25],
+    ["CAFE private purchase", -12],
+    ["OTHER", -10],
+  ]);
+  const raw = store.db.prepare("SELECT * FROM transactions ORDER BY id").all();
+  const id = store.transactionRules.save(
+    f.values({
+      matchType: "aliases",
+      aliasIds: [market, cafe, market],
+      pattern: "[invalid unused",
+      personId: f.person,
+    }),
+  );
+  let r = store.transactionRules.rules()[0];
+  assert.equal(r.pattern, "");
+  assert.equal(r.matchType, "aliases");
+  assert.deepEqual(r.aliasIds, [market, cafe].sort());
+  assert.ok(store.review.records().every((r) => !r.review.tags.length));
+  let state = store.transactionRules.state();
+  assert.equal(state.candidates.length, 2);
+  assert.ok(state.candidates.every((c) => c.status === "ready"));
+  const oldToken = state.token;
+  store.aliases.save({
+    ...store.aliases.rules().find((a) => a.id === market),
+    name: "Renamed vendor",
+  });
+  assert.throws(() => store.transactionRules.apply(oldToken), /changed/);
+  state = store.transactionRules.state();
+  assert.equal(store.transactionRules.apply(state.token).applied, 2);
+  assert.equal(
+    store.review.records().find((r) => r.aliasId === market).review
+      .assignedPersonId,
+    f.person,
+  );
+  const tagged = store.review.records().find((r) => r.aliasId === market);
+  store.review.organize([
+    {
+      id: tagged.id,
+      version: tagged.version,
+      tags: [{ id: f.other, cents: 2500 }],
+    },
+  ]);
+  const versions = store.review.records().map((r) => [r.id, r.version]);
+  store.aliases.save({
+    ...store.aliases.rules().find((a) => a.id === cafe),
+    pattern: "^COFFEE",
+  });
+  assert.deepEqual(
+    store.review.records().map((r) => [r.id, r.version]),
+    versions,
+  );
+  f.importRows([
+    ["MARKET private purchase", -25],
+    ["CAFE private purchase", -12],
+    ["OTHER", -10],
+    ["COFFEE new", -5],
+    ["CAFE no longer matches", -3],
+  ]);
+  const rows = store.review.records();
+  assert.equal(rows.find((r) => r.id === tagged.id).review.tags[0].id, f.other);
+  assert.deepEqual(
+    rows.find((r) => r.originalDescription === "COFFEE new").review.tags,
+    [{ id: f.category, cents: 500 }],
+  );
+  assert.equal(
+    rows.find((r) => r.description === "CAFE no longer matches").review.tags
+      .length,
+    0,
+  );
+  for (const original of raw)
+    assert.deepEqual(
+      store.db
+        .prepare("SELECT * FROM transactions WHERE id=?")
+        .get(original.id),
+      original,
+    );
+  assert.throws(() => store.aliases.remove(market, 2), /used by rules/);
+  store.transactionRules.save({ ...r, enabled: false });
+  assert.throws(() => store.aliases.remove(market, 2), /used by rules/);
+  const sql = configurationSQL(store.db);
+  assert.match(sql, /"aliasIds"/);
+  assert.doesNotMatch(sql, /private purchase|transaction_rule_applications/);
+  const file = path.join(f.root, "alias-config.sql");
+  fs.writeFileSync(file, sql);
+  const fresh = new ImportStore(path.join(f.root, "alias-seeded"));
+  try {
+    seedConfiguration(fresh.db, file);
+    assert.deepEqual(
+      fresh.transactionRules.rules(),
+      store.transactionRules.rules(),
+    );
+  } finally {
+    fresh.close();
+  }
+  r = store.transactionRules.rules()[0];
+  store.transactionRules.save({ ...r, matchType: "regex", pattern: "^MARKET" });
+  assert.deepEqual(store.transactionRules.rules()[0].aliasIds, []);
+  store.aliases.remove(market, 2);
+  assert.equal(store.transactionRules.rules()[0].id, id);
+});
+
+test("alias matching skips ambiguous vendors, validates references and combines with regex rules conservatively", (t) => {
+  const f = setup(t),
+    { store } = f;
+  const market = store.aliases.save({ name: "Market", pattern: "^MARKET" });
+  store.aliases.save({ name: "Corner", pattern: "CORNER" });
+  const values = f.values({ matchType: "aliases", aliasIds: [market] });
+  for (const ids of [[], ["missing"], "bad", [12]])
+    assert.throws(
+      () => store.transactionRules.save({ ...values, aliasIds: ids }),
+      /alias/,
+    );
+  assert.throws(
+    () => store.transactionRules.save({ ...values, matchType: "unknown" }),
+    /regex/,
+  );
+  store.transactionRules.save(values);
+  store.transactionRules.save(
+    f.values({ name: "Person", categoryId: "", personId: f.person }),
+  );
+  f.importRows([
+    ["MARKET CORNER", -5],
+    ["MARKET UNIQUE", -10],
+  ]);
+  const ambiguous = store.review
+    .records()
+    .find((r) => r.description === "MARKET CORNER");
+  assert.equal(ambiguous.aliasConflicts.length, 2);
+  assert.equal(ambiguous.review.tags.length, 0);
+  const unique = store.review.records().find((r) => r.aliasId === market);
+  assert.deepEqual(unique.review.tags, [{ id: f.category, cents: 1000 }]);
+  assert.equal(unique.review.assignedPersonId, f.person);
+  store.transactionRules.save(
+    f.values({ name: "Competing tag", categoryId: f.other }),
+  );
+  assert.equal(
+    store.transactionRules.state().candidates.find((c) => c.id === unique.id)
+      .status,
+    "conflict",
+  );
+});
+
+test("schema 16 keeps legacy regex rules and every financial table unchanged", (t) => {
+  const f = setup(t),
+    { store } = f;
+  f.importRows([["MARKET existing", -25]]);
+  store.transactionRules.save(f.values());
+  const legacyRules = store.db
+    .prepare(
+      "SELECT id,name,pattern,categoryId,personId,direction,enabled,version FROM transaction_rules",
+    )
+    .all();
+  const tables = store.db
+    .prepare(
+      "SELECT name FROM sqlite_master WHERE type='table' AND name != 'transaction_rules'",
+    )
+    .all()
+    .map((r) => r.name);
+  const before = Object.fromEntries(
+    tables.map((name) => [
+      name,
+      store.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),
+    ]),
+  );
+  store.db.exec(
+    "ALTER TABLE transaction_rules DROP COLUMN matchType; ALTER TABLE transaction_rules DROP COLUMN aliasIds; PRAGMA user_version=15;",
+  );
+  // A second connection performs the same startup upgrade as the desktop app.
+  const upgraded = new ImportStore(f.root);
+  try {
+    assert.equal(
+      upgraded.db.prepare("PRAGMA user_version").get().user_version,
+      16,
+    );
+    assert.deepEqual(
+      upgraded.db
+        .prepare(
+          "SELECT id,name,pattern,categoryId,personId,direction,enabled,version FROM transaction_rules",
+        )
+        .all(),
+      legacyRules,
+    );
+    assert.equal(upgraded.transactionRules.rules()[0].matchType, "regex");
+    assert.deepEqual(upgraded.transactionRules.rules()[0].aliasIds, []);
+    for (const [name, rows] of Object.entries(before))
+      assert.deepEqual(
+        upgraded.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),
+        rows,
+        name,
+      );
+  } finally {
+    upgraded.close();
+  }
 });

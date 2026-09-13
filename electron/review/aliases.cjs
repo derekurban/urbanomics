@@ -170,6 +170,13 @@ class AliasStore {
       throw new Error(
         "This alias changed or was removed. Refresh and try again.",
       );
+    const usedBy = this.imports.transactionRules
+      .rules()
+      .filter((r) => r.matchType === "aliases" && r.aliasIds.includes(id));
+    if (usedBy.length)
+      throw new Error(
+        `This alias is used by rules: ${usedBy.map((r) => r.name).join(", ")}. Remove it from those rules before deleting.`,
+      );
     this.db
       .prepare("DELETE FROM transaction_aliases WHERE id=? AND version=?")
       .run(id, version);
