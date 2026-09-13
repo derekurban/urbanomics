@@ -19,6 +19,7 @@
   "saveAlias": "aliases:save",
   "removeAlias": "aliases:remove",
   "starterHierarchy": "review:hierarchy-starter",
+  "reorderTags": "review:tag-order",
   "saveEntity": "review:entity",
   "removeEntity": "review:entity-remove",
   "organize": "review:organize",

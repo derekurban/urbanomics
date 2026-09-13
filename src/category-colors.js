@@ -1,4 +1,4 @@
-import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import {
   blend,
   endpoints,

@@ -76,6 +76,7 @@ async function launch() {
   page.on("pageerror", (e) => errors.push(e.message));
   await page.getByRole("heading", { name: "Snapshots", exact: true }).waitFor();
   await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
   await page.getByRole("region", { name: "Tag card sorter" }).waitFor();
 }
 const state = () => page.evaluate(() => window.urbanomics.reviewState());
@@ -301,6 +302,7 @@ async function drag(group, tag, cancel = false) {
       .fill("Groceries");
     await button("Save tag").click();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
     await open("Food");
     await shot("expanded-tags");
     // At a narrow width every petal stays inside its fixed canvas and labels never grow it.
@@ -362,6 +364,7 @@ async function drag(group, tag, cancel = false) {
     });
     await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
     await open("Food");
     assert.equal(await button("More tags").count(), 0);
     assert.equal(await page.locator(".rh-tag").count(), 9);
@@ -415,21 +418,15 @@ async function drag(group, tag, cancel = false) {
     await incomeModal.waitFor({ state: "hidden" });
     await shot("income-tags");
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-    await page
-      .getByRole("group", { name: "Review tag lens" })
-      .getByRole("button", { name: "Money in", exact: true })
-      .click();
-    assert.match(await page.locator(".os-transaction").textContent(), /Salary/);
-    assert.equal(await button("Category Food").count(), 0);
-    assert.equal(await button("Tag Groceries").count(), 0);
-    await button("Tag Paycheck").click();
-    await page.getByText("1 of 1 tagged", { exact: true }).waitFor();
-    assert.equal(
-      (await state()).records.find((r) => r.description === "Salary").review
-        .kind,
-      "unreviewed",
-      "tagging does not declare earned income",
-    );
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Income",exact:true}).click();
+    await page.getByRole("button", {name:/Edit income tags/}).click();
+    let incomeSettings = page.getByRole("dialog",{name:"Transaction settings"});
+    assert.equal(await incomeSettings.getByRole("checkbox",{name:"Groceries",exact:true}).count(),0);
+    await incomeSettings.getByRole("checkbox",{name:"Paycheck",exact:true}).check();
+    await incomeSettings.getByRole("button",{name:"Save",exact:true}).click();
+    await incomeSettings.waitFor({state:"hidden"});
+    assert.equal((await state()).records.find(r=>r.description==="Salary").review.kind,"unreviewed");
     await shot("income-review");
     const beforePalettes = (await state()).records;
     await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
@@ -470,6 +467,7 @@ async function drag(group, tag, cancel = false) {
         });
     });
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
     await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
     await button("Categories & tags").click();
     await page
@@ -490,16 +488,7 @@ async function drag(group, tag, cancel = false) {
     );
     await button("Cancel").click();
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
-    await page
-      .getByRole("group", { name: "Review tag lens" })
-      .getByRole("button", { name: "Money in", exact: true })
-      .click();
-    assert.equal(await page.locator(".rh-tag").count(), 3);
-    await shot("income-gradient-radial");
-    await page
-      .getByRole("group", { name: "Review tag lens" })
-      .getByRole("button", { name: "Money out", exact: true })
-      .click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button", {name:"Expenses", exact:true}).click();
     await open("Food");
     await shot("expense-gradient-radial");
     assert.deepEqual((await state()).records, beforePalettes);

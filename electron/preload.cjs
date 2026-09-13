@@ -32,6 +32,7 @@ contextBridge.exposeInMainWorld("urbanomics", {
   saveAlias: (values) => invoke("aliases:save", values),
   removeAlias: (id, version) => invoke("aliases:remove", id, version),
   starterHierarchy: () => invoke("review:hierarchy-starter"),
+  reorderTags: (ids, expected) => invoke("review:tag-order", ids, expected),
   saveEntity: (kind, values) => invoke("review:entity", kind, values),
   removeEntity: (id) => invoke("review:entity-remove", id),
   organize: (changes) => invoke("review:organize", changes),

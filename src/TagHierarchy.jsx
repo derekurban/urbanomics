@@ -5,7 +5,7 @@ import {
 } from "../electron/review/palette.mjs";
 import React, { useState } from "react";
 import "./tag-hierarchy.css";
-import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
 const api = window.urbanomics;
 export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
   const [lens, setLens] = useState("expense");
@@ -41,13 +41,21 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
       }),
     );
   }
+  async function reorder(tag, beforeId) {
+    if (busy || !tag || tag.id === beforeId) return;
+    const siblings = tags.filter(t => t.parentId === tag.parentId);
+    const expected = siblings.map(t => t.id), ids = expected.filter(id => id !== tag.id);
+    ids.splice(beforeId ? ids.indexOf(beforeId) : ids.length, 0, tag.id);
+    setLifted(""); setOver(null);
+    await act(() => api.reorderTags(ids, expected));
+  }
   return (
     <section
       className="th-workspace"
       aria-label="Categories and tags hierarchy"
     >
       <div className="th-lenses" role="group" aria-label="Organization lens">
-        {["expense", "income"].map((type) => (
+        {["expense", "income", "transfer"].map((type) => (
           <button
             key={type}
             style={
@@ -67,15 +75,16 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               setLifted("");
             }}
           >
-            <strong>{type === "expense" ? "Expenses" : "Income"}</strong>
+            <strong>{type === "expense" ? "Expenses" : type === "income" ? "Income" : "Transfers"}</strong>
             <small>
               {type === "expense"
                 ? "Categories with detailed tags"
-                : "Sources of money received"}
+                : type === "income" ? "Sources of money received" : "Linked movements between accounts"}
             </small>
           </button>
         ))}
       </div>
+      {lens === "transfer" ? <div className="th-transfer-info"><h2>Transfers have a place of their own.</h2><p>Link the money leaving one account to the money arriving in another in Review → Transfers. Both entries leave expense and income tagging automatically. Their saved tags stay preserved if you unlink them.</p><p>Transfer fees remain separate costs. No transfer tags are needed.</p></div> : <>
       <div className="th-heading">
         <div>
           <h2>
@@ -136,8 +145,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
       </div>
       <p className="th-hint">
         {lens === "expense"
-          ? "Drag tags between categories. Keyboard: Space picks up a focused tag; Enter places it in a focused category."
-          : "Income tags are a flat list, always alphabetical."}
+          ? "Drag tags onto another tag to reorder, or into a category to move. Use the arrows for precise ordering. Keyboard: Space picks up; Enter places."
+          : "Choose your income tag order by dragging or using the arrows. Gradient colors follow this order."}
       </p>
       {error && (
         <p role="alert" className="dr-error-text">
@@ -164,7 +173,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               className={`th-group ${over === group.id ? "is-over" : ""}`}
               style={{ "--group-color": group.color }}
               aria-label={`Category ${group.name}`}
-              tabIndex={lens === "expense" ? 0 : undefined}
+              tabIndex={0}
               onKeyDown={(e) => {
                 if (
                   e.target === e.currentTarget &&
@@ -172,15 +181,12 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                   lifted
                 ) {
                   e.preventDefault();
-                  move(
-                    tags.find((t) => t.id === lifted),
-                    group.id,
-                  );
+                  const tag = tags.find((t) => t.id === lifted);
+                  if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
                 }
               }}
               onDragOver={(e) => {
                 if (
-                  lens === "expense" &&
                   !busy &&
                   e.dataTransfer.types.includes("application/urbanomics-tag")
                 ) {
@@ -194,14 +200,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               onDrop={(e) => {
                 e.preventDefault();
                 setOver(null);
-                move(
-                  tags.find(
-                    (t) =>
-                      t.id ===
-                      e.dataTransfer.getData("application/urbanomics-tag"),
-                  ),
-                  group.id,
-                );
+                const tag = tags.find(t => t.id === e.dataTransfer.getData("application/urbanomics-tag"));
+                if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
               }}
             >
               <header>
@@ -251,8 +251,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                     data-inherited-color={tag.inheritedColor || undefined}
                     style={{ "--tag-color": tag.color }}
                     key={tag.id}
-                    draggable={!busy && lens === "expense"}
-                    tabIndex={lens === "expense" ? 0 : undefined}
+                    draggable={!busy}
+                    tabIndex={0}
                     aria-label={`Tag ${tag.name}`}
                     aria-grabbed={lifted === tag.id}
                     onKeyDown={(e) => {
@@ -262,7 +262,11 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                         setLifted(lifted === tag.id ? "" : tag.id);
                       }
                       if (e.key === "Escape") setLifted("");
+                      if (e.key === "Enter" && lifted) { e.preventDefault(); reorder(tags.find(t => t.id === lifted && t.parentId === tag.parentId), tag.id); }
                     }}
+                    onDragOver={e => { if (!busy && e.dataTransfer.types.includes("application/urbanomics-tag")) { e.preventDefault(); e.stopPropagation(); setOver(tag.id); } }}
+                    onDrop={e => { const dragged = tags.find(t => t.id === e.dataTransfer.getData("application/urbanomics-tag")); if (dragged?.parentId === tag.parentId) { e.preventDefault(); e.stopPropagation(); reorder(dragged, tag.id); } }}
+                    data-drop-before={over === tag.id || undefined}
                     onDragStart={(e) => {
                       e.dataTransfer.setData(
                         "application/urbanomics-tag",
@@ -273,7 +277,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                     onDragEnd={() => setOver(null)}
                   >
                     <span aria-hidden="true">
-                      {lens === "expense" ? "⠿" : ""}
+                      ⠿
                     </span>
                     <i style={{ background: tag.color }} />
                     <div>
@@ -289,6 +293,10 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                       </small>
                     </div>
 
+                    <div className="th-order-actions">
+                      <button aria-label={`Move ${tag.name} earlier`} disabled={busy || children[0]?.id === tag.id} onClick={() => reorder(tag, children[children.findIndex(t => t.id === tag.id) - 1]?.id)}>↑</button>
+                      <button aria-label={`Move ${tag.name} later`} disabled={busy || children.at(-1)?.id === tag.id} onClick={() => reorder(tag, children[children.findIndex(t => t.id === tag.id) + 2]?.id)}>↓</button>
+                    </div>
                     <button
                       disabled={busy}
                       aria-label={`Edit tag ${tag.name}`}
@@ -312,6 +320,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
           );
         })}
       </div>
+      </>}
     </section>
   );
 }

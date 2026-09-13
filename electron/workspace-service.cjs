@@ -28,6 +28,7 @@ function createWorkspaceService({
     "aliases:save",
     "aliases:remove",
     "review:entity",
+    "review:tag-order",
     "review:hierarchy-starter",
     "review:entity-remove",
     "workspace:account",
@@ -78,6 +79,7 @@ function createWorkspaceService({
   handle("admin:untag-preview", () => store.admin.preview());
   handle("admin:untag-all", (token) => store.admin.untagAll(token));
   handle("review:entity", (kind, values) => store.review.entity(kind, values));
+  handle("review:tag-order", (ids, expected) => store.review.reorderTags(ids, expected));
   handle("review:hierarchy-starter", () => store.review.starterHierarchy());
   handle("review:entity-remove", (id) => store.review.removeEntity(id));
   handle("review:organize", (changes) => store.review.organize(changes));

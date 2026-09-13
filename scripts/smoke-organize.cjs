@@ -141,6 +141,7 @@ async function create(kind, name, selected = []) {
       });
     });
     await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.getByRole("navigation", {name:"Transaction tools"}).getByRole("button",{name:"Expenses",exact:true}).click();
     await page
       .getByRole("button", { name: "Category Ungrouped", exact: true })
       .focus();

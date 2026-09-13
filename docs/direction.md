@@ -1,5 +1,9 @@
 # Direction note
 
+## Transfers first and user-ordered tags — September 12, 2026
+
+The accepted workflow is now Transfers → Events → Income → Expenses → Overview. Transfers are their own system lens and linked entries leave income/expense tagging. Pairing is tactile but always requires explicit Link. Events remain optional, income can be classified or allocated to expenses, and expense claims use the existing financial editor. Overview measures the full selected period regardless of tags. Manual within-category tag ordering supersedes alphabetical-only lists and drives inherited gradient steps. See `review-workflow.md` for implemented behavior and verification.
+
 ## Separate financial lenses — September 12, 2026
 
 Expense tags now belong to broad expense categories; income tags are separate flat definitions. Organize and Review offer separate lenses with alphabetical tags. Tagging alone does not classify income, repayment or transfer purpose. The review radial has no pages: fixed-size targets use extra rings as needed, and the dragged card stays beneath expanded targets. Parent moves use drag/drop or keyboard pickup/place rather than dropdowns. Existing financial decisions remain unchanged. See `tag-hierarchy.md`.

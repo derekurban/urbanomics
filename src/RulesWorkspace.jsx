@@ -1,4 +1,4 @@
-import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { alphabetical, orderedTags, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import "./rules-workspace.css";
@@ -707,7 +707,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
     () => new Map(entities.map((e) => [e.id, e])),
     [entities],
   );
-  const categories = alphabetical(
+  const categories = orderedTags(
       entities.filter((e) => e.kind === "category"),
     ),
     people = entities.filter((e) => e.kind === "person");

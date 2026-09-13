@@ -1,7 +1,10 @@
+import { ReviewOverview } from "./ReviewOverview.jsx";
+import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { transactionFlow } from "../electron/review/tag-model.mjs";
 import { systemPalette } from "../electron/review/palette.mjs";
 import { categoryColors } from "./category-colors.js";
 import {
-  alphabetical,
+  orderedTags as alphabetical,
   tagType,
   tagLens,
   taggable,
@@ -23,7 +26,6 @@ import {
   retag,
   capacity,
   distribute,
-  flowSummary,
 } from "./review-model.js";
 import "./review-workspace.css";
 
@@ -190,7 +192,7 @@ function FinanceEditor({
         <strong>{money(row.amountCents)}</strong>
       </div>
       <div className="rv-editor-tools">
-        <button onClick={() => onTags(row)}>Edit tags</button>
+        <button onClick={() => onTags(row)}>{row.amountCents > 0 ? "Edit income tags" : "Edit expense tags"} · {row.review.tags.length}</button>
         {row.manual ? (
           <button onClick={() => onCash(row)}>Edit cash receipt</button>
         ) : (
@@ -662,7 +664,8 @@ export function ReviewWorkspace({
   transactionList = false,
   initialStage,
 }) {
-  const [tagMode, setTagMode] = useState("expense");
+  const tagMode = "expense";
+  const [financialId, setFinancialId] = useState("");
   const [tagDrafts, setTagDrafts] = useState({});
   const [paymentIntent, setPaymentIntent] = useState(null);
   const [selectedEvent, setSelectedEvent] = useState("");
@@ -672,7 +675,7 @@ export function ReviewWorkspace({
     [stage, setStage] = useState(
       initialStage === "transfers-linked"
         ? "transfers"
-        : initialStage || (transactionList ? "transactions" : "organize"),
+        : initialStage || (transactionList ? "transactions" : "transfers"),
     ),
     [month, setMonth] = useState(initialMonth || ""),
     [search, setSearch] = useState("");
@@ -681,8 +684,7 @@ export function ReviewWorkspace({
     [error, setError] = useState("");
   const [statusFilter, setStatusFilter] = useState("all"),
     [direction, setDirection] = useState("all"),
-    [active, setActive] = useState(""),
-    [views, setViews] = useState([]);
+    [active, setActive] = useState("");
   const reload = async () => setState(await api.reviewState());
   useEffect(() => {
     let valid = true;
@@ -755,16 +757,10 @@ export function ReviewWorkspace({
       (stage === "moneyin"
         ? t.amountCents > 0 && t.review.kind !== "transfer"
         : direction === "all" ||
-          (direction === "in" ? t.amountCents > 0 : t.amountCents < 0)),
+          (transactionFlow(t) === direction)),
   );
   const focus = inbox.find((t) => t.id === active) || inbox[0];
-  const selectedViews = views.filter((id) =>
-    categories.some((c) => c.id === id),
-  );
-  const selectedTags = selectedViews.length
-    ? selectedViews
-    : categories.map((c) => c.id);
-  const flows = flowSummary(visible, selectedTags);
+
   return (
     <div className="review-workspace">
       <header className="rv-heading">
@@ -798,10 +794,10 @@ export function ReviewWorkspace({
       {!transactionList && (
         <nav className="rv-stages" aria-label="Transaction tools">
           {[
-            ["organize", "Tags"],
-            ["moneyin", "Money in"],
-            ["groups", "Events"],
             ["transfers", "Transfers"],
+            ["groups", "Events"],
+            ["moneyin", "Income"],
+            ["organize", "Expenses"],
             ["categories", "Overview"],
           ].map(([id, label]) => (
             <button
@@ -811,8 +807,7 @@ export function ReviewWorkspace({
                 setStage(id);
                 setStatusFilter("all");
                 setActive("");
-                if (id === "moneyin") setMonth("");
-                else {
+                if (id !== "moneyin") {
                   setExpenseIntent(null);
                   setPaymentIntent(null);
                 }
@@ -846,8 +841,10 @@ export function ReviewWorkspace({
           }}
         />
         <span>
-          {scoped.length} transactions ·{" "}
-          {scoped.filter((t) => !t.review.tags.length).length} need tags
+          {scoped.filter(t => transactionFlow(t) === "transfer").length} transfers ·{" "}
+          {scoped.filter(t => transactionFlow(t) === "income").length} income ·{" "}
+          {scoped.filter(t => transactionFlow(t) === "expense").length} expenses ·{" "}
+          {scoped.filter((t) => taggable(t) && !t.review.tags.length).length} need tags
         </span>
       </div>
       {error &&
@@ -862,29 +859,7 @@ export function ReviewWorkspace({
       {stage === "organize" && (
         <>
           <div className="rv-sort-controls">
-            <div
-              className="rv-toggle"
-              role="group"
-              aria-label="Review tag lens"
-            >
-              {["expense", "income"].map((type) => (
-                <button
-                  key={type}
-                  style={
-                    type === "income" && tagMode === type
-                      ? {
-                          background: `color-mix(in srgb, ${systemPalette(entities, "income").color} 20%, white)`,
-                          borderColor: systemPalette(entities, "income").color,
-                        }
-                      : undefined
-                  }
-                  aria-pressed={tagMode === type}
-                  onClick={() => setTagMode(type)}
-                >
-                  {type === "income" ? "Money in" : "Money out"}
-                </button>
-              ))}
-            </div>
+            <p>Tag expenses, then use People & repayments to record shared costs.</p>
             <button
               disabled={busy}
               onClick={() =>
@@ -916,7 +891,9 @@ export function ReviewWorkspace({
             busy={busy}
             onSave={(changes) => act(() => api.organize(changes))}
             onEdit={editEntity}
-            onContinue={() => setStage("groups")}
+            onContinue={() => setStage("categories")}
+            continueLabel="Continue to overview"
+            onFinance={row => setFinancialId(row.id)}
           />
         </>
       )}
@@ -925,7 +902,7 @@ export function ReviewWorkspace({
           selectedEvent={selectedEvent}
           onSelectEvent={setSelectedEvent}
           records={records}
-          visible={activeRows.filter((t) =>
+          visible={activeRows.filter((t) => t.review.kind !== "transfer" &&
             `${title(t)} ${t.originalDescription || ""} ${t.account}`
               .toLowerCase()
               .includes(search.toLowerCase()),
@@ -940,7 +917,7 @@ export function ReviewWorkspace({
           onPayment={(t, eventId) => {
             setMonth("");
             setSearch("");
-            setDirection("in");
+            setDirection("income");
             setStatusFilter("all");
             setActive(t.id);
             setPaymentIntent({ id: t.id, eventId });
@@ -1000,8 +977,9 @@ export function ReviewWorkspace({
               <div className="rv-toggle">
                 {[
                   ["all", "All"],
-                  ["out", "Money out"],
-                  ["in", "Money in"],
+                  ["expense", "Expenses"],
+                  ["income", "Income"],
+                  ["transfer", "Transfers"],
                 ].map(([id, name]) => (
                   <button
                     key={id}
@@ -1155,92 +1133,15 @@ export function ReviewWorkspace({
           )}
         </>
       )}
-      {stage === "categories" && (
-        <>
-          <div className="rv-section-title">
-            <p>Explore the amounts assigned to your tags.</p>
-            <button onClick={() => editEntity({ kind: "category" })}>
-              + New tag
-            </button>
-          </div>
-          <div className="rv-category-choices">
-            <button
-              aria-pressed={!selectedViews.length}
-              onClick={() => setViews([])}
-            >
-              All tags
-            </button>
-            {categories.map((c) => (
-              <div key={c.id}>
-                <button
-                  aria-pressed={views.includes(c.id)}
-                  onClick={() => setViews(toggle(views, c.id))}
-                >
-                  {c.name}
-                </button>
-                <button
-                  aria-label={`Edit tag ${c.name}`}
-                  onClick={() => editEntity(c)}
-                >
-                  •••
-                </button>
-              </div>
-            ))}
-          </div>
-          <p className="rv-help">
-            Gross tagged cash flow, before personal shares and repayments.{" "}
-            {visible.filter((t) => !t.review.tags.length).length} untagged
-            transactions are outside these totals.
-          </p>
-          <div className="rv-flow-summary">
-            {[
-              ["out", "Expenses"],
-              ["income", "General income"],
-              ["repayment", "Repayment / mixed transfers"],
-              ["unassigned", "Unassigned e-transfer income"],
-              ["unreviewedOut", "Money out · purpose unspecified"],
-              ["unreviewedIn", "Money in · purpose unspecified"],
-              ["transferOut", "Own transfers out"],
-              ["transferIn", "Own transfers in"],
-              ["transferFees", "Transfer fees"],
-              ["transferExcess", "Unexplained transfer differences"],
-            ].map(([key, label]) => (
-              <div key={key}>
-                <small>{label}</small>
-                <strong>{money(flows.totals[key])}</strong>
-              </div>
-            ))}
-          </div>
-          <div className="rv-category-tags">
-            {tags
-              .filter((t) => selectedTags.includes(t.id))
-              .map((tag) => (
-                <span key={tag.id} style={{ borderColor: tag.color }}>
-                  {tag.name}
-                </span>
-              ))}
-          </div>
-          <div className="rv-insight-rows">
-            {flows.rows.map((t) => (
-              <button key={t.id} onClick={() => editTags(t)}>
-                <span>
-                  <strong>{title(t)}</strong>
-                  <small>
-                    {t.account} ·{" "}
-                    {t.review.kind === "unreviewed"
-                      ? "Purpose unspecified"
-                      : t.review.kind}
-                  </small>
-                </span>
-                <span>
-                  {money(t.portion)}
-                  <small>of {money(Math.abs(t.amountCents))}</small>
-                </span>
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+      {stage === "categories" && <ReviewOverview records={records} visible={visible} entities={entities} onStage={setStage} onSource={onSource} />}
+      {!transactionList && stage !== "categories" && <div className="rv-next-step"><span>Keep going when you’re ready. Every step remains editable.</span><button className="primary" onClick={() => { setStage(({transfers:"groups", groups:"moneyin", moneyin:"organize", organize:"categories"})[stage]); setActive(""); setStatusFilter("all"); }}>Continue to {({transfers:"events", groups:"income", moneyin:"expenses", organize:"overview"})[stage]} →</button></div>}
+      {financialId && records.find(t => t.id === financialId) && <WorkspaceModal title="Expense people & repayments" onClose={() => setFinancialId("")}><FinanceEditor
+        row={records.find(t => t.id === financialId)} key={financialId + ":" + records.find(t => t.id === financialId).version}
+        records={records} people={people} groups={groups} act={act} busy={busy} error={error}
+        onEntity={editEntity} onTags={row => {setFinancialId(""); editTags(row);}} onSource={onSource}
+        onSaved={() => setFinancialId("")} onCash={setCashEditor}
+        onDeduct={row => {setFinancialId(""); setExpenseIntent(row); setStage("moneyin"); setMonth(""); setSearch(""); setStatusFilter("all"); setActive("");}}
+      /></WorkspaceModal>}
       {cashEditor && (
         <CashReceiptEditor
           row={cashEditor.id ? cashEditor : null}

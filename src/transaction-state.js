@@ -20,8 +20,8 @@ export function transactionState(row, records) {
       ? row.amountCents - allocated
       : 0;
   return {
-    categorized: r.tags.length > 0,
-    uncategorized: !r.tags.length,
+    categorized: !transfer && r.tags.length > 0,
+    uncategorized: !transfer && !r.tags.length,
     deducted: deducted > 0,
     deductedCents: deducted,
     allocated: allocated > 0,
@@ -38,7 +38,7 @@ export function transactionState(row, records) {
 }
 export function transactionLabels(row, facts) {
   return [
-    facts.categorized ? "Categorized" : "Uncategorized",
+    !facts.transfer && (facts.categorized ? "Categorized" : "Uncategorized"),
     facts.transfer && "Transfer linked",
     facts.income && `Income · ${row.review.incomeType}`,
     facts.allocated && "Allocated to expenses",

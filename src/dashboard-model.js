@@ -1,4 +1,4 @@
-import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import { categoryColors } from "./category-colors.js";
 import { systemPalette } from "../electron/review/palette.mjs";
 export const UNCATEGORIZED = "dashboard:uncategorized";

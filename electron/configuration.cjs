@@ -29,6 +29,7 @@ const tables = {
     "flowType",
     "gradientStart",
     "gradientEnd",
+    "sortOrder",
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [

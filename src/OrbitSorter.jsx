@@ -34,6 +34,8 @@ export function OrbitSorter({
   onSave,
   onEdit,
   onContinue,
+  continueLabel = "Continue to overview",
+  onFinance,
 }) {
   const [expanded, setExpanded] = useState("");
   const [active, setActive] = useState(""),
@@ -624,9 +626,10 @@ export function OrbitSorter({
                   ? "Drag the card or select the surrounding buttons."
                   : "Drop to save. Click a selected tag to remove it.")}
           </div>
+          {onFinance && <button className="os-finance-action" onClick={() => onFinance(row)} disabled={busy}>People & repayments</button>}
           {count === rows.length && (
             <button className="os-continue" onClick={onContinue}>
-              {events ? "Continue to review" : "Continue to events"} →
+              {events ? "Continue to review" : continueLabel} →
             </button>
           )}
         </div>

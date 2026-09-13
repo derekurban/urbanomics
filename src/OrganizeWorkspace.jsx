@@ -143,7 +143,7 @@ function Overview({ state, data, usage, extras, extrasError, go, onNavigate }) {
     events = byKind("group"),
     people = byKind("person");
   const active = records.filter((r) => !r.deleted);
-  const uncategorized = active.filter((r) => !r.review?.tags?.length).length;
+  const uncategorized = active.filter((r) => r.review.kind !== "transfer" && !r.review?.tags?.length).length;
   const undated = events.filter((e) => !e.startDate || !e.endDate).length;
   const aliasConflicts = records.filter((r) => r.aliasConflicts?.length).length;
   const transferDifferences = active.filter(

@@ -1,5 +1,5 @@
 import {
-  alphabetical,
+  orderedTags as alphabetical,
   tagFits,
   tagLens,
   taggable,

@@ -1,6 +1,6 @@
 # Desktop organization and review
 
-The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months. Review in the sidebar offers Categories, Money in, Events, Transfers and Overview as independent tools. The numbered Review stage is removed. Transactions in the sidebar exposes financial settings directly. No sample entities or decisions are inserted into personal workspaces.
+The accepted model now runs against the imported ledger in Electron. Review opens an imported month or all imported months and follows Transfers → Events → Income → Expenses → Overview. These tools remain freely navigable, without a generic completion status. Linked transfers leave income/expense tagging and uncategorized counts. Transactions in the sidebar exposes financial settings directly. No sample entities or decisions are inserted into personal workspaces. See [the current workflow](review-workflow.md) for the pairing dock, claims, incoming allocations and manual tag ordering.
 
 ## Sorting
 

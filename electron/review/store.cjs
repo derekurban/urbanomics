@@ -1,5 +1,5 @@
 const { blend, endpoints, validColor } = require("./palette.mjs");
-const { tagType, tagFits } = require("./tag-model.mjs");
+const { tagType, tagFits, orderedTags } = require("./tag-model.mjs");
 const { eventDates, validDate } = require("./event-model.mjs");
 const { randomUUID } = require("node:crypto");
 const {
@@ -146,6 +146,20 @@ class ReviewStore {
         .get().n
     );
   }
+  reorderTags(ids, expected) {
+    return this.atomic(() => {
+      if (!Array.isArray(ids) || !ids.length || !Array.isArray(expected) || new Set(ids).size !== ids.length)
+        throw new Error("Choose the complete tag order.");
+      const first = this.entities().find(t => t.id === ids[0] && t.kind === "category");
+      if (!first) throw new Error("Tag no longer exists.");
+      const current = orderedTags(this.entities().filter(t => t.kind === "category" && t.flowType === first.flowType && t.parentId === first.parentId)).map(t => t.id);
+      if (JSON.stringify(current) !== JSON.stringify(expected) || ids.length !== current.length || ids.some(id => !current.includes(id)))
+        throw new Error("Tags changed. Refresh before reordering them.");
+      const update = this.db.prepare("UPDATE review_entities SET sortOrder=? WHERE id=?");
+      ids.forEach((id, index) => update.run(index + 1, id));
+      return ids;
+    });
+  }
   entity(kind, values) {
     if (kind === "palette") {
       if (
@@ -249,9 +263,12 @@ class ReviewStore {
     )
       throw new Error("Choose an existing category for this tag.");
     const id = existing?.id || randomUUID();
+    const lastOrder = this.db.prepare("SELECT COALESCE(MAX(sortOrder),0) n FROM review_entities WHERE kind='category' AND parentId=? AND flowType=?").get(parentId, flowType).n;
+    const sortOrder = kind === "category" && (!existing || existing.parentId !== parentId || existing.flowType !== flowType)
+      ? (lastOrder ? lastOrder + 1 : 0) : existing?.sortOrder || 0;
     this.db
       .prepare(
-        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType,gradientStart,gradientEnd) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType,gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType,gradientStart,gradientEnd,sortOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType,gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd,sortOrder=excluded.sortOrder",
       )
       .run(
         id,
@@ -269,6 +286,7 @@ class ReviewStore {
         flowType,
         gradientStart,
         gradientEnd,
+        sortOrder,
       );
     return id;
   }

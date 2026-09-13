@@ -71,10 +71,11 @@ async function launch() {
 (async () => {
   try {
     await launch();
-    await stage("Money in");
+    await stage("Income");
+    await page.getByLabel("Transaction month",{exact:true}).selectOption("");
     assert.equal(await page.locator(".rv-task-list > button").count(), 2);
     await task("Paycheck deposit");
-    await button("Income").click();
+    await page.locator(".rv-purpose").getByRole("button",{name:"Income",exact:true}).click();
     assert.ok(await button("Save changes").isDisabled());
     await button("Paycheck").click();
     await shot("income-source");
@@ -188,7 +189,8 @@ async function launch() {
     app = null;
     await launch();
     assert.deepEqual(await state(), saved);
-    await stage("Money in");
+    await stage("Income");
+    await page.getByLabel("Transaction month",{exact:true}).selectOption("");
 
     await task("Cash for our dates");
     await button("Edit cash receipt").click();

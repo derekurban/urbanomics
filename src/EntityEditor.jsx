@@ -101,7 +101,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
               <i style={{ background: blend(gradientStart, gradientEnd) }} />
               Category color · blend of both
             </div>
-            <small>Tags take evenly spaced steps, in alphabetical order.</small>
+            <small>Tags take evenly spaced steps, in your chosen tag order.</small>
           </fieldset>
         ) : entity.kind === "category" ? (
           <p className="rv-help">

@@ -1,5 +1,7 @@
 # Categories and tags
 
+Manual tag ordering now supersedes alphabetical-only lists. Organize has Expenses, Income and Transfers lenses. Drag onto another tag or use its earlier/later arrows to order the full sibling group; saved order controls radial choices and gradient steps. Initially unordered groups fall back to alphabetical order. Transfers derive from links and require no tags. See [review workflow](review-workflow.md) for schema 17 and ordering rules.
+
 Transactions carry tags with exact-cent portions. Expense tags have zero or one broad expense category parent; income tags form a separate flat list. Categories aggregate these portions; they never own another copy of the amount. Ungrouped tags let tagging happen before organizing the hierarchy. Moving a tag changes its current category rollup, including historical reporting, while preserving source records, saved portions, rules, events, transfers and repayments.
 
 ## Management

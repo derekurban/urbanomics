@@ -1,5 +1,5 @@
 import React, { useEffect, useRef } from "react";
-import { alphabetical } from "../electron/review/tag-model.mjs";
+import { orderedTags as alphabetical } from "../electron/review/tag-model.mjs";
 import { ringSlots } from "./radial-hierarchy-layout.js";
 export function RadialHierarchy({
   tags,

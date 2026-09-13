@@ -26,6 +26,14 @@
   width: 96px;
   padding: 8px 10px;
 }
+.tr-band select {
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: white;
+  color: inherit;
+  font: inherit;
+}
 .tr-help {
   font-size: 12px;
   color: #697765;
@@ -223,3 +231,37 @@
     max-height: 330px;
   }
 }
+.tr-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:22px 26px; margin-bottom:20px; border-radius:22px; background:linear-gradient(120deg,#e4eee3,#e6edf8); }
+.tr-intro small { font-size:10px; letter-spacing:1px; color:var(--muted); }
+.tr-intro h2 { font-size:28px; margin:8px 0; font-weight:500; }
+.tr-intro p { font-size:13px; color:var(--muted); margin:0; }
+.tr-pair-count { font-size:32px; text-align:center; white-space:nowrap; }
+.tr-pair-count small { display:block; letter-spacing:0; font-size:11px; }
+.tr-match-controls { display:flex; align-items:center; flex-wrap:wrap; gap:12px; }
+.tr-presets { display:flex; gap:4px; }
+.tr-presets button { padding:7px 10px; font-size:11px; }
+.tr-presets button[aria-pressed=true], .tr-account-filters button[aria-pressed=true] { background:#e5eee1; border-color:#8aa67d; }
+.tr-account-filters { display:flex; gap:7px; flex-wrap:wrap; margin:14px 0; }
+.tr-account-filters button { font-size:12px; display:flex; align-items:center; gap:7px; }
+.tr-account-filters i { width:8px; height:8px; border-radius:50%; }
+.tr-only-matches { display:flex; align-items:center; gap:6px; font-size:11px; padding:0 4px 12px; color:var(--muted); }
+.tr-only-matches input { width:auto; }
+.tr-match-badge { display:inline-block; font-size:10px; font-style:normal; background:#f1f4ed; border-radius:5px; padding:3px 5px; margin:5px 0 0 5px; }
+.tr-entry { border:1px solid #e3e9df; border-radius:12px; cursor:grab; transition:transform 120ms,box-shadow 120ms,background 120ms; background:#fcfdfb; }
+.tr-entry:hover { transform:translateY(-2px); box-shadow:0 4px 10px #293d2510; }
+.tr-entry:active { cursor:grabbing; transform:scale(.985); }
+.tr-pair-dock { display:grid; grid-template-columns:1fr auto 1fr; align-items:center; gap:18px; background:#f6f8f2; border:2px dashed #cedac7; border-radius:20px; padding:24px; margin-top:18px; transition:background 150ms,border-color 150ms; }
+.tr-pair-dock.is-over { background:#e1efdc; border-color:#64815a; }
+.tr-pair-dock.is-ready { border-style:solid; border-color:#8caa80; background:linear-gradient(100deg,#e7efdf,#e5eff4); }
+.tr-dock-account { display:flex; flex-direction:column; gap:8px; min-width:0; align-items:flex-start; }
+.tr-dock-account:last-child { text-align:right; align-items:flex-end; }
+.tr-dock-account small { font-size:10px; letter-spacing:1px; color:var(--muted); }
+.tr-dock-account strong { font-size:16px; font-weight:500; overflow-wrap:anywhere; }
+.tr-dock-account span { font-size:13px; }
+.tr-dock-account button { font-size:10px; padding:5px 8px; }
+.tr-dock-connector { color:#78946e; white-space:nowrap; font-size:18px; }
+.tr-notice { display:flex; align-items:center; justify-content:space-between; gap:12px; font-size:13px; }
+.tr-notice button { font-size:12px; }
+.tr-link-footer { position:sticky; bottom:12px; box-shadow:0 5px 20px #31432810; z-index:4; }
+@media(max-width:1000px) { .tr-match-controls { margin-top:8px; } .tr-list { max-height:350px; } .tr-pair-dock { padding:16px; gap:10px; } .tr-dock-connector { font-size:12px; } }
+@media(prefers-reduced-motion:reduce) { .tr-entry,.tr-pair-dock { transition:none; } .tr-entry:hover,.tr-entry:active { transform:none; } }

@@ -1,5 +1,11 @@
 # Working on Urbanomics
 
+## Current review workflow — September 12, 2026
+
+Review follows Transfers → Events → Income → Expenses → Overview. Linked transfers form a third system lens, excluded from income/expense tag queues and uncategorized counts; preserved tags return if unlinked. Transfer fees remain external expenses. Pending transfer matching supports drag-to-pair, explicit Link, undo, account/search/date/amount filters and keyboard linking; retain the existing protected-pair guards and Auto-link lab. Events are optional. Income includes purpose, income tags and repayment allocations. Expenses use the radial and People & repayments editor. Overview includes all selected-period records, even untagged ones, separates currencies and bank/cash, excludes internal principal, and reports incoming allocations, claims and repayments. Later repayments may reduce selected expense costs and are labeled accordingly.
+
+Schema 17 adds configuration-only tag sortOrder. Manual drag/drop and arrow ordering within each category (including Income and Ungrouped) supersedes alphabetical-only ordering. Unordered groups initially sort alphabetically; new/moved tags append to a manually ordered group. Gradients, radial targets and tag choices follow the saved order. Reordering requires a complete current sibling list and changes no transaction payloads. See docs/review-workflow.md; older workflow notes below are superseded where they conflict.
+
 Read `README.md` and `docs/direction.md` before implementation. Keep user statements, proposals, and verified behavior distinct. The earlier conversation is background, not authority to copy its architecture.
 
 ## Project boundaries

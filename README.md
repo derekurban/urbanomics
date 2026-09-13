@@ -12,7 +12,9 @@ The desktop app combines real CSV imports, a local SQLite ledger, immutable sour
 
 Run `npm run web` and open [Urbanomics locally](http://127.0.0.1:4173). This uses the same UI and finance service as Electron, with a separate sample workspace under `private/browser/`. Browser uploads and edits persist locally without touching desktop finances. See [browser verification](docs/browser-verification.md).
 
-Expense categories include their alphabetical tags and an inherited-color breakdown. Hover or keyboard-focus a category or tag to see its total and top three vendors after repayments; click for vendor and transaction details.
+Expense categories include tags in your chosen order and an inherited-color breakdown. Hover or keyboard-focus a category or tag to see its total and top three vendors after repayments; click for vendor and transaction details.
+
+Review now follows **Transfers → Events → Income → Expenses → Overview**. Pair transfers first to remove them from income/expense tagging. Organize optional events, classify and allocate incoming money, then tag expenses and manage people's shares. Overview brings together external cash flow, allocations, claims and repayments. Organize → Categories & tags offers Expenses, Income and Transfers; reorder tags by dragging or using the arrow buttons. See [review workflow](docs/review-workflow.md).
 
 ## Run the desktop app
 

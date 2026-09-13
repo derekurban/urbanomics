@@ -44,7 +44,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 16) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 17) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -260,6 +260,14 @@ class ImportStore {
         this.db.exec("ROLLBACK");
         throw error;
       }
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 17) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        if (!this.db.prepare("PRAGMA table_info(review_entities)").all().some(c => c.name === "sortOrder"))
+          this.db.exec("ALTER TABLE review_entities ADD COLUMN sortOrder INTEGER NOT NULL DEFAULT 0");
+        this.db.exec("PRAGMA user_version=17; COMMIT");
+      } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     }
     this.transferLab = new TransferLabStore(this);
     this.transactionRules = new TransactionRuleStore(this);

@@ -1,3 +1,4 @@
+import { tagOrder } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { vendorGroups } from "./dashboard-model.js";
@@ -102,7 +103,7 @@ export function ExpenseCategoryBreakdown({
                     !categories.some((category) => category.id === t.parentId) &&
                     t.flowType !== "income" &&
                     t.kind === "category"),
-              ).sort((a, b) => a.name.localeCompare(b.name))
+              ).sort(tagOrder)
             : [];
         const category = {
           ...c,
