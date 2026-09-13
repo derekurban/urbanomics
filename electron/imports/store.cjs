@@ -43,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 14) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 15) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -215,6 +215,25 @@ class ImportStore {
           );
         }
         this.db.exec("PRAGMA user_version=14; COMMIT");
+      } catch (error) {
+        this.db.exec("ROLLBACK");
+        throw error;
+      }
+    }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 15) {
+      this.db.exec("BEGIN IMMEDIATE");
+      try {
+        const columns = this.db
+          .prepare("PRAGMA table_info(review_entities)")
+          .all();
+        for (const field of ["gradientStart", "gradientEnd"])
+          if (!columns.some((c) => c.name === field))
+            this.db.exec(
+              `ALTER TABLE review_entities ADD COLUMN ${field} TEXT NOT NULL DEFAULT ''`,
+            );
+        this.db.exec(
+          "CREATE TABLE IF NOT EXISTS category_palettes (id TEXT PRIMARY KEY CHECK(id IN ('income','ungrouped')), gradientStart TEXT NOT NULL, gradientEnd TEXT NOT NULL); PRAGMA user_version=15; COMMIT",
+        );
       } catch (error) {
         this.db.exec("ROLLBACK");
         throw error;

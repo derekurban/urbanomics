@@ -1,15 +1,24 @@
+import { blend, endpoints } from "../electron/review/palette.mjs";
 import React, { useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 const api = window.urbanomics;
 export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
   const label =
-    entity.kind === "group"
-      ? "event"
-      : entity.kind === "bucket"
-        ? "category"
-        : entity.kind === "category"
-          ? "tag"
-          : entity.kind;
+    entity.kind === "palette"
+      ? "palette"
+      : entity.kind === "group"
+        ? "event"
+        : entity.kind === "bucket"
+          ? "category"
+          : entity.kind === "category"
+            ? "tag"
+            : entity.kind;
+  const isPalette = entity.kind === "bucket" || entity.kind === "palette";
+  const initialGradient = endpoints(entity);
+  const [gradientStart, setGradientStart] = useState(
+    initialGradient.gradientStart,
+  );
+  const [gradientEnd, setGradientEnd] = useState(initialGradient.gradientEnd);
   const [flowType, setFlowType] = useState(entity.flowType || "expense");
   const [parentId, setParentId] = useState(entity.parentId || "");
   const [name, setName] = useState(entity.name || ""),
@@ -37,7 +46,8 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
               api.saveEntity(entity.kind, {
                 ...entity,
                 name,
-                color,
+                color: isPalette ? blend(gradientStart, gradientEnd) : color,
+                ...(isPalette ? { gradientStart, gradientEnd } : {}),
                 startDate,
                 endDate,
                 parentId,
@@ -48,19 +58,58 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
             onClose();
         }}
       >
-        <label>
-          Name
-          <input
-            required
-            maxLength={80}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </label>
-        {parent ? (
+        {entity.kind !== "palette" && (
+          <label>
+            Name
+            <input
+              required
+              maxLength={80}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </label>
+        )}
+        {isPalette ? (
+          <fieldset className="gradient-editor">
+            <legend>Gradient colors</legend>
+            <div className="gradient-inputs">
+              <label>
+                Start color
+                <input
+                  type="color"
+                  value={gradientStart}
+                  onChange={(e) => setGradientStart(e.target.value)}
+                />
+              </label>
+              <label>
+                End color
+                <input
+                  type="color"
+                  value={gradientEnd}
+                  onChange={(e) => setGradientEnd(e.target.value)}
+                />
+              </label>
+            </div>
+            <div
+              className="gradient-preview"
+              style={{
+                background: `linear-gradient(90deg, ${gradientStart}, ${gradientEnd})`,
+              }}
+              aria-label="Gradient preview"
+            />
+            <div className="gradient-midpoint">
+              <i style={{ background: blend(gradientStart, gradientEnd) }} />
+              Category color · blend of both
+            </div>
+            <small>Tags take evenly spaced steps, in alphabetical order.</small>
+          </fieldset>
+        ) : entity.kind === "category" ? (
           <p className="rv-help">
-            Color follows {parent.name}’s gradient. Edit the category color to
-            update its tags.
+            Color follows{" "}
+            {flowType === "income"
+              ? "Income"
+              : parent?.name || "Ungrouped tags"}
+            ’s gradient. Edit that palette to update its tags.
           </p>
         ) : (
           <label className="rv-color-label">
@@ -133,7 +182,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
           </p>
         )}
         <footer>
-          {entity.id && (
+          {entity.id && entity.kind !== "palette" && (
             <button
               type="button"
               className="account-delete-link"

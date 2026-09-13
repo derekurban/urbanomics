@@ -1,3 +1,8 @@
+import {
+  blend,
+  endpoints,
+  systemPalette,
+} from "../electron/review/palette.mjs";
 import React, { useState } from "react";
 import "./tag-hierarchy.css";
 import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
@@ -11,10 +16,19 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
       entities.filter((e) => e.kind === "category" && tagType(e) === lens),
     ),
     buckets = entities.filter((e) => e.kind === "bucket");
+  const incomePalette = systemPalette(entities, "income");
+  const ungroupedPalette = systemPalette(entities, "ungrouped");
+  const paletteGroup = (palette) => ({
+    ...palette,
+    ...endpoints(palette),
+    color: palette.color,
+    id: "",
+    paletteId: palette.id,
+  });
   const groups =
     lens === "income"
-      ? [{ id: "", name: "Income tags", color: "#8FA6CB" }]
-      : [...buckets, { id: "", name: "Ungrouped tags", color: "#A4ADA3" }];
+      ? [{ ...paletteGroup(incomePalette), name: "Income tags" }]
+      : [...buckets, paletteGroup(ungroupedPalette)];
   async function move(tag, parentId) {
     if (!tag || tagType(tag) !== "expense" || tag.parentId === parentId || busy)
       return;
@@ -36,6 +50,16 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
         {["expense", "income"].map((type) => (
           <button
             key={type}
+            style={
+              type === "income"
+                ? {
+                    "--lens-color": blend(
+                      incomePalette.gradientStart,
+                      incomePalette.gradientEnd,
+                    ),
+                  }
+                : undefined
+            }
             aria-pressed={lens === type}
             onClick={() => {
               setLens(type);
@@ -186,13 +210,23 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
                 <small>
                   {children.length} {children.length === 1 ? "tag" : "tags"}
                 </small>
-                {group.id && (
+                {(group.id || group.paletteId) && (
                   <button
                     disabled={busy}
-                    aria-label={`Edit category ${group.name}`}
-                    onClick={() => edit(group)}
+                    aria-label={
+                      group.paletteId
+                        ? `Edit ${group.paletteId === "income" ? "Income" : "Ungrouped tags"} colors`
+                        : `Edit category ${group.name}`
+                    }
+                    onClick={() =>
+                      edit(
+                        group.paletteId
+                          ? systemPalette(entities, group.paletteId)
+                          : group,
+                      )
+                    }
                   >
-                    Edit
+                    {group.paletteId ? "Colors" : "Edit"}
                   </button>
                 )}
                 <button

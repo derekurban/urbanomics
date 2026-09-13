@@ -1,3 +1,4 @@
+const { blend, endpoints, validColor } = require("./palette.mjs");
 const { tagType, tagFits } = require("./tag-model.mjs");
 const { eventDates, validDate } = require("./event-model.mjs");
 const { randomUUID } = require("node:crypto");
@@ -76,7 +77,19 @@ class ReviewStore {
     return this.db
       .prepare("SELECT * FROM review_entities ORDER BY rowid")
       .all()
-      .map((e) => ({ ...e, tags: JSON.parse(e.tags) }));
+      .map((e) => ({ ...e, tags: JSON.parse(e.tags) }))
+      .concat(
+        this.db
+          .prepare("SELECT * FROM category_palettes ORDER BY id")
+          .all()
+          .map((p) => ({
+            ...p,
+            kind: "palette",
+            name: p.id === "income" ? "Income" : "Ungrouped tags",
+            color: blend(p.gradientStart, p.gradientEnd),
+            tags: [],
+          })),
+      );
   }
   records() {
     const imported = this.imports.aliases.decorate(
@@ -134,6 +147,20 @@ class ReviewStore {
     );
   }
   entity(kind, values) {
+    if (kind === "palette") {
+      if (
+        !["income", "ungrouped"].includes(values?.id) ||
+        !validColor(values.gradientStart) ||
+        !validColor(values.gradientEnd)
+      )
+        throw new Error("Choose two valid gradient colors.");
+      this.db
+        .prepare(
+          "INSERT INTO category_palettes (id,gradientStart,gradientEnd) VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd",
+        )
+        .run(values.id, values.gradientStart, values.gradientEnd);
+      return values.id;
+    }
     if (!["category", "bucket", "group", "person"].includes(kind))
       throw new Error("Unknown organization type.");
     const name = typeof values?.name === "string" ? values.name.trim() : "";
@@ -150,6 +177,21 @@ class ReviewStore {
         .get(values.id, kind);
     if (values.id && !existing)
       throw new Error("Item no longer exists. Refresh and try again.");
+    let gradientStart = existing?.gradientStart || "",
+      gradientEnd = existing?.gradientEnd || "";
+    if (kind === "bucket") {
+      for (const field of ["gradientStart", "gradientEnd"])
+        if (values[field] !== undefined && !validColor(values[field]))
+          throw new Error("Choose two valid gradient colors.");
+      const gradient = endpoints({ ...existing, ...values });
+      if (
+        !validColor(gradient.gradientStart) ||
+        !validColor(gradient.gradientEnd)
+      )
+        throw new Error("Choose two valid gradient colors.");
+      gradientStart = gradient.gradientStart;
+      gradientEnd = gradient.gradientEnd;
+    }
     const flowType =
       kind === "category"
         ? (values.flowType ?? existing?.flowType ?? "expense")
@@ -209,18 +251,24 @@ class ReviewStore {
     const id = existing?.id || randomUUID();
     this.db
       .prepare(
-        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType) VALUES (?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType,gradientStart,gradientEnd) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType,gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd",
       )
       .run(
         id,
         kind,
         name,
-        values.color,
+        kind === "bucket"
+          ? blend(gradientStart, gradientEnd)
+          : kind === "category"
+            ? existing?.color || "#9AA993"
+            : values.color,
         existing?.tags || "[]",
         dates.startDate,
         dates.endDate,
         parentId,
         flowType,
+        gradientStart,
+        gradientEnd,
       );
     return id;
   }
@@ -279,6 +327,8 @@ class ReviewStore {
   removeEntity(id) {
     const entity = this.entities().find((e) => e.id === id);
     if (!entity) throw new Error("Item not found.");
+    if (entity.kind === "palette")
+      throw new Error("This shared palette cannot be deleted.");
     if (
       this.db
         .prepare(

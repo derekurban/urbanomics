@@ -89,7 +89,7 @@ async function create(kind, name, selected = []) {
       .click();
     let d = page.getByRole("dialog", { name: "Edit tag", exact: true });
     await d.getByLabel("Name", { exact: true }).fill("Food");
-    await d.getByLabel("Color", { exact: true }).fill("#6883c5");
+    assert.equal(await d.locator("input[type=color]").count(), 0);
     await d.getByRole("button", { name: "Save tag", exact: true }).click();
     await d.waitFor({ state: "hidden" });
     await page

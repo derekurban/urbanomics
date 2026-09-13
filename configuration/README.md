@@ -13,3 +13,5 @@ A fresh or fully empty workspace seeds from its configuration directory (or the 
 Schema 13 exports tag parent definitions in `review_entities.parentId`. Legacy kind `category` denotes assignable tags; kind `bucket` denotes broad categories. Empty parents mean ungrouped tags. Financial portions and raw records remain private. Existing SQL without parentId seeds compatible ungrouped tags; hierarchy edits never rewrite ledger payloads.
 
 Schema 14 includes review_entities.flowType in the explicit configuration export. It describes expense/income tag definitions only; no financial assignments or transaction data are exported.
+
+Schema 15 exports category gradientStart/gradientEnd definitions and category_palettes (Income/Ungrouped endpoints). The UI derives the category midpoint and alphabetical tag steps; no transaction or review data is exported.

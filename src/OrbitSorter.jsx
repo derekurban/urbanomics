@@ -25,6 +25,7 @@ export function OrbitSorter({
   buckets = [],
   allTags = entities,
   lens = "expense",
+  ungroupedColor,
   people,
   events,
   drafts,
@@ -454,6 +455,7 @@ export function OrbitSorter({
                 width={Math.max(fixed.width, bounds.width)}
                 height={fixed.height}
                 lens={lens}
+                ungroupedColor={ungroupedColor}
                 query={query}
                 choose={choose}
                 selected={selected}

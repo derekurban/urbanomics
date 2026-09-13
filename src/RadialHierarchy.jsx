@@ -14,13 +14,14 @@ export function RadialHierarchy({
   hover,
   busy,
   lens = "expense",
+  ungroupedColor = "#9AA993",
 }) {
   const matches = (name) =>
     name.toLowerCase().includes(query.trim().toLowerCase());
   const sorted = alphabetical(tags);
   const groups = [
     ...buckets,
-    { id: "ungrouped", name: "Ungrouped", color: "#9AA993" },
+    { id: "ungrouped", name: "Ungrouped", color: ungroupedColor },
   ]
     .map((b) => ({
       ...b,

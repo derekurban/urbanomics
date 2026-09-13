@@ -1,46 +1,51 @@
 import { alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import {
+  blend,
+  endpoints,
+  systemPalette,
+} from "../electron/review/palette.mjs";
 
-// A display palette only. Saved custom colors survive grouping and ungrouping.
+// Display-only inheritance. Financial records and legacy tag colors stay untouched.
 export function categoryColors(entities) {
   const shades = new Map();
-  for (const bucket of entities.filter((e) => e.kind === "bucket")) {
+  const palettes = [
+    ...entities.filter((e) => e.kind === "bucket"),
+    systemPalette(entities, "income"),
+    systemPalette(entities, "ungrouped"),
+  ];
+  for (const palette of palettes) {
+    const { gradientStart, gradientEnd } = endpoints(palette);
     const tags = alphabetical(
       entities.filter(
         (e) =>
           e.kind === "category" &&
-          tagType(e) === "expense" &&
-          e.parentId === bucket.id,
+          (palette.id === "income"
+            ? tagType(e) === "income"
+            : tagType(e) === "expense" &&
+              (palette.id === "ungrouped"
+                ? !e.parentId
+                : e.parentId === palette.id)),
       ),
     );
-    const rgb = bucket.color
-      .match(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i)
-      ?.slice(1)
-      .map((v) => parseInt(v, 16));
-    if (!rgb) continue;
-    tags.forEach((tag, i) => {
-      const mix =
-        tags.length === 1 ? 0 : -0.24 + (i / (tags.length - 1)) * 0.72;
-      const color =
-        "#" +
-        rgb
-          .map((v) =>
-            Math.round(mix < 0 ? v * (1 + mix) : v + (255 - v) * mix)
-              .toString(16)
-              .padStart(2, "0"),
-          )
-          .join("");
-      shades.set(tag.id, color);
+    shades.set(palette.id, {
+      color: blend(gradientStart, gradientEnd),
+      gradientStart,
+      gradientEnd,
     });
+    tags.forEach((tag, i) =>
+      shades.set(tag.id, {
+        color: blend(
+          gradientStart,
+          gradientEnd,
+          tags.length === 1 ? 0.5 : i / (tags.length - 1),
+        ),
+        inheritedColor: true,
+      }),
+    );
   }
-  return entities.map((entity) => {
-    const customColor = entity.customColor ?? entity.color;
-    return shades.has(entity.id)
-      ? {
-          ...entity,
-          customColor,
-          color: shades.get(entity.id),
-          inheritedColor: true,
-        }
-      : { ...entity, color: customColor, inheritedColor: false };
-  });
+  return entities.map((entity) => ({
+    ...entity,
+    customColor: entity.customColor ?? entity.color,
+    ...shades.get(entity.id),
+  }));
 }

@@ -1,3 +1,4 @@
+import { systemPalette } from "../electron/review/palette.mjs";
 import { categoryColors } from "./category-colors.js";
 import {
   alphabetical,
@@ -869,6 +870,14 @@ export function ReviewWorkspace({
               {["expense", "income"].map((type) => (
                 <button
                   key={type}
+                  style={
+                    type === "income" && tagMode === type
+                      ? {
+                          background: `color-mix(in srgb, ${systemPalette(entities, "income").color} 20%, white)`,
+                          borderColor: systemPalette(entities, "income").color,
+                        }
+                      : undefined
+                  }
                   aria-pressed={tagMode === type}
                   onClick={() => setTagMode(type)}
                 >
@@ -894,6 +903,7 @@ export function ReviewWorkspace({
             entities={tags.filter((e) => tagType(e) === tagMode)}
             allTags={tags}
             lens={tagMode}
+            ungroupedColor={systemPalette(entities, "ungrouped").color}
             buckets={
               tagMode === "expense"
                 ? entities.filter((e) => e.kind === "bucket")

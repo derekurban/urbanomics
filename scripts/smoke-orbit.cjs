@@ -387,6 +387,78 @@ async function drag(group, tag, cancel = false) {
       "tagging does not declare earned income",
     );
     await shot("income-review");
+    const beforePalettes = (await state()).records;
+    await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+    await button("Categories & tags").click();
+    await button("Edit category Food").click();
+    let paletteModal = page.getByRole("dialog");
+    await paletteModal
+      .getByLabel("Start color", { exact: true })
+      .fill("#b94e36");
+    await paletteModal.getByLabel("End color", { exact: true }).fill("#dfbd49");
+    await shot("category-gradient-editor");
+    await button("Save category").click();
+    await paletteModal.waitFor({ state: "hidden" });
+    await shot("category-two-color-steps");
+    const food = (await state()).entities.find(
+      (e) => e.kind === "bucket" && e.name === "Food",
+    );
+    assert.equal(food.color, "#cc8640");
+    await page
+      .getByRole("group", { name: "Organization lens" })
+      .getByRole("button", { name: /Income/ })
+      .click();
+    await button("Edit Income colors").click();
+    paletteModal = page.getByRole("dialog");
+    await paletteModal
+      .getByLabel("Start color", { exact: true })
+      .fill("#5363bc");
+    await paletteModal.getByLabel("End color", { exact: true }).fill("#49c796");
+    await shot("income-gradient-editor");
+    await button("Save palette").click();
+    await paletteModal.waitFor({ state: "hidden" });
+    await page.evaluate(async () => {
+      for (const name of ["Gifts", "Interest"])
+        await window.urbanomics.saveEntity("category", {
+          name,
+          flowType: "income",
+          color: "#123456",
+        });
+    });
+    await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page.locator(".nav-item").filter({ hasText: "Organize" }).click();
+    await button("Categories & tags").click();
+    await page
+      .getByRole("group", { name: "Organization lens" })
+      .getByRole("button", { name: /Income/ })
+      .click();
+    const incomeColors = await page
+      .locator(".th-tag")
+      .evaluateAll((rows) =>
+        rows.map((e) => e.style.getPropertyValue("--tag-color")),
+      );
+    assert.deepEqual(incomeColors, ["#5363bc", "#4e95a9", "#49c796"]);
+    await shot("income-two-color-steps");
+    await button("Edit tag Interest").click();
+    assert.equal(
+      await page.getByRole("dialog").locator("input[type=color]").count(),
+      0,
+    );
+    await button("Cancel").click();
+    await page.locator(".nav-item").filter({ hasText: "Review" }).click();
+    await page
+      .getByRole("group", { name: "Review tag lens" })
+      .getByRole("button", { name: "Money in", exact: true })
+      .click();
+    assert.equal(await page.locator(".rh-tag").count(), 3);
+    await shot("income-gradient-radial");
+    await page
+      .getByRole("group", { name: "Review tag lens" })
+      .getByRole("button", { name: "Money out", exact: true })
+      .click();
+    await open("Food");
+    await shot("expense-gradient-radial");
+    assert.deepEqual((await state()).records, beforePalettes);
     const persisted = await state();
     await app.close();
     app = null;

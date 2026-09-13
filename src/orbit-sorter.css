@@ -618,7 +618,7 @@
   transform: translate(-50%, -50%);
 }
 
-.rh-tag[data-inherited-color] {
+.review-workspace .rh-tag[data-inherited-color] {
   background: color-mix(in srgb, var(--bubble-color) 42%, white);
   border-color: var(--bubble-color);
 }
