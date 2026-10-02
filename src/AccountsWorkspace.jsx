@@ -4,6 +4,7 @@ import {WorkspaceModal} from "./WorkspaceModal.jsx";
 import {InfoDot,money,monthLabel} from "./snapshots-v2-atoms.jsx";
 import {accountsModel} from "./accounts-model.js";
 import "./accounts-workspace.css";
+import { Icon } from "@derekurban/design-system";
 const api=window.urbanomics;
 const shortMonth=m=>new Date(m+"-15T12:00:00Z").toLocaleDateString("en-CA",{month:"short",timeZone:"UTC"});
 const initials=name=>name.split(/\s+/).slice(0,2).map(n=>n[0]).join("");
@@ -30,13 +31,13 @@ export function AccountsWorkspace({data,busy,run,onSnapshots,onSource}){
   const periodLabel=selectedMonth?monthLabel(selectedMonth):year;
   const reset=()=>{setMonth("");setLimit(10);setObservations(false);};
   return <div className="accounts-workspace">
-    <div className="accounts-heading"><div><div className="eyebrow">YOUR MONEY, BY ACCOUNT</div><h1>Accounts</h1></div><div className="accounts-actions"><button onClick={onSnapshots}>Import CSVs</button><button className="primary" disabled={busy||!source} onClick={()=>setEditing({})}>+ Add account</button></div></div>
+    <div className="accounts-heading"><div><h1>Accounts</h1></div><div className="accounts-actions"><button onClick={onSnapshots}>Import CSVs</button><button className="primary" disabled={busy||!source} onClick={()=>setEditing({})}>+ Add account</button></div></div>
     {error&&<div role="alert" className="accounts-notice">{error} <button onClick={()=>setReload(n=>n+1)}>Retry</button></div>}
     {!source&&!error&&<p role="status">Loading accounts…</p>}
-    {source&&!data.accounts.length&&<div className="accounts-empty"><span aria-hidden="true">◫</span><h2>A place for every account.</h2><p>Add an account using a saved CSV layout, or start with an export in Snapshots.</p><button onClick={onSnapshots}>Start with a CSV →</button></div>}
+    {source&&!data.accounts.length&&<div className="accounts-empty"><span aria-hidden="true"><Icon name="wallet" size={24}/></span><h2>A place for every account.</h2><p>Add an account using a saved CSV layout, or start with an export in Snapshots.</p><button onClick={onSnapshots}>Start with a CSV →</button></div>}
     {!!data.accounts.length&&source&&<>
       <div className="accounts-toolbar"><span>{data.accounts.length} accounts</span><div><label className="accounts-select-label">Currency<select aria-label="Account currency" value={currency} onChange={e=>{setCurrency(e.target.value);reset();}}>{(currencies.length?currencies:[currency]).map(c=><option key={c}>{c}</option>)}</select></label></div></div>
-      <div className="accounts-cards" role="group" aria-label="Choose account">{models.map(a=><button className="accounts-tile" key={a.id} style={{"--account-color":a.color}} aria-pressed={a.id===account.id} onClick={()=>{setSelected(a.id);reset();}}><span className="accounts-tile-top"><span className="accounts-monogram">{initials(a.name)}</span><span><strong>{a.name}</strong><small>{a.kind||"Account"}</small></span><span className="accounts-selection" aria-hidden="true">{a.id===account.id?"✓":""}</span></span><span className="accounts-balance">{a.balance.value!==null?money(a.balance.value,currency):"—"}</span><small>{a.balance.ambiguous?"Multiple balance observations":a.balance.date?`Reported · ${a.balance.date}`:"No reported balance"}</small><span className="accounts-tile-bottom"><span>{a.rows.length.toLocaleString()} transactions</span><span>{currency}</span></span></button>)}</div>
+      <div className="accounts-cards" role="group" aria-label="Choose account">{models.map(a=><button className="accounts-tile" key={a.id} style={{"--account-color":a.color}} aria-pressed={a.id===account.id} onClick={()=>{setSelected(a.id);reset();}}><span className="accounts-tile-top"><span className="accounts-monogram">{initials(a.name)}</span><span><strong>{a.name}</strong><small>{a.kind||"Account"}</small></span><span className="accounts-selection" aria-hidden="true">{a.id===account.id?<Icon name="check" size={14}/>:""}</span></span><span className="accounts-balance">{a.balance.value!==null?money(a.balance.value,currency):"—"}</span><small>{a.balance.ambiguous?"Multiple balance observations":a.balance.date?`Reported · ${a.balance.date}`:"No reported balance"}</small><span className="accounts-tile-bottom"><span>{a.rows.length.toLocaleString()} transactions</span><span>{currency}</span></span></button>)}</div>
       {account&&<div className="accounts-detail" key={account.id} style={{"--account-color":account.color}}>
         <div className="accounts-detail-heading"><div><span className="accounts-dot"/><h2>{account.name}</h2></div><button disabled={busy} aria-label={`Edit ${account.name}`} onClick={()=>setEditing(account)}>Edit account</button></div>
         <div className="accounts-columns"><div className="accounts-main-column">

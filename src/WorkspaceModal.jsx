@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef } from "react";
+import { Icon } from "@derekurban/design-system";
 
 export function WorkspaceModal({
   title,
@@ -43,7 +44,7 @@ export function WorkspaceModal({
       <header>
         <h2 id={titleId}>{title}</h2>
         <button autoFocus aria-label={`Close ${title}`} onClick={onClose}>
-          ×
+          <Icon name="x" size={18} />
         </button>
       </header>
       <div className="workspace-dialog-scroll">{children}</div>

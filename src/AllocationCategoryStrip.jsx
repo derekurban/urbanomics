@@ -1,5 +1,6 @@
 import React, {useEffect, useRef, useState} from 'react';
 import {createPortal} from 'react-dom';
+import { Icon } from "@derekurban/design-system";
 
 export function AllocationCategoryStrip({groups, selected, disabled, onTag, children}) {
   const [open,setOpen]=useState(null), timer=useRef(), rail=useRef(), menu=useRef(), trigger=useRef();
@@ -15,7 +16,7 @@ export function AllocationCategoryStrip({groups, selected, disabled, onTag, chil
       {!groups.length&&<span className="allocation-empty-categories">Add tags in Settings to get started.</span>}
     </div>
     {open&&createPortal(<div ref={menu} className="allocation-category-menu" role="menu" aria-label={open.group.name+' tags'} style={{left:open.left,top:open.top,maxHeight:open.height}} onPointerEnter={()=>clearTimeout(timer.current)} onPointerLeave={delay} onBlur={e=>{if(!e.currentTarget.contains(e.relatedTarget))close();}} onKeyDown={e=>{if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const items=[...menu.current.querySelectorAll('button')],index=items.indexOf(document.activeElement);items[e.key==='Home'?0:e.key==='End'?items.length-1:(index+(e.key==='ArrowDown'?1:-1)+items.length)%items.length]?.focus();}}}>
-      <small>{open.group.name}</small>{open.group.tags.map(tag=><button role="menuitemcheckbox" aria-label={tag.name} aria-checked={selected.includes(tag.id)} key={tag.id} onClick={()=>{onTag(tag);close();trigger.current?.focus();}}><i style={{background:tag.color}}/><span>{tag.name}</span><b>{selected.includes(tag.id)?'✓':'+'}</b></button>)}{!open.group.tags.length&&<p>No tags in this category yet.</p>}
+      <small>{open.group.name}</small>{open.group.tags.map(tag=><button role="menuitemcheckbox" aria-label={tag.name} aria-checked={selected.includes(tag.id)} key={tag.id} onClick={()=>{onTag(tag);close();trigger.current?.focus();}}><i style={{background:tag.color}}/><span>{tag.name}</span><b><Icon name={selected.includes(tag.id)?'check':'plus'} size={14}/></b></button>)}{!open.group.tags.length&&<p>No tags in this category yet.</p>}
     </div>,document.body)}
   </div>;
 }

@@ -1,3 +1,4 @@
+import { Icon } from "@derekurban/design-system";
 import React, { useEffect, useRef, useState } from "react";
 import "./snapshots-v2.css";
 import {
@@ -363,7 +364,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
                   )
                 }
               >
-                <span aria-hidden="true">↻</span> Refresh
+                <span aria-hidden="true"><Icon name="refresh-cw" size={16}/></span> Refresh
               </button>
               <button type="button" onClick={() => setModal("archive")}>
                 Archive
@@ -533,7 +534,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
                 {/* Keyed so the tick plays its small pop the moment a step
                     completes; the button itself never remounts. */}
                 <i key={done(id) ? "done" : "todo"} aria-hidden="true">
-                  {done(id) ? "✓" : index + 1}
+                  {done(id) ? <Icon name="check" size={14} /> : index + 1}
                 </i>
                 <span>{label}</span>
               </button>
@@ -621,7 +622,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
                         )
                       }
                     >
-                      ×
+                      <Icon name="x" size={16} />
                     </button>
                   </li>
                 ))}
@@ -933,7 +934,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
             aria-label="Dismiss message"
             onClick={() => setNotice("")}
           >
-            ×
+            <Icon name="x" size={16} />
           </button>
         </div>
       )}

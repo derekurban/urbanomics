@@ -1,3 +1,4 @@
+import { Icon } from "@derekurban/design-system";
 import React, { useEffect, useState, useId } from "react";
 import {
   AccountDot,
@@ -184,18 +185,18 @@ export function AccountDialog({ mode, job, account, busy, run, onClose, onCreate
 
         </label>
         <fieldset className="sv2-fieldset">
-          <legend>Colour</legend>
+          <legend>Color</legend>
           <div className="sv2-colors">
             {palette.map((value) => (
               <button
                 type="button"
                 key={value}
-                aria-label={`Colour ${value}`}
+                aria-label={`Color ${value}`}
                 aria-pressed={color.toUpperCase() === value}
                 style={{ "--sv2-account": value }}
                 onClick={() => setColor(value)}
               >
-                {color.toUpperCase() === value ? "✓" : ""}
+                {color.toUpperCase() === value ? <Icon name="check" size={14} /> : ""}
               </button>
             ))}
             <label className="sv2-custom-color">

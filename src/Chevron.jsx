@@ -1,18 +1,5 @@
 import React from "react";
+import { Icon } from "@derekurban/design-system";
 export function Chevron({ right = false }) {
-  return (
-    <svg
-      width="18"
-      height="18"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.8"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-    >
-      <path d={right ? "m9 5 7 7-7 7" : "m15 5-7 7 7 7"} />
-    </svg>
-  );
+  return <Icon name={right ? "chevron-right" : "chevron-left"} size={18} />;
 }

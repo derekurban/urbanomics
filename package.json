@@ -34,7 +34,9 @@
     "prototype:ingest": "vite build --config prototypes/ingest/vite.config.mjs"
   },
   "dependencies": {
+    "@derekurban/design-system": "github:derekurban/design-system#v0.1.0",
     "csv-parse": "7.0.2",
+    "lucide": "0.460.0",
     "re2-wasm": "1.0.2",
     "react": "19.3.0",
     "react-dom": "19.3.0"

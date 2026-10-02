@@ -1,8 +1,12 @@
 import "./browser-api.js";
+import "@derekurban/design-system/styles.css";
+import "./icons.js";
+import { Icon, Mark } from "@derekurban/design-system";
 import "./theme.js";
 import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
+import "./design-system.css";
 import "./styles.css";
 import { SnapshotsWorkspace } from "./SnapshotsWorkspace.jsx";
 import { AccountsWorkspace } from "./AccountsWorkspace.jsx";
@@ -16,7 +20,6 @@ import { OrganizeWorkspace } from "./OrganizeWorkspace.jsx";
 import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
 import "./mobile.css";
-import "./theme.css";
 import "./workspace-refresh.css";
 
 const api = window.urbanomics;
@@ -182,20 +185,20 @@ function App() {
     return (
       <div className="launch-message">
         <div className="brand">
-          urbanomics<span>●</span>
+          <Mark size={28} label="Urbanomics" /><span>urbanomics</span>
         </div>
         <p>{error || "Opening your local workspace…"}</p>
       </div>
     );
   const activeJob = data.jobs.find((j) => j.id === selectedJob);
   const tabs = [
-    ["dashboard", "◉", "Dashboard", "Overview"],
-    ["snapshots", "▤", "Snapshots", "Workspace"],
-    ["organize", "▥", "Organize"],
-    ["transactions", "≡", "Transactions"],
-    ["events", "▦", "Events"],
-    ["accounts", "◫", "Accounts"],
-    ["settings", "⚙", "Settings", "Preferences"],
+    ["dashboard", "layout-dashboard", "Dashboard", "Overview"],
+    ["snapshots", "layers", "Snapshots", "Workspace"],
+    ["organize", "tags", "Organize"],
+    ["transactions", "list", "Transactions"],
+    ["events", "calendar-days", "Events"],
+    ["accounts", "wallet", "Accounts"],
+    ["settings", "settings", "Settings", "Preferences"],
   ];
   return (
     <div
@@ -211,7 +214,7 @@ function App() {
     >
       <aside className="sidebar">
         <div className="brand">
-          urbanomics<span>●</span>
+          <Mark size={28} label="Urbanomics" /><span>urbanomics</span>
         </div>
         <p className="brand-sub">A little order. A clearer picture.</p>
         {api.host === "browser" && (
@@ -234,7 +237,7 @@ function App() {
                 setSelectedJob(null);
               }}
             >
-              <span aria-hidden="true">{icon}</span>
+              <span aria-hidden="true"><Icon name={icon} size={18} /></span>
               {label}
               {id === "snapshots" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
@@ -251,7 +254,7 @@ function App() {
         </div>
       </aside>
       <div className="workspace">
-        <div className="mobile-topbar"><strong>urbanomics<span>●</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
+        <div className="mobile-topbar"><strong><Mark size={24} label="Urbanomics" /><span>urbanomics</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
         <header className="topbar">
           <div>
             <span className="breadcrumb">Workspace</span>
@@ -274,7 +277,7 @@ function App() {
                 aria-label="Dismiss message"
                 onClick={() => setNotice("")}
               >
-                ×
+                <Icon name="x" size={16} />
               </button>
             </div>
           )}
@@ -303,7 +306,7 @@ function App() {
           {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
         </main>
         <footer>
-          <span>URBANOMICS / LOCAL WORKSPACE</span>
+          <span>Urbanomics · local workspace</span>
           <span>{busy ? "Saving…" : "Your data stays with you."}</span>
         </footer>
       </div>
@@ -329,9 +332,9 @@ function App() {
               aria-label="Close import review"
               onClick={() => setSelectedJob(null)}
             >
-              ×
+              <Icon name="x" size={18} />
             </button>
-            <div className="eyebrow">IMPORT REVIEW</div>
+            
             <h2>
               {activeJob.status === "routing"
                 ? "Where does this belong?"
@@ -478,9 +481,9 @@ function App() {
               aria-label="Close transaction"
               onClick={() => setDetail(null)}
             >
-              ×
+              <Icon name="x" size={18} />
             </button>
-            <div className="eyebrow">BACK TO THE SOURCE</div>
+            
             <h2>{detail.description}</h2>
             <div className="detail-amount">{currency(detail.amountCents)}</div>
             <p>

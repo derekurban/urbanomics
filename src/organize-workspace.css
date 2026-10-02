@@ -2,20 +2,20 @@
    state, callout, panel) are reused by the Aliases and Rules sections.
    Everything is scoped under .organize-workspace. */
 .organize-workspace {
-  --og-sage: var(--tone-85);
-  --og-sage-ink: var(--tone-25);
-  --og-mint: var(--tone-90);
-  --og-mint-ink: var(--tone-25);
-  --og-sand: var(--tone-90);
-  --og-sand-ink: var(--tone-30);
-  --og-peach: var(--tone-95);
-  --og-peach-ink: var(--tone-20);
-  --og-sky: var(--tone-90);
-  --og-sky-ink: var(--tone-25);
-  --og-lilac: var(--tone-90);
-  --og-lilac-ink: var(--tone-25);
-  --og-gray: var(--tone-95);
-  --og-gray-ink: var(--tone-35);
+  --og-sage: var(--line);
+  --og-sage-ink: var(--ink-secondary);
+  --og-mint: var(--sunk);
+  --og-mint-ink: var(--ink-secondary);
+  --og-sand: var(--sunk);
+  --og-sand-ink: var(--ink-secondary);
+  --og-peach: var(--sunk);
+  --og-peach-ink: var(--ink-secondary);
+  --og-sky: var(--sunk);
+  --og-sky-ink: var(--ink-secondary);
+  --og-lilac: var(--sunk);
+  --og-lilac-ink: var(--ink-secondary);
+  --og-gray: var(--sunk);
+  --og-gray-ink: var(--ink-secondary);
   min-width: 0;
 }
 
@@ -42,8 +42,8 @@
   flex-wrap: wrap;
   gap: 4px;
   padding: 4px;
-  border-radius: 12px;
-  background: var(--tone-90);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
   margin-bottom: 20px;
 }
 .og-sections button {
@@ -56,15 +56,15 @@
   min-height: 32px;
   padding: 6px 10px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   background: transparent;
   font-size: 12px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .og-sections button[aria-pressed="true"] {
-  background: var(--paper);
-  color: var(--tone-15);
-  box-shadow: 0 1px 3px rgb(from var(--tone-10) r g b / 0.0784);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-rest);
 }
 .og-sections small {
   font-size: 10.5px;
@@ -72,9 +72,9 @@
   min-width: 18px;
   text-align: center;
   padding: 1px 6px;
-  border-radius: 5px;
-  background: var(--tone-90);
-  color: var(--tone-30);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .og-sections button[aria-pressed="true"] small {
   background: var(--og-mint);
@@ -121,30 +121,30 @@
 .og-filter small {
   font-size: 10.5px;
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--og-gray);
   color: var(--og-gray-ink);
 }
 .og-filter[aria-pressed="true"] {
   background: var(--og-mint);
-  border-color: var(--tone-75);
+  border-color: var(--line-strong);
   color: var(--og-mint-ink);
 }
 .og-filter[aria-pressed="true"] small {
-  background: var(--paper);
+  background: var(--surface);
 }
 .og-stat {
   margin-left: auto;
   font-size: 11.5px;
-  color: var(--muted);
+  color: var(--ink-secondary);
   white-space: nowrap;
 }
 
 /* Dense entity rows. */
 .og-rows {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 .og-row {
   display: flex;
@@ -174,7 +174,7 @@
   gap: 3px 10px;
   margin-top: 2px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--ink-secondary);
 }
 .og-row > button {
   flex-shrink: 0;
@@ -195,10 +195,10 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  color: var(--tone-0);
+  color: var(--ink);
   font-size: 11px;
-  font-weight: 550;
-  background: color-mix(in srgb, var(--item-color) 35%, var(--paper));
+  font-weight: 500;
+  background: color-mix(in srgb, var(--item-color) 35%, var(--surface));
 }
 .og-usage-bar {
   flex-shrink: 0;
@@ -214,13 +214,13 @@
   height: 100%;
   width: var(--fill, 0%);
   border-radius: 2px;
-  background: var(--tone-60);
+  background: var(--ink-tertiary);
 }
 .og-badge {
   font-size: 10px;
   line-height: 1.4;
   padding: 1px 6px;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   background: var(--og-sand);
   color: var(--og-sand-ink);
   white-space: nowrap;
@@ -243,8 +243,8 @@
 .og-chips span {
   font-size: 12px;
   padding: 4px 9px;
-  background: var(--tone-95);
-  border-radius: 16px;
+  background: var(--sunk);
+  border-radius: var(--radius-xl);
   overflow-wrap: anywhere;
   max-width: 100%;
 }
@@ -258,11 +258,11 @@
 
 /* Empty and loading states. */
 .og-empty {
-  border: 1px dashed var(--tone-75);
+  border: 1px dashed var(--line-strong);
   padding: 20px 22px;
-  border-radius: 12px;
-  background: var(--tone-95);
-  color: var(--muted);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
+  color: var(--ink-secondary);
   font-size: 13px;
 }
 .og-empty h3 {
@@ -284,8 +284,8 @@
   justify-content: space-between;
   gap: 14px;
   padding: 10px 14px;
-  background: var(--soft);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
   margin-bottom: 14px;
 }
 .og-callout > div:first-child {
@@ -348,8 +348,8 @@
   padding: 11px 13px;
   text-align: left;
   min-height: 0;
-  border-radius: 12px;
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
   border: 1px solid var(--line);
 }
 .og-tile i {
@@ -357,20 +357,20 @@
   place-items: center;
   width: 26px;
   height: 26px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   margin-bottom: 7px;
   background: var(--tile-bg, var(--og-mint));
   color: var(--tile-ink, var(--og-mint-ink));
 }
 .og-tile b {
   font-size: 20px;
-  font-weight: 550;
+  font-weight: 500;
   letter-spacing: -0.5px;
   line-height: 1.1;
 }
 .og-tile > span {
   font-size: 12px;
-  color: var(--muted);
+  color: var(--ink-secondary);
 }
 .og-tile small {
   font-size: 11px;
@@ -410,8 +410,8 @@
 }
 .og-attention {
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 .og-attention-row {
   display: flex;
@@ -445,7 +445,7 @@
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   padding: 3px 7px;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   background: var(--og-gray);
   color: var(--og-gray-ink);
 }
@@ -478,7 +478,7 @@
   align-items: center;
   gap: 12px;
   padding: 14px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   background: var(--og-mint);
   color: var(--og-mint-ink);
 }
@@ -495,14 +495,14 @@
   display: block;
   margin-top: 2px;
   font-size: 11.5px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .og-pending {
   margin: 8px 0 0;
   font-size: 11.5px;
 }
 .og-pending.is-error {
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .og-links {
   display: grid;
@@ -517,7 +517,7 @@
 }
 .og-links .og-glyph {
   flex-shrink: 0;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .og-links span {
   min-width: 0;

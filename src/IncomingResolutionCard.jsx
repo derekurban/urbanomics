@@ -17,7 +17,7 @@ export function resolutionValid(row,draft){
   return false;
 }
 function Receipt({row,outgoing=false,onRemove,active}){
-  return <div className={`ex-receipt ${outgoing?'from':'to'}`} style={{'--account-color':row.color||'var(--muted)'}}>
+  return <div className={`ex-receipt ${outgoing?'from':'to'}`} style={{'--account-color':row.color||'var(--data-neutral)'}}>
     {onRemove&&<button className="ex-remove" aria-label="Remove suggested transfer" disabled={!active} onClick={onRemove}>×</button>}
     <div className="ex-receipt-main"><strong className="ex-receipt-title" title={row.originalDescription||row.description}>{row.description}</strong><b>{outgoing?'−':'+'}{amount(row.amountCents,row.currency)} <small>{row.currency}</small></b></div>
     <div className="ex-receipt-meta"><span><i/>{row.account}</span><time>{row.date}</time></div>

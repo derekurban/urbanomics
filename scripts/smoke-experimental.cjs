@@ -191,12 +191,11 @@ const root=path.resolve('private/validation/experimental-'+randomUUID());
   const stale=row('Stack income 1');await server.service.invoke('review:organize',[{id:stale.id,version:stale.version,tags:[]}]);
   await page.getByText(/This card changed on another screen/).waitFor();assert.equal(await active().getByLabel('Amount for Freelance').count(),1);assert.ok(await active().getByRole('button',{name:'Save income'}).isDisabled());
   await page.getByRole('button',{name:'Reload card',exact:true}).click();await settled();
-  // Exercise the shared palette without changing any financial records.
-  await page.locator('.nav-item').filter({hasText:'Organize'}).click();await page.getByRole('button',{name:'Appearance',exact:true}).click();await screen('appearance');
-  await page.getByLabel('Theme accent',{exact:true}).fill('#3b5275');await page.getByRole('button',{name:'Apply palette',exact:true}).click();
-  assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim()),'#3b5275');
-  await page.reload();assert.equal(await page.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--theme-accent').trim()),'#3b5275');
-  await page.locator('.nav-item').filter({hasText:'Organize'}).click();await page.getByRole('button',{name:'Appearance',exact:true}).click();await page.getByRole('button',{name:'Restore neutral palette'}).click();
+  // Color mode comes from the design system; only light/dark/system is stored on the device.
+  await page.locator('.nav-item').filter({hasText:'Settings'}).click();await page.getByRole('button',{name:'Appearance',exact:true}).click();await screen('appearance');
+  await page.getByRole('radio',{name:'Dark',exact:true}).click();assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
+  await page.reload();assert.equal(await page.evaluate(()=>document.documentElement.dataset.theme),'dark');
+  await page.locator('.nav-item').filter({hasText:'Settings'}).click();await page.getByRole('button',{name:'Appearance',exact:true}).click();await page.getByRole('radio',{name:'Light',exact:true}).click();
   await page.locator('.nav-item').filter({hasText:'Dashboard'}).click();await page.locator('.dash-workspace .dash-stats').first().waitFor();await page.waitForTimeout(500);await screen('dashboard-neutral');
   await page.locator('.nav-item').filter({hasText:'Snapshots'}).click();await page.waitForTimeout(700);await screen('snapshots-neutral');
   await page.locator('.nav-item').filter({hasText:'Organize'}).click();await page.getByRole('button',{name:'Overview',exact:true}).click();await page.waitForTimeout(250);await screen('organize-neutral');

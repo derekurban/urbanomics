@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { InfoDot, PatternSegments, PatternLegend, palette } from "./snapshots-v2-atoms.jsx";
+import { Icon } from "@derekurban/design-system";
 
 const api = window.urbanomics;
 export function AccountEditor({ account, layouts, history = [], busy, run, onClose, onSnapshots }) {
@@ -24,7 +25,7 @@ export function AccountEditor({ account, layouts, history = [], busy, run, onClo
     <form id={formId} className="account-editor" onSubmit={async e=>{e.preventDefault();setError("");const values={name,kind,prefixRegex,color};const result=await run(async()=>{try{return account?await api.updateAccount(account.id,values):await api.addAccount(name,schema,kind,values);}catch(e){setError(e.message);throw e;}},"Account saved.");if(result!==false)onClose();}}>
       <div className="accounts-form-pair"><label>Account name<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Everyday account"/></label><label>Type (optional)<input maxLength={80} value={kind} onChange={e=>setKind(e.target.value)} placeholder="Chequing, savings, credit…"/></label></div>
       {!account&&(layouts.length?<label>Saved CSV layout<select aria-label="Saved CSV layout" value={schema} onChange={e=>setSchema(e.target.value)}>{layouts.map(t=><option key={t.id} value={"custom:"+t.id}>{t.name}</option>)}</select></label>:<div className="accounts-notice"><p>Create a CSV layout in Snapshots to connect your first account.</p><button type="button" onClick={()=>{onClose();onSnapshots();}}>Set up in Snapshots →</button></div>)}
-      <fieldset><legend>Account color</legend><div className="account-colors">{palette.map(value=><button type="button" key={value} aria-label={`Color ${value}`} aria-pressed={color.toUpperCase()===value} style={{"--account-color":value}} onClick={()=>setColor(value)}>{color.toUpperCase()===value?"✓":""}</button>)}<label className="custom-color">Custom<input type="color" aria-label="Custom account color" value={color} onChange={e=>setColor(e.target.value)}/></label></div></fieldset>
+      <fieldset><legend>Account color</legend><div className="account-colors">{palette.map(value=><button type="button" key={value} aria-label={`Color ${value}`} aria-pressed={color.toUpperCase()===value} style={{"--account-color":value}} onClick={()=>setColor(value)}>{color.toUpperCase()===value?<Icon name="check" size={14}/>:""}</button>)}<label className="custom-color">Custom<input type="color" aria-label="Custom account color" value={color} onChange={e=>setColor(e.target.value)}/></label></div></fieldset>
       <div className="accounts-field-title">Filename rule <InfoDot label="Account filename rule">Matches the start of filenames, ignoring capitalization. Use RE2 syntax without / delimiters. Leave blank to assign files manually. CSV layout rules are separate; previously imported files keep their account.</InfoDot></div>
       <label className="accounts-rule-label"><span className="sr-only">Filename prefix regex</span><input spellCheck={false} maxLength={256} value={prefixRegex} onChange={e=>setPrefix(e.target.value)} placeholder="^everyday_.*"/></label>
       <div className="accounts-filename-test">

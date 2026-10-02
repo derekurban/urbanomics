@@ -179,7 +179,7 @@ export function OrganizeWorkspace({
   }
   return (
     <div className="organize-workspace settings-workspace">
-      <div className="workspace-heading"><div><p className="workspace-eyebrow">MAKE IT YOURS</p><h1>Settings</h1></div></div>
+      <div className="workspace-heading"><div><h1>Settings</h1></div></div>
       <nav className="og-sections" aria-label="Settings sections">
         {sections.map(([id, name]) => {
           const count =

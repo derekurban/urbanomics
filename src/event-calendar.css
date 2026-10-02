@@ -24,7 +24,7 @@
 .event-top p {
   margin: 0;
   max-width: 600px;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 13px;
   line-height: 1.6;
 }
@@ -53,7 +53,7 @@
   background: var(--event-color);
 }
 .event-choices button[aria-pressed="true"] {
-  background: var(--tone-90);
+  background: var(--sunk);
   border-color: var(--event-color);
 }
 .event-context {
@@ -70,7 +70,7 @@
 .cost-payment small,
 .event-incoming small {
   display: block;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
   margin-top: 5px;
 }
@@ -86,7 +86,7 @@
 }
 .event-suggestions > small {
   width: 100%;
-  color: var(--muted);
+  color: var(--ink-secondary);
 }
 .event-layout {
   display: grid;
@@ -101,8 +101,8 @@
   min-width: 0;
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--tone-100);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
 }
 .event-month-nav {
   margin-bottom: 18px;
@@ -133,7 +133,7 @@
 }
 .event-calendar-grid > small {
   text-align: center;
-  color: var(--muted);
+  color: var(--ink-secondary);
   padding: 6px 0;
   font-size: 10px;
 }
@@ -141,9 +141,9 @@
   min-height: 76px;
   padding: 8px 6px;
   text-align: left;
-  border: 1px solid var(--tone-90);
-  border-radius: 10px;
-  background: var(--paper);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
   transition:
     background 0.15s,
     transform 0.15s;
@@ -152,11 +152,11 @@
   transform: translateY(-2px);
 }
 .event-calendar-grid > button.near-event {
-  background: var(--tone-95);
-  border-color: var(--tone-70);
+  background: var(--sunk);
+  border-color: var(--line-strong);
 }
 .event-calendar-grid > button[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 2px var(--tone-35);
+  box-shadow: inset 0 0 0 2px var(--ink-secondary);
 }
 .event-calendar-grid button > span {
   font-size: 12px;
@@ -186,7 +186,7 @@
 .event-day-dots b {
   font-size: 10px;
   margin-left: auto;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .event-day-panel .rv-section-title {
   margin-top: 0;
@@ -218,8 +218,8 @@
   grid-column: 1/-1;
 }
 .event-day-panel article.is-linked .event-row-actions button:last-child {
-  color: var(--tone-25);
-  background: var(--tone-95);
+  color: var(--ink-secondary);
+  background: var(--sunk);
 }
 .event-date-inputs {
   display: grid;
@@ -238,13 +238,13 @@
   gap: 10px;
 }
 .cost-metrics > div {
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
   padding: 16px;
 }
 .cost-metrics small {
   display: block;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
 }
 .cost-metrics strong {
@@ -275,7 +275,7 @@
 }
 .cost-expenses summary > span:first-child:before {
   content: "› ";
-  color: var(--muted);
+  color: var(--ink-secondary);
 }
 .cost-expenses details[open] summary > span:first-child:before {
   content: "⌄ ";
@@ -286,8 +286,8 @@
 }
 .cost-payment {
   padding: 10px;
-  background: var(--tone-95);
-  border-radius: 8px;
+  background: var(--sunk);
+  border-radius: var(--radius-sm);
   margin-top: 8px;
   font-size: 12px;
 }
@@ -388,7 +388,7 @@
 }
 .money-in-heading p {
   margin: 0;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 13px;
 }
 .money-in-heading > button {
@@ -401,8 +401,8 @@
   gap: 12px;
   padding: 14px;
   margin-bottom: 16px;
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
   font-size: 13px;
 }
 .income-types label {

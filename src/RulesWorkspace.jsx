@@ -3,6 +3,7 @@ import { alphabetical, orderedTags, tagType } from "../electron/review/tag-model
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import "./rules-workspace.css";
+import { Icon } from "@derekurban/design-system";
 
 const api = window.urbanomics;
 const directions = [
@@ -457,7 +458,7 @@ function RuleEditor({
                     }
                   >
                     {aliases.find((a) => a.id === id)?.name || "Missing alias"}{" "}
-                    <span aria-hidden="true">×</span>
+                    <Icon name="x" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />
                   </button>
                 ))}
               </div>

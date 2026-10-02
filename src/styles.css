@@ -1,109 +1,6 @@
-:root {
-  font-family:
-    Inter,
-    Segoe UI,
-    system-ui,
-    sans-serif;
-  color: var(--tone-10);
-  background: var(--tone-95);
-  font-synthesis: none;
-  font-weight: 400;
-  font-size: 14px;
-  --green: var(--tone-20);
-  --ink: var(--tone-10);
-  --muted: var(--tone-40);
-  --line: var(--tone-85);
-  --soft: var(--tone-95);
-  --paper: var(--tone-100);
-  --sand: var(--tone-90);
-  --card-income-paper: linear-gradient(125deg,var(--tone-95),var(--tone-90));
-  --card-income-edge: var(--tone-80);
-  --card-expense-paper: linear-gradient(125deg,var(--tone-100),var(--tone-90));
-  --card-expense-edge: var(--tone-85);
-  --card-elevation: 0 12px 28px rgb(from var(--tone-10) r g b / 0.0706), inset 0 1px 0 var(--tone-100);
-}
+/* Tokens and native element defaults: @derekurban/design-system + design-system.css. */
 * {
   box-sizing: border-box;
-}
-body {
-  margin: 0;
-}
-button,
-input,
-select {
-  font: inherit;
-}
-button {
-  cursor: pointer;
-  background: var(--paper);
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  min-height: 38px;
-  padding: 9px 14px;
-  color: var(--ink);
-  transition:
-    background 0.16s,
-    transform 0.16s;
-}
-button:hover {
-  background: var(--tone-95);
-}
-button:active {
-  transform: translateY(1px);
-}
-button:disabled {
-  opacity: 0.5;
-  cursor: wait;
-}
-button:focus-visible,
-input:focus-visible {
-  outline: 3px solid var(--tone-65);
-  outline-offset: 3px;
-}
-input {
-  border: 1px solid var(--line);
-  background: var(--paper);
-  padding: 11px 12px;
-  border-radius: 9px;
-  color: var(--ink);
-  min-width: 0;
-}
-input[type="checkbox"] {
-  accent-color: var(--green);
-}
-h1,
-h2,
-h3,
-p {
-  margin-top: 0;
-}
-h1 {
-  font-weight: 500;
-  font-size: 36px;
-  letter-spacing: -1.3px;
-  margin-bottom: 10px;
-}
-h2 {
-  font-size: 19px;
-  letter-spacing: -0.4px;
-  font-weight: 550;
-  margin-bottom: 12px;
-}
-h3 {
-  font-size: 15px;
-  font-weight: 550;
-}
-p {
-  color: var(--muted);
-  line-height: 1.6;
-  margin-bottom: 14px;
-}
-small {
-  color: var(--muted);
-  font-size: 12px;
-}
-strong {
-  font-weight: 550;
 }
 .app-shell {
   display: flex;
@@ -113,7 +10,7 @@ strong {
   width: 236px;
   min-width: 236px;
   padding: 33px 20px 20px;
-  background: var(--tone-95);
+  background: var(--bg);
   border-right: 1px solid var(--line);
   position: fixed;
   inset: 0 auto 0 0;
@@ -122,19 +19,16 @@ strong {
   z-index: 5;
 }
 .brand {
-  font-size: 27px;
-  letter-spacing: -1.2px;
-  font-weight: 600;
-}
-.brand span {
-  color: var(--tone-55);
-  font-size: 11px;
-  margin-left: 4px;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font: var(--font-heading);
+  letter-spacing: var(--tracking-heading);
 }
 .brand-sub {
   font-size: 11px;
   margin: 8px 0 40px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .sidebar nav {
   display: grid;
@@ -149,35 +43,40 @@ strong {
   background: transparent;
   font-size: 13px;
   padding: 12px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .nav-item > span {
-  font-size: 20px;
-  font-family: Georgia, serif;
-  line-height: 1;
+  display: grid;
+  place-items: center;
   width: 22px;
-  text-align: center;
+  color: var(--ink-tertiary);
+}
+.nav-item:hover {
+  color: var(--ink);
 }
 .nav-item.active {
-  color: var(--tone-15);
-  background: var(--tone-85);
+  color: var(--text-selected);
+  background: var(--surface-selected);
+}
+.nav-item.active > span {
+  color: var(--accent-strong);
 }
 .nav-item b {
   margin-left: auto;
-  background: var(--tone-95);
-  border-radius: 5px;
+  background: var(--sunk);
+  border-radius: var(--radius-xs);
   padding: 2px 6px;
   font-size: 11px;
 }
 .side-divider {
-  border-top: 1px solid var(--tone-85);
+  border-top: 1px solid var(--line);
   margin: 25px 8px;
 }
 .side-label {
   font-size: 10px;
-  letter-spacing: 1.5px;
+  
   margin: 0 12px 12px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
 }
 .month-list {
   overflow: auto;
@@ -193,11 +92,11 @@ strong {
   padding: 10px 13px;
 }
 .month-button.active {
-  background: rgb(from var(--tone-100) r g b / 0.6000);
-  color: var(--green);
+  background: var(--accent-subtle);
+  color: var(--accent-text);
 }
 .month-button small {
-  background: var(--tone-90);
+  background: var(--sunk);
   padding: 1px 6px;
   border-radius: 4px;
   font-size: 10px;
@@ -221,14 +120,14 @@ strong {
   padding: 0;
   min-height: 28px;
   background: transparent;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 11px;
 }
 .local-dot {
   display: inline-block;
   width: 7px;
   height: 7px;
-  background: var(--tone-45);
+  background: var(--accent-strong);
   border-radius: 50%;
   margin-right: 7px;
 }
@@ -247,14 +146,14 @@ strong {
   padding: 0 40px;
   border-bottom: 1px solid var(--line);
   font-size: 12px;
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .breadcrumb {
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .slash {
   padding: 0 13px;
-  color: var(--tone-70);
+  color: var(--ink-tertiary);
 }
 .workspace main {
   max-width: 1330px;
@@ -265,8 +164,8 @@ strong {
 }
 .eyebrow {
   font-size: 10px;
-  letter-spacing: 1.8px;
-  color: var(--tone-45);
+  
+  color: var(--ink-tertiary);
   margin-bottom: 15px;
   font-weight: 600;
 }
@@ -283,9 +182,9 @@ strong {
   gap: 20px;
 }
 .drop-zone {
-  border: 1.5px dashed var(--tone-70);
-  border-radius: 17px;
-  background: radial-gradient(ellipse at 50% 30%, var(--tone-100), var(--tone-95));
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: radial-gradient(ellipse at 50% 30%, var(--surface), var(--sunk));
   min-height: 297px;
   display: flex;
   flex-direction: column;
@@ -306,33 +205,33 @@ strong {
   left: 15px;
   width: 46px;
   height: 58px;
-  border: 1px solid var(--tone-70);
-  border-radius: 7px;
-  background: var(--tone-90);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
   transform: rotate(-14deg);
 }
 .file-stack div:nth-child(2) {
   transform: rotate(13deg);
   left: 23px;
   top: 6px;
-  background: var(--tone-85);
+  background: var(--line);
 }
 .file-stack div:last-child {
   transform: rotate(0);
   left: 12px;
   top: 8px;
-  background: var(--tone-100);
+  background: var(--surface);
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  color: var(--tone-40);
-  box-shadow: 0 4px 10px rgb(from var(--tone-25) r g b / 0.0706);
+  color: var(--ink-tertiary);
+  box-shadow: var(--shadow-rest);
 }
 .file-stack span {
   font-size: 10px;
-  letter-spacing: 0.5px;
-  font-weight: 650;
+  
+  font-weight: 600;
 }
 .file-stack i {
   font-size: 24px;
@@ -352,12 +251,12 @@ strong {
   gap: 9px;
 }
 .primary {
-  background: var(--green);
-  border-color: var(--green);
-  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
 }
 .primary:hover {
-  background: var(--tone-15);
+  background: var(--ink);
 }
 .primary span {
   padding-left: 18px;
@@ -367,11 +266,11 @@ strong {
   gap: 10px;
   align-items: center;
   font-size: 11px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   margin-top: 27px;
 }
 .drop-foot .supported {
-  border-left: 1px solid var(--tone-85);
+  border-left: 1px solid var(--line);
   padding-left: 14px;
   font-size: 10px;
 }
@@ -411,7 +310,7 @@ strong {
 .text-button {
   border: 0;
   background: transparent;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 12px;
 }
 .clear-inbox {
@@ -424,8 +323,8 @@ strong {
   width: 31px;
   height: 31px;
   border-radius: 50%;
-  background: var(--tone-90);
-  color: var(--tone-40);
+  background: var(--sunk);
+  color: var(--ink-tertiary);
   display: grid;
   place-items: center;
 }
@@ -444,8 +343,8 @@ strong {
 .recent-card {
   padding: 20px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--paper);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
 }
 .recent-top {
   display: flex;
@@ -457,16 +356,16 @@ strong {
   place-items: center;
   width: 34px;
   height: 34px;
-  background: var(--tone-90);
-  border: 1px solid var(--tone-85);
-  border-radius: 9px;
-  color: var(--tone-40);
+  background: var(--sunk);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  color: var(--ink-tertiary);
   font-size: 11px;
   font-weight: 600;
 }
 .check-mark {
   font-size: 12px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .recent-card h3 {
   margin-bottom: 5px;
@@ -480,12 +379,12 @@ strong {
 }
 .receipt-counts {
   font-size: 10px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   margin-top: 17px;
   line-height: 1.8;
 }
 .receipt-counts strong {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .receipt-counts span {
   padding: 0 4px;
@@ -493,10 +392,10 @@ strong {
 .count,
 .pill {
   font-size: 11px;
-  background: var(--tone-90);
+  background: var(--sunk);
   padding: 6px 9px;
-  border-radius: 6px;
-  color: var(--tone-40);
+  border-radius: var(--radius-xs);
+  color: var(--ink-tertiary);
 }
 .job-list {
   display: grid;
@@ -510,12 +409,12 @@ strong {
   padding: 16px;
 }
 .file-icon {
-  border: 1px solid var(--tone-85);
-  background: var(--tone-95);
-  border-radius: 7px;
+  border: 1px solid var(--line);
+  background: var(--sunk);
+  border-radius: var(--radius-xs);
   padding: 13px 7px;
   font-size: 10px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .job-name {
   flex: 1;
@@ -534,22 +433,22 @@ strong {
 }
 .status-pill {
   font-size: 10px;
-  border-radius: 6px;
-  background: var(--tone-90);
-  color: var(--tone-40);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
+  color: var(--ink-tertiary);
   padding: 6px 9px;
 }
 .status-pill.error {
-  background: var(--tone-90);
-  color: var(--tone-25);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .muted {
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 12px;
 }
 .empty-text {
   padding: 25px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 13px;
 }
 .month-toolbar {
@@ -567,8 +466,8 @@ strong {
   display: flex;
   flex-wrap: wrap;
   gap: 4px;
-  background: var(--tone-90);
-  border-radius: 9px;
+  background: var(--sunk);
+  border-radius: var(--radius-sm);
   padding: 4px;
 }
 .segmented button {
@@ -579,22 +478,22 @@ strong {
   padding: 8px 10px;
 }
 .segmented button.selected {
-  background: var(--tone-100);
-  box-shadow: 0 1px 3px rgb(from var(--tone-10) r g b / 0.0941);
-  color: var(--tone-15);
+  background: var(--surface);
+  box-shadow: var(--shadow-rest);
+  color: var(--ink);
 }
 .table-caption {
   display: flex;
   justify-content: space-between;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 11px;
   margin-bottom: 10px;
 }
 .transaction-table {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--paper);
+  background: var(--surface);
 }
 table {
   border-collapse: collapse;
@@ -603,22 +502,22 @@ table {
 }
 th {
   font-weight: 500;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   text-align: left;
-  background: var(--tone-95);
+  background: var(--sunk);
   font-size: 10px;
   padding: 13px 15px;
 }
 td {
   padding: 14px 15px;
-  border-top: 1px solid var(--tone-90);
+  border-top: 1px solid var(--line);
 }
 tbody tr:hover {
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .date-cell {
   white-space: nowrap;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 11px;
 }
 .transaction-name {
@@ -634,7 +533,7 @@ tbody tr:hover {
 .bank-type {
   display: block;
   font-size: 9px;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
   text-transform: capitalize;
   margin-top: 3px;
 }
@@ -644,7 +543,7 @@ tbody tr:hover {
   white-space: nowrap;
 }
 .positive {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .account-dot {
   display: inline-block;
@@ -652,14 +551,14 @@ tbody tr:hover {
   height: 5px;
   margin-right: 7px;
   border-radius: 50%;
-  background: var(--tone-60);
+  background: var(--ink-tertiary);
 }
 .row-open {
   padding: 3px 6px;
   min-height: 25px;
   border: 0;
   background: transparent;
-  color: var(--tone-60);
+  color: var(--ink-tertiary);
 }
 .footnote {
   font-size: 11px;
@@ -682,14 +581,14 @@ tbody tr:hover {
   margin-top: 5px;
 }
 .revision-list .selected {
-  background: var(--tone-90);
-  border-color: var(--tone-65);
+  background: var(--sunk);
+  border-color: var(--line-strong);
 }
 .archive-list {
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--paper);
+  background: var(--surface);
 }
 .archive-row {
   display: flex;
@@ -720,9 +619,9 @@ tbody tr:hover {
 }
 .account-card {
   padding: 23px;
-  background: var(--paper);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 .account-card h2 {
   font-size: 16px;
@@ -734,9 +633,9 @@ tbody tr:hover {
 }
 .settings-card {
   padding: 23px;
-  background: var(--paper);
+  background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
 }
 .settings-card p {
   font-size: 12px;
@@ -756,18 +655,18 @@ tbody tr:hover {
 }
 .rule-row code {
   font-size: 11px;
-  background: var(--tone-95);
-  border: 1px solid var(--tone-90);
+  background: var(--sunk);
+  border: 1px solid var(--line);
   padding: 6px 9px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .privacy-card {
   margin-top: 30px;
   display: flex;
   gap: 10px;
   padding: 20px;
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
 }
 .privacy-card .local-dot {
   margin-top: 6px;
@@ -788,8 +687,8 @@ tbody tr:hover {
   padding: 20px 40px;
   border-top: 1px solid var(--line);
   font-size: 9px;
-  letter-spacing: 1px;
-  color: var(--tone-55);
+  
+  color: var(--ink-tertiary);
 }
 .notice,
 .alert {
@@ -797,11 +696,11 @@ tbody tr:hover {
   justify-content: space-between;
   align-items: center;
   padding: 12px 15px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
   margin-bottom: 20px;
-  background: var(--tone-90);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
   line-height: 1.6;
 }
 .notice button,
@@ -812,14 +711,13 @@ tbody tr:hover {
   padding: 3px 7px;
 }
 .alert.error {
-  background: var(--tone-90);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgb(from var(--tone-5) r g b / 0.3961);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
   z-index: 30;
   display: flex;
   align-items: center;
@@ -831,10 +729,10 @@ tbody tr:hover {
   width: 620px;
   max-height: 88vh;
   overflow: auto;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   padding: 32px;
-  background: var(--tone-100);
-  box-shadow: 0 20px 100px rgb(from var(--tone-0) r g b / 0.1451);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
 }
 .modal > h2 {
   font-size: 27px;
@@ -857,7 +755,7 @@ tbody tr:hover {
   border: 0;
   background: transparent;
   font-size: 23px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .full {
   width: 100%;
@@ -869,7 +767,7 @@ tbody tr:hover {
   align-items: center;
   font-size: 12px;
   margin: 20px 0 5px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .account-choices {
   display: grid;
@@ -921,8 +819,8 @@ tbody tr:hover {
 }
 .raw-values span {
   border: 1px solid var(--line);
-  background: var(--paper);
-  border-radius: 5px;
+  background: var(--surface);
+  border-radius: var(--radius-xs);
   padding: 7px 9px;
   font-size: 11px;
   word-break: break-all;
@@ -934,7 +832,7 @@ tbody tr:hover {
   margin-top: 10px;
   padding: 15px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   font-size: 12px;
 }
 .source-row small {
@@ -949,15 +847,15 @@ tbody tr:hover {
   position: fixed;
   inset: 0;
   z-index: 40;
-  background: rgb(from var(--tone-95) r g b / 0.9294);
+  background: var(--bg);
   display: grid;
   place-items: center;
   text-align: center;
-  border: 8px solid var(--tone-55);
+  border: 8px solid var(--line-strong);
 }
 .drop-overlay span {
   font-size: 80px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .launch-message {
   padding: 70px;
@@ -1011,13 +909,13 @@ tbody tr:hover {
 
 .browser-workspace-note {
   font-size: 12px;
-  background: var(--tone-90);
+  background: var(--sunk);
   padding: 10px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   margin: 0 0 12px;
 }
 .browser-workspace-note small {
   display: block;
   margin-top: 4px;
-  color: var(--muted);
+  color: var(--ink-secondary);
 }

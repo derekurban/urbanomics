@@ -12,9 +12,13 @@ The desktop app combines local CSV imports, immutable source/monthly archives, a
 - **Transactions** — search and filter the full ledger, sort and page through records, inspect originals, assign people, manage financial settings and record cash receipts.
 - **Events** — create dated events, link transactions through a calendar, and inspect costs and repayments.
 - **Accounts** — account settings, reported balances and account movement.
-- **Settings** — categories/tags, people, aliases, rules, appearance and confirmed admin actions.
+- **Settings** — categories/tags, people, aliases, rules, light/dark appearance and confirmed admin actions.
 
 Review and Experimental have been retired from navigation; Allocations is now Organize. The sidebar month shortcuts have moved into the Transactions month filter. Snapshot inspection opens a read-only ledger view. The interface follows the Snapshots design language, with compact controls, restrained animation and reduced-motion support. See [workspace navigation](docs/workspace-navigation.md) for behavior and verification.
+
+## Design system
+
+The interface uses [Derek Urban's design system](https://github.com/derekurban/design-system), installed from a pinned GitHub tag: its tokens, fonts, logo and icons, in light and dark (Settings → Appearance). Changes to the system go through issues and pull requests in that repository. See [design system](docs/design-system.md).
 
 ## Dashboard
 

@@ -19,8 +19,8 @@
 .al-unaliased {
   min-width: 0;
   padding: 16px;
-  background: var(--tone-95);
-  border-radius: 14px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
 }
 .al-unaliased h3 {
   display: flex;
@@ -28,7 +28,7 @@
   gap: 8px;
 }
 .al-unaliased h3 span {
-  color: var(--muted);
+  color: var(--ink-secondary);
 }
 .al-unaliased > input {
   width: 100%;
@@ -84,9 +84,9 @@
 }
 .al-saved-notice {
   padding: 10px 12px;
-  border-radius: 9px;
-  background: var(--tone-90);
-  color: var(--green);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--accent);
 }
 .al-editor-dialog .rv-modal-actions {
   flex-wrap: wrap;
@@ -135,8 +135,8 @@
 .al-fields select {
   padding: 10px;
   border: 1px solid var(--line);
-  border-radius: 9px;
-  background: var(--paper);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
 }
 .al-regex,
 .aliases-workspace code {
@@ -158,8 +158,8 @@
   flex-wrap: wrap;
   gap: 8px 18px;
   padding: 14px;
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
   margin-bottom: 15px;
 }
 .al-summary small {
@@ -193,13 +193,13 @@
   font-size: 12px;
 }
 .al-after {
-  color: var(--green);
+  color: var(--accent);
 }
 .al-competing {
-  color: var(--tone-25);
+  color: var(--ink-secondary);
 }
 .al-conflict {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .al-pages {
   display: flex;
@@ -209,15 +209,15 @@
   margin: 15px 0;
 }
 .al-conflict-panel {
-  border: 1px solid var(--tone-70);
-  border-radius: 12px;
-  background: var(--tone-95);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
   padding: 18px;
   margin-bottom: 20px;
 }
 .al-conflict-panel > div {
   padding: 12px 0;
-  border-top: 1px solid var(--tone-80);
+  border-top: 1px solid var(--line-strong);
 }
 .al-conflict-panel small {
   display: block;
@@ -232,14 +232,14 @@
 }
 .alias-original {
   display: block;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
   overflow-wrap: anywhere;
   margin-top: 6px;
 }
 .alias-warning {
   display: block;
-  color: var(--tone-25);
+  color: var(--ink-secondary);
   font-size: 12px;
   margin-top: 6px;
 }
@@ -261,7 +261,7 @@
 .al-rule-list code {
   grid-column: 1 / -1;
   grid-row: 2;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
 }
 .al-rule-list .al-rule-info {

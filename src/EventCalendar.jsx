@@ -1,3 +1,4 @@
+import { Icon } from "@derekurban/design-system";
 import React, { useState } from "react";
 import {
   nearEvent,
@@ -266,7 +267,7 @@ export function EventCalendar({
                               ),
                             )}
                             {byDay[date].some(linked) && (
-                              <b aria-label="Has linked transactions">✓</b>
+                              <b aria-label="Has linked transactions"><Icon name="check" size={12} /></b>
                             )}
                           </div>
                         </>
@@ -278,7 +279,7 @@ export function EventCalendar({
                 )}
               </div>
               <p className="rv-help">
-                Dots show accounts. ✓ marks days with transactions linked to
+                Dots show accounts. A check marks days with transactions linked to
                 this event.
               </p>
             </div>
@@ -323,7 +324,7 @@ export function EventCalendar({
                       aria-label={`${linked(t) ? "Unlink" : "Link"} ${t.description}`}
                       onClick={() => link([t])}
                     >
-                      {linked(t) ? "✓ Linked · Remove" : "Link to event"}
+                      {linked(t) ? "Linked · Remove" : "Link to event"}
                     </button>
                   </div>
                   {t.review.groups.filter((id) => id !== event?.id).length >

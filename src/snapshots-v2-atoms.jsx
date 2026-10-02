@@ -62,7 +62,7 @@ export function AccountDot({ color, className = "" }) {
   return (
     <i
       className={`sv2-dot ${className}`}
-      style={{ background: color || "var(--tone-60)" }}
+      style={{ background: color || "var(--data-neutral)" }}
       aria-hidden="true"
     />
   );

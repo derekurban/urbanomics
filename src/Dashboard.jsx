@@ -313,7 +313,7 @@ export function Dashboard({ data, onSource }) {
     <div className="dash-workspace">
       <header className="dash-heading">
         <div>
-          <span className="dash-eyebrow">YOUR MONEY, CONNECTED</span>
+          
           <h1>The bigger picture.</h1>
           <p>Cash movement, shared costs, and the spending behind them.</p>
         </div>

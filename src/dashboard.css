@@ -1,8 +1,8 @@
 .dash-workspace {
-  --dash-dark: var(--tone-25);
-  --dash-paid: var(--tone-60);
-  --dash-return: var(--tone-80);
-  color: var(--tone-10);
+  --dash-dark: var(--ink-secondary);
+  --dash-paid: var(--ink-tertiary);
+  --dash-return: var(--line-strong);
+  color: var(--ink);
 }
 .dash-heading {
   display: flex;
@@ -17,12 +17,12 @@
 }
 .dash-heading p {
   margin: 0;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-eyebrow {
   font-size: 11px;
-  letter-spacing: 1.8px;
-  color: var(--tone-35);
+  
+  color: var(--ink-secondary);
 }
 .dash-heading > button {
   flex-shrink: 0;
@@ -41,7 +41,7 @@
 .dash-periods > span {
   margin-left: auto;
   font-size: 12px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-periods label {
   display: flex;
@@ -49,15 +49,15 @@
   gap: 8px;
 }
 .dash-workspace button[aria-pressed="true"] {
-  background: var(--tone-90);
-  border-color: var(--tone-60);
+  background: var(--sunk);
+  border-color: var(--line-strong);
 }
 .dash-tabs {
   display: flex;
   gap: 5px;
   padding: 5px;
-  background: var(--tone-90);
-  border-radius: 14px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
   margin: 20px 0;
 }
 .dash-tabs button {
@@ -66,8 +66,8 @@
   border: 0;
 }
 .dash-tabs button[aria-pressed="true"] {
-  background: var(--paper);
-  box-shadow: 0 2px 5px rgb(from var(--tone-10) r g b / 0.0431);
+  background: var(--surface);
+  box-shadow: var(--shadow-rest);
 }
 .dash-filter-heading {
   display: flex;
@@ -77,7 +77,7 @@
   margin-bottom: 9px;
 }
 .dash-filter-heading > span {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-filters {
   display: flex;
@@ -89,7 +89,7 @@
 .dash-filters button {
   font-size: 12px;
   padding: 6px 10px;
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
 }
 .dash-filters i,
 .dash-bar i,
@@ -106,7 +106,7 @@
   gap: 8px;
   margin: 15px 0;
   font-size: 12px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .dash-date-inputs {
   display: flex;
@@ -121,7 +121,7 @@
 }
 .dash-date-inputs input {
   padding: 8px 10px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--line);
 }
 .dash-stats {
@@ -135,9 +135,9 @@
   flex-direction: column;
   align-items: flex-start;
   text-align: left;
-  border: 1px solid var(--tone-85);
+  border: 1px solid var(--line);
   padding: 20px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   min-width: 0;
 }
 .dash-stat strong {
@@ -151,7 +151,7 @@
 }
 .dash-stat small,
 .dash-stat > span {
-  color: var(--tone-25);
+  color: var(--ink-secondary);
   font-size: 12px;
 }
 .dash-stat > span {
@@ -159,19 +159,19 @@
   margin-top: auto;
 }
 .dash-peach {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dash-blue {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dash-mint {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dash-lilac {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dash-sand {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dash-grid {
   display: grid;
@@ -182,8 +182,8 @@
   min-width: 0;
   padding: 21px;
   border: 1px solid var(--line);
-  border-radius: 18px;
-  background: var(--paper);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
 }
 .dash-panel-heading {
   display: flex;
@@ -200,14 +200,14 @@
 }
 .dash-panel-heading > span {
   font-size: 12px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-legend {
   display: flex;
   gap: 16px;
   font-size: 12px;
   margin-bottom: 8px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .dash-legend i {
   display: inline-block;
@@ -227,12 +227,12 @@
   width: 100%;
   border: 0;
   background: transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 10px 4px;
   text-align: left;
 }
 .dash-bar:hover {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dash-bar strong {
   font-weight: 500;
@@ -250,9 +250,9 @@
 .dash-track {
   display: flex;
   height: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
   overflow: hidden;
-  background: var(--tone-95);
+  background: var(--sunk);
   margin: 8px 0 5px;
 }
 .dash-track > span {
@@ -260,7 +260,7 @@
 }
 .dash-bar small {
   font-size: 11px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-relation {
   display: block;
@@ -268,8 +268,8 @@
   text-align: left;
   padding: 16px;
   margin-bottom: 11px;
-  border: 1px solid var(--tone-85);
-  border-radius: 13px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
 }
 .dash-relation strong {
   display: block;
@@ -279,7 +279,7 @@
 }
 .dash-relation small {
   font-size: 12px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .dash-cash-row {
   display: flex;
@@ -304,7 +304,7 @@
   width: 100%;
   gap: 12px;
   justify-content: space-between;
-  background: var(--tone-90);
+  background: var(--sunk);
   padding: 13px;
   border: 0;
   text-align: left;
@@ -322,8 +322,8 @@
 .dash-account-grid button {
   text-align: left;
   padding: 15px;
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
 }
 .dash-account-grid strong,
 .dash-account-grid span {
@@ -342,7 +342,7 @@
   display: block;
   text-align: left;
   padding: 22px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
 }
 .dash-event h2 {
   margin: 0 0 4px;
@@ -366,20 +366,20 @@
 }
 .dash-empty {
   padding: 35px;
-  border-radius: 18px;
+  border-radius: var(--radius-xl);
   border: 1px solid var(--line);
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dash-empty h2 {
   font-size: 21px;
 }
 .dash-empty-text {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   margin: 20px 0;
 }
 .dash-caption {
   font-size: 12px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
   line-height: 1.6;
 }
 .dash-workspace .dash-footnote {
@@ -390,7 +390,7 @@
   padding: 0;
   border: 0;
   font-size: 11px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   text-transform: none;
   letter-spacing: 0;
 }
@@ -407,7 +407,7 @@
   margin: 0 0 6px;
 }
 .dash-methods p {
-  color: var(--tone-30);
+  color: var(--ink-secondary);
   line-height: 1.65;
 }
 .dash-detail-row {
@@ -424,7 +424,7 @@
 }
 .dash-detail-row summary::before {
   content: "+";
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .dash-detail-row[open] summary::before {
   content: "−";
@@ -435,7 +435,7 @@
 .dash-detail-row small {
   display: block;
   font-size: 12px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   margin-top: 5px;
 }
 .dash-detail-row strong {
@@ -447,8 +447,8 @@
   flex-wrap: wrap;
   padding: 12px;
   margin: 15px 0;
-  border-radius: 10px;
-  background: var(--tone-95);
+  border-radius: var(--radius-md);
+  background: var(--sunk);
   font-size: 12px;
 }
 .dash-detail-costs strong {
@@ -461,8 +461,8 @@
   gap: 12px;
   margin: 10px 0;
   padding: 12px;
-  background: var(--tone-95);
-  border-radius: 9px;
+  background: var(--sunk);
+  border-radius: var(--radius-sm);
   font-size: 12px;
 }
 .dash-payment > span {
@@ -474,8 +474,8 @@
   gap: 14px;
   padding: 18px;
   margin: 12px 0;
-  border-radius: 12px;
-  background: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
 }
 .dash-transfer > div {
   flex: 1;
@@ -569,8 +569,8 @@
 .dash-periods select {
   border: 1px solid var(--line);
   padding: 7px;
-  border-radius: 8px;
-  background: var(--paper);
+  border-radius: var(--radius-sm);
+  background: var(--surface);
   color: inherit;
 }
 .dash-periods button:disabled {
@@ -590,9 +590,9 @@
 .dash-segmented {
   display: flex;
   gap: 3px;
-  background: var(--tone-95);
+  background: var(--sunk);
   padding: 3px;
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
 }
 .dash-segmented button {
   padding: 5px 8px;
@@ -611,7 +611,7 @@
   justify-content: space-between;
   padding-bottom: 24px;
   font-size: 10px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   text-align: right;
   padding-right: 6px;
 }
@@ -631,7 +631,7 @@
   pointer-events: none;
 }
 .dash-gridlines i {
-  border-top: 1px solid var(--tone-95);
+  border-top: 1px solid var(--line);
   width: 100%;
 }
 .dash-month-bar {
@@ -641,16 +641,16 @@
   padding: 0 3px;
   border: 0;
   background: transparent;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   min-width: 0;
   z-index: 1;
 }
 .dash-month-bar:hover,
 .dash-month-bar:focus-visible {
-  background: rgb(from var(--tone-95) r g b / 0.5020);
+  background: var(--sunk);
 }
 .dash-month-bar.is-selected {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dash-month-bar:disabled {
   opacity: 0.5;
@@ -679,14 +679,14 @@
   width: 100%;
 }
 .dash-in {
-  background: var(--tone-30);
+  background: var(--ink-secondary);
 }
 .dash-out {
-  background: var(--tone-70);
+  background: var(--data-neutral);
 }
 .dash-missing {
   align-self: end;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   font-size: 12px;
 }
 .dash-month-label {
@@ -698,7 +698,7 @@
   min-height: 40px;
   margin-top: 10px;
   font-size: 11px;
-  color: var(--tone-25);
+  color: var(--ink-secondary);
   line-height: 1.5;
 }
 .dash-chart-key {
@@ -706,7 +706,7 @@
   flex-wrap: wrap;
   gap: 7px 13px;
   font-size: 11px;
-  color: var(--tone-25);
+  color: var(--ink-secondary);
 }
 .dash-chart-key i {
   display: inline-block;
@@ -738,8 +738,8 @@
 .dash-composition-track {
   display: flex;
   height: 28px;
-  border-radius: 8px;
-  background: var(--tone-95);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
   margin: 10px 0;
 }
 .dash-composition-track button {
@@ -749,10 +749,10 @@
   min-width: 0;
 }
 .dash-composition-track button:first-child {
-  border-radius: 8px 0 0 8px;
+  border-radius: var(--radius-sm) 0 0 var(--radius-sm);
 }
 .dash-composition-track button:last-child {
-  border-radius: 0 8px 8px 0;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
 }
 .dash-detail-toggle {
   margin-bottom: 14px;
@@ -761,9 +761,9 @@
 .dash-vendor {
   margin: 9px 0;
   border: 1px solid var(--line);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   padding: 15px;
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dash-vendor > summary {
   display: flex;
@@ -785,7 +785,7 @@
   display: block;
   margin-top: 5px;
   font-size: 11px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dash-vendor strong {
   font-weight: 500;
@@ -796,9 +796,9 @@
 }
 .dash-account-card {
   border: 1px solid var(--line);
-  border-radius: 13px;
+  border-radius: var(--radius-lg);
   padding: 16px;
-  background: var(--tone-95);
+  background: var(--sunk);
   min-width: 0;
 }
 .dash-account-card h3 {
@@ -820,7 +820,7 @@
 }
 .dash-balance small {
   font-size: 11px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   display: block;
   margin-top: 6px;
 }
@@ -846,7 +846,7 @@
 .dash-account-movement .dash-mini-track {
   height: 6px;
   border-radius: 3px;
-  background: var(--tone-90);
+  background: var(--sunk);
   margin-top: 5px;
   overflow: hidden;
 }
@@ -867,8 +867,8 @@
   gap: 20px;
   padding: 17px;
   border: 1px solid var(--line);
-  border-radius: 12px;
-  background: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
   margin-top: 9px;
 }
 .dash-route-account {
@@ -886,12 +886,12 @@
 .dash-route small {
   display: block;
   font-size: 11px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
   margin-top: 5px;
 }
 .dash-route-arrow {
   text-align: center;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .dash-route-arrow strong {
   font-weight: 500;
@@ -908,8 +908,8 @@
 .dash-network-scroll {
   overflow-x: auto;
   padding: 4px;
-  border-radius: 18px;
-  background: radial-gradient(ellipse at center, var(--tone-95) 0%, var(--tone-95) 70%);
+  border-radius: var(--radius-xl);
+  background: radial-gradient(ellipse at center, var(--sunk) 0%, var(--sunk) 70%);
 }
 .dash-network {
   display: block;
@@ -927,9 +927,9 @@
   gap: 5px 7px;
   padding: 8px 12px;
   text-align: left;
-  border: 1px solid var(--tone-75);
-  border-radius: 16px;
-  background: var(--tone-100);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
   font-size: 16px;
   line-height: 1.15;
 }
@@ -943,31 +943,31 @@
 }
 .dash-network-node small {
   grid-column: 2;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 12px;
 }
 .dash-network-node[aria-pressed="true"] {
-  background: var(--tone-90);
-  border-color: var(--tone-45);
+  background: var(--sunk);
+  border-color: var(--ink-tertiary);
 }
 .dash-network-label {
   cursor: pointer;
 }
 .dash-network-label rect {
-  fill: var(--tone-100);
-  stroke: var(--tone-80);
+  fill: var(--surface);
+  stroke: var(--line-strong);
   stroke-width: 1.5;
 }
 .dash-network-label text {
-  fill: var(--tone-20);
+  fill: var(--ink-secondary);
   font-size: 16px;
   font-variant-numeric: tabular-nums;
   pointer-events: none;
 }
 .dash-network-label:hover rect,
 .dash-network-label:focus-visible rect {
-  fill: var(--tone-90);
-  stroke: var(--tone-40);
+  fill: var(--sunk);
+  stroke: var(--ink-tertiary);
   stroke-width: 3;
 }
 .dash-network-label:focus-visible {
@@ -1002,8 +1002,8 @@
 .dash-drill-tags {
   margin: 12px 0 20px;
   padding: 12px 16px;
-  background: var(--tone-95);
-  border-radius: 14px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
 }
 .dash-drill-tags h3 {
   margin: 0 0 8px;
@@ -1011,7 +1011,7 @@
 }
 .dash-drill-tags small {
   display: block;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
   text-align: right;
 }
@@ -1036,15 +1036,15 @@
 .dash-category-tags {
   margin: 4px 8px 0;
   padding: 10px;
-  border-radius: 12px;
-  background: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
 }
 .dash-tag-stack {
   display: flex;
   height: 8px;
   overflow: hidden;
-  border-radius: 6px;
-  background: var(--tone-90);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
   margin-bottom: 8px;
 }
 .dash-tag-chips {
@@ -1061,7 +1061,7 @@
   min-height: 30px;
   min-width: 0;
   max-width: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .dash-tag-chip span {
   overflow-wrap: anywhere;
@@ -1084,10 +1084,10 @@
   max-height: calc(100vh - 24px);
   overflow: auto;
   padding: 16px;
-  border: 1px solid var(--tone-85);
-  border-radius: 15px;
-  box-shadow: 0 12px 40px rgb(from var(--tone-5) r g b / 0.1412);
-  background: var(--tone-100);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-overlay);
+  background: var(--surface);
   color: var(--ink);
   font-size: 12px;
 }
@@ -1104,13 +1104,13 @@
 .dash-spend-tooltip small {
   display: block;
   margin-top: 7px;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-size: 11px;
 }
 .dash-spend-tooltip h4 {
   margin: 14px 0 7px;
   font-size: 11px;
-  color: var(--muted);
+  color: var(--ink-secondary);
   font-weight: 500;
 }
 .dash-tooltip-vendor {

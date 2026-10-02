@@ -204,7 +204,7 @@ else {
         height: 900,
         minWidth: 900,
         minHeight: 640,
-        backgroundColor: require("./theme-config.json").canvas,
+        backgroundColor: "#f6f6f6", // design system --bg (light)
         show: false,
         webPreferences: {
           preload: path.join(__dirname, "preload.cjs"),

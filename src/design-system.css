@@ -1,0 +1,89 @@
+/* Urbanomics on @derekurban/design-system.
+   The package stylesheet (imported first in main.jsx) owns every token: color, type, spacing, radius,
+   depth and motion, in light and dark. This file only applies those tokens to the app's native elements
+   and shared surfaces. Do not add colors, radii, shadows or durations here; request them upstream
+   (see docs/design-system.md). Account, category and event colors are user data and stay independent. */
+
+:root {
+  /* The app is a dense tool: Wix Madefor Text at the small step, with natural leading for compact rows. */
+  font: 400 var(--type-small-size)/normal var(--font-body);
+  font-synthesis: none;
+  color: var(--ink);
+  background: var(--bg);
+  /* Legacy card surfaces resolve to the system's flat surface and resting depth. */
+  --card-income-paper: var(--surface);
+  --card-expense-paper: var(--surface);
+  --card-income-edge: var(--line);
+  --card-expense-edge: var(--line);
+  --card-elevation: var(--shadow-rest);
+}
+body, .app, .workspace { background: var(--bg); color: var(--ink); }
+
+/* Type: Albert Sans for titles, Wix Madefor Text for everything else. */
+h1, h2, h3, h4 { font-family: var(--font-title); font-weight: var(--weight-medium); text-wrap: balance; }
+h1 { font-size: var(--type-title-size); line-height: var(--type-title-leading); letter-spacing: var(--tracking-title); margin: 0 0 var(--space-3); }
+h2 { font-size: var(--type-subheading-size); line-height: var(--type-subheading-leading); letter-spacing: var(--tracking-subheading); margin: 0 0 var(--space-3); }
+h3 { font-size: var(--type-body-size); line-height: var(--type-small-leading); letter-spacing: var(--tracking-subheading); margin: 0; }
+p { color: var(--ink-secondary); line-height: 1.6; margin: 0 0 var(--space-4); text-wrap: pretty; }
+small { color: var(--ink-secondary); font-size: 12px; }
+strong, b { font-weight: var(--weight-medium); }
+code, kbd, samp { font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; }
+:is(td, th, time, data, output, .tabular) { font-variant-numeric: tabular-nums; }
+
+/* Controls follow the Button, Input and Select specs: hairline control ring, 36px, 10px radius,
+   sunk hover, 0.96 press, 3px accent focus ring on keyboard focus only. */
+button, input, select, textarea { font: inherit; color: inherit; }
+button {
+  cursor: pointer;
+  background: var(--surface);
+  border: 0.5px solid var(--line-strong);
+  border-radius: var(--radius-md);
+  min-height: var(--control-md);
+  padding: 7px var(--space-4);
+  color: var(--ink);
+  font-weight: var(--weight-medium);
+  transition: background var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out), color var(--duration-fast) var(--ease-out), transform var(--duration-fast) var(--ease-out);
+}
+button:hover { background: var(--sunk); }
+button:active:not(:disabled) { transform: scale(var(--press-scale)); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+:is(button, a, [tabindex]):focus-visible { outline: 0; box-shadow: var(--ring-focus); }
+input, select, textarea {
+  border: 0.5px solid var(--line);
+  background: var(--sunk);
+  padding: 7px var(--space-3);
+  min-height: var(--control-md);
+  border-radius: var(--radius-md);
+  color: var(--ink);
+  min-width: 0;
+  transition: background var(--duration-fast) var(--ease-out), box-shadow var(--duration-fast) var(--ease-out);
+}
+select { background: var(--surface); border-color: var(--line-strong); cursor: pointer; }
+select:hover { background: var(--sunk); }
+input:focus, select:focus, textarea:focus { outline: 0; background: var(--surface); border-color: var(--line-strong); box-shadow: var(--ring-focus); }
+input::placeholder, textarea::placeholder { color: var(--ink-tertiary); }
+input:is([type="checkbox"], [type="radio"], [type="range"], [type="color"]) { min-height: 0; padding: 0; background: none; border: 0; box-shadow: none; accent-color: var(--accent-strong); }
+input[type="color"] { border-radius: var(--radius-sm); }
+::selection { background: var(--accent-subtle); color: var(--ink); }
+
+/* The single resolving action in a view. */
+button.primary { background: var(--accent); border-color: var(--accent-line); color: var(--on-accent); }
+button.primary:hover:not(:disabled) { background: var(--accent-hover); }
+button.primary:disabled { background: var(--sunk); border-color: transparent; color: var(--ink-tertiary); opacity: 1; }
+
+/* Status at low volume: subtle fill, matching line, message in ink. Success is the accent. */
+.positive { color: var(--accent-text); }
+.dr-error-text, .ex-message.error, .rv-error, [role=alert].error { color: var(--danger); }
+button.danger { color: var(--danger); background: var(--surface); }
+button.danger:hover:not(:disabled) { background: var(--sunk); }
+.status-pill.error, .dr-status.error, .og-pending.is-error { color: var(--danger); background: var(--danger-subtle); border-color: var(--danger-line); }
+.alias-warning, .og-badge.is-warn, .og-attention-row.is-warn .og-count { color: var(--warning); background: var(--warning-subtle); border-color: var(--warning-line); }
+
+/* Design-system React components set their own geometry inline; keep native-element defaults out of them. */
+.du-host button, .du-host input, .du-host select { min-height: 0; border: 0; transform: none; }
+.du-host button:hover { background: transparent; }
+
+/* Settings → Appearance */
+.appearance-workspace { max-width: 800px; display: grid; gap: var(--space-5); justify-items: start; }
+.appearance-workspace > p { margin: 0; }
+.appearance-workspace .appearance-note { font-size: var(--type-caption-size); color: var(--ink-tertiary); }

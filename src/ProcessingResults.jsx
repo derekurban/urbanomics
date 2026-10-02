@@ -1,5 +1,6 @@
 import React from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { Icon } from "@derekurban/design-system";
 
 export function ProcessingResults({ result, celebrate = false, onClose }) {
   const complete = result.completed > 0 && result.remaining === 0;
@@ -30,11 +31,11 @@ export function ProcessingResults({ result, celebrate = false, onClose }) {
           className={`dr-result-emblem ${complete ? "complete" : ""}`}
           aria-hidden="true"
         >
-          {complete ? "✓" : "⋯"}
+          <Icon name={complete ? "check" : "ellipsis"} size={24} />
         </div>
         <h3>
           {complete
-            ? "All sorted. Nice work!"
+            ? "Every file is sorted."
             : result.remaining
               ? "A few files need a look."
               : "Nothing to process yet."}
@@ -64,7 +65,7 @@ export function ProcessingResults({ result, celebrate = false, onClose }) {
           {result.months.length ? (
             result.months.map((month) => (
               <span key={month}>
-                ✓{" "}
+                <Icon name="check" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />{" "}
                 {new Date(`${month}-15T12:00:00`).toLocaleDateString("en-CA", {
                   month: "short",
                   year: "numeric",

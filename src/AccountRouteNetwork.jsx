@@ -1,5 +1,6 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import "./account-route-network.css";
+import { Icon } from "@derekurban/design-system";
 const clamp = (n) => Math.max(0, Math.min(1, n));
 const layoutKey = "urbanomics.transfer-route-layout";
 function savedLayout() {
@@ -433,7 +434,7 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
             onClick={() => remove(r)}
           >
             {accountName(r.from)} <span aria-hidden="true">→</span>{" "}
-            {accountName(r.to)} <span aria-hidden="true">×</span>
+            {accountName(r.to)} <Icon name="x" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />
           </button>
         ))}
         {!routes.length && <small>No directions connected yet.</small>}

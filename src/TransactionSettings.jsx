@@ -1,3 +1,4 @@
+import { Icon } from "@derekurban/design-system";
 import {otherId} from '../electron/review/system-tags.mjs';
 import {
   orderedTags as alphabetical,
@@ -182,7 +183,7 @@ export function TransactionSettings({
               aria-label={`Remove ${categories.find((c) => c.id === p.id)?.name || "tag"}`}
             >
               {categories.find((c) => c.id === p.id)?.name || "Removed tag"}
-              <span aria-hidden="true"> ×</span>
+              {" "}<Icon name="x" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />
             </button>
           ))}
         </div>

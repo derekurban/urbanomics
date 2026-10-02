@@ -1,3 +1,4 @@
+import { Icon } from "@derekurban/design-system";
 import React, { useState } from "react";
 import {
   pendingTransfers,
@@ -14,7 +15,7 @@ function Entry({ row, selected, onClick, busy, days, count }) {
     <button className="tr-entry" aria-pressed={selected} onClick={onClick} disabled={busy} draggable={!busy}
       onDragStart={e => { e.dataTransfer.setData("application/urbanomics-transfer", row.id); e.dataTransfer.effectAllowed="link"; }}>
       <span className="tr-check" aria-hidden="true">
-        {selected ? "✓" : ""}
+        {selected ? <Icon name="check" size={14} /> : ""}
       </span>
       <span className="tr-entry-text">
         <strong>{row.description}</strong>
@@ -152,7 +153,7 @@ export function TransferWorkspace({
   }
   return (
     <section className="transfer-workspace" aria-label="Transfer linking" onKeyDown={e => { if ((e.ctrlKey || e.metaKey) && e.key === "Enter") { e.preventDefault(); link(); } }}>
-      <div className="tr-intro"><div><small>BETWEEN YOUR ACCOUNTS</small><h2>Connect the dots.</h2><p>Pair both sides once. They leave income and expense review together.</p></div><span className="tr-pair-count">{pairs.length}<small>linked pairs in view</small></span></div>
+      <div className="tr-intro"><div><h2>Connect the dots.</h2><p>Pair both sides once. They leave income and expense review together.</p></div><span className="tr-pair-count">{pairs.length}<small>linked pairs in view</small></span></div>
       <div className="tr-toolbar">
         <div className="rv-toggle" aria-label="Transfer status">
           <button

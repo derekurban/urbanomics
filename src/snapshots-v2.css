@@ -8,12 +8,12 @@
    thing came from, so the reduced-motion block at the end loses nothing. */
 .sv2,
 .sv2-dialog {
-  --sv2-line: var(--tone-85);
-  --sv2-hair: var(--tone-90);
-  --sv2-paper: var(--tone-100);
-  --sv2-soft: var(--tone-95);
-  --sv2-quiet: var(--tone-45);
-  --sv2-accent: var(--theme-accent, var(--tone-30));
+  --sv2-line: var(--line);
+  --sv2-hair: var(--line);
+  --sv2-paper: var(--surface);
+  --sv2-soft: var(--sunk);
+  --sv2-quiet: var(--ink-tertiary);
+  --sv2-accent: var(--accent);
   --sv2-r: 18px;
   --sv2-r-card: 13px;
   --sv2-ease: cubic-bezier(0.32, 0.72, 0.28, 1);
@@ -21,9 +21,8 @@
   --sv2-fast: 140ms;
   --sv2-mid: 220ms;
   --sv2-step: 34ms;
-  --sv2-shadow: 0 1px 2px rgb(from var(--tone-5) r g b / 0.04);
-  --sv2-lift: 0 2px 4px rgb(from var(--tone-5) r g b / 0.05),
-    0 10px 26px rgb(from var(--tone-5) r g b / 0.08);
+  --sv2-shadow: var(--shadow-rest);
+  --sv2-lift: var(--shadow-rest-hover);
 }
 .sv2 {
   position: relative;
@@ -40,7 +39,7 @@
 }
 .sv2 h2 {
   font-size: 18px;
-  font-weight: 550;
+  font-weight: 500;
   letter-spacing: -0.35px;
   margin: 0 0 5px;
 }
@@ -57,9 +56,9 @@
   align-items: center;
   gap: 7px;
   font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 1.3px;
-  text-transform: uppercase;
+  font-weight: 600;
+  
+  
   color: var(--sv2-quiet);
   margin: 0 0 11px;
 }
@@ -69,10 +68,10 @@
 }
 .sv2-eyebrow {
   font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 1.8px;
-  text-transform: uppercase;
-  color: var(--tone-50);
+  font-weight: 600;
+  
+  
+  color: var(--ink-tertiary);
   margin: 0 0 8px !important;
 }
 .sv2-quiet {
@@ -86,20 +85,20 @@
 .sv2-note {
   font-size: 12px;
   line-height: 1.65;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
   background: var(--sv2-soft);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   padding: 11px 14px;
   margin: 14px 0 0 !important;
-  animation: sv2-rise var(--sv2-mid) var(--sv2-out) both;
+  animation: sv2-rise var(--duration-base) var(--ease-settle) both;
 }
 .sv2-error {
-  color: var(--theme-negative, var(--tone-25));
+  color: var(--danger);
   font-size: 12px;
   line-height: 1.6;
   overflow-wrap: anywhere;
   margin: 8px 0 0 !important;
-  animation: sv2-rise 200ms var(--sv2-out) both;
+  animation: sv2-rise 200ms var(--ease-settle) both;
 }
 .sv2-alert {
   display: flex;
@@ -108,14 +107,14 @@
   gap: 18px;
   font-size: 13px;
   line-height: 1.6;
-  color: var(--tone-20);
-  background: color-mix(in srgb, var(--theme-negative, var(--tone-40)) 7%, var(--tone-100));
+  color: var(--ink-secondary);
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface));
   border: 1px solid
-    color-mix(in srgb, var(--theme-negative, var(--tone-40)) 30%, var(--tone-90));
-  border-radius: 13px;
+    color-mix(in srgb, var(--danger) 30%, var(--line));
+  border-radius: var(--radius-lg);
   padding: 12px 12px 12px 16px;
   margin: 0 0 20px !important;
-  animation: sv2-rise 260ms var(--sv2-out) both;
+  animation: sv2-rise 260ms var(--ease-settle) both;
 }
 .sv2-alert button {
   flex: none;
@@ -128,16 +127,16 @@
 .sv2 :is(button, input, select, summary, progress),
 .sv2-dialog :is(button, input, select, summary, progress) {
   transition:
-    background var(--sv2-fast) var(--sv2-ease),
-    border-color var(--sv2-fast) var(--sv2-ease),
-    box-shadow var(--sv2-fast) var(--sv2-ease),
-    color var(--sv2-fast) var(--sv2-ease),
-    opacity var(--sv2-fast) linear,
-    transform var(--sv2-fast) var(--sv2-ease);
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-fast) linear,
+    transform var(--duration-fast) var(--ease-out);
 }
 .sv2 :is(button, input, select, summary):focus-visible,
 .sv2-dialog :is(button, input, select, summary):focus-visible {
-  outline: 2.5px solid var(--tone-30);
+  outline: 2.5px solid var(--ink-secondary);
   outline-offset: 2px;
 }
 .sv2 input[type="checkbox"],
@@ -152,9 +151,9 @@
 .sv2 select,
 .sv2-dialog select {
   border: 1px solid var(--sv2-line);
-  background: var(--tone-100);
+  background: var(--surface);
   color: var(--ink);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   padding: 9px 11px;
   min-height: 38px;
   width: 100%;
@@ -164,22 +163,22 @@
 .sv2-dialog select:hover,
 .sv2 .sv2-field input:hover,
 .sv2-dialog .sv2-field input:hover {
-  border-color: var(--tone-70);
+  border-color: var(--line-strong);
 }
 .sv2-inline {
   border: 0 !important;
   background: transparent !important;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 12px;
   padding: 6px 4px;
   min-height: 32px;
   text-decoration: underline;
   text-underline-offset: 3px;
-  text-decoration-color: var(--tone-75);
+  text-decoration-color: var(--line-strong);
 }
 .sv2-inline:hover {
-  color: var(--tone-5);
-  text-decoration-color: var(--tone-45);
+  color: var(--ink);
+  text-decoration-color: var(--ink-tertiary);
 }
 .sv2-dot {
   display: inline-block;
@@ -194,12 +193,12 @@
   width: 28px;
   height: 35px;
   flex: none;
-  border: 1px solid var(--tone-80);
-  border-radius: 6px;
-  background: var(--tone-100);
-  color: var(--tone-50);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  background: var(--surface);
+  color: var(--ink-tertiary);
   font-size: 8px;
-  letter-spacing: 0.5px;
+  
 }
 
 /* ---------- Page framing ---------- */
@@ -210,7 +209,7 @@
   gap: 24px;
   flex-wrap: wrap;
   margin-bottom: 20px;
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
 }
 .sv2-card-actions {
   display: flex;
@@ -224,7 +223,7 @@
   padding: 7px 13px;
 }
 .sv2-card-actions button:hover {
-  border-color: var(--tone-70);
+  border-color: var(--line-strong);
 }
 .sv2-refresh span {
   display: inline-block;
@@ -233,12 +232,12 @@
   margin-right: 5px;
 }
 .sv2-refresh:not(:disabled):hover span {
-  animation: sv2-turn 520ms var(--sv2-ease);
+  animation: sv2-turn 520ms var(--ease-out);
 }
 .sv2-panel {
   background: var(--sv2-paper);
   border: 1px solid var(--sv2-line);
-  border-radius: var(--sv2-r);
+  border-radius: var(--radius-xl);
   box-shadow: var(--sv2-shadow);
   padding: 24px 26px;
   min-width: 0;
@@ -281,26 +280,26 @@
   display: grid;
   grid-template-rows: 1fr auto;
   gap: 30px;
-  border: 1.5px dashed var(--tone-80);
-  border-radius: 26px;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-xl);
   background: radial-gradient(
     120% 85% at 50% 0%,
-    var(--tone-100),
-    var(--tone-95) 72%
+    var(--surface),
+    var(--sunk) 72%
   );
   padding: clamp(26px, 4vh, 52px) clamp(26px, 5vw, 62px) 30px;
   transition:
-    border-color var(--sv2-mid) var(--sv2-ease),
-    background var(--sv2-mid) var(--sv2-ease),
-    box-shadow var(--sv2-mid) var(--sv2-ease);
+    border-color var(--duration-base) var(--ease-out),
+    background var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
 }
 .sv2-dragging .sv2-landing {
   border-color: var(--sv2-accent);
   box-shadow: inset 0 0 0 4px color-mix(in srgb, var(--sv2-accent) 8%, transparent);
   background: radial-gradient(
     120% 85% at 50% 0%,
-    var(--tone-100),
-    var(--tone-90) 78%
+    var(--surface),
+    var(--sunk) 78%
   );
 }
 .sv2-landing-core {
@@ -311,7 +310,7 @@
   text-align: center;
 }
 .sv2-landing-core > * {
-  animation: sv2-rise 340ms var(--sv2-out) both;
+  animation: sv2-rise 340ms var(--ease-settle) both;
 }
 .sv2-landing-core > :nth-child(2) {
   animation-delay: 40ms;
@@ -333,7 +332,7 @@
 }
 .sv2-lede {
   max-width: 56ch;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 14.5px;
   line-height: 1.75;
   margin: 16px 0 28px !important;
@@ -351,11 +350,11 @@
   padding: 10px 19px;
 }
 .sv2-landing-actions .primary {
-  box-shadow: 0 6px 18px rgb(from var(--tone-5) r g b / 0.12);
+  box-shadow: var(--shadow-float);
 }
 .sv2-landing-actions .primary:not(:disabled):hover {
   transform: translateY(-1px);
-  box-shadow: 0 9px 22px rgb(from var(--tone-5) r g b / 0.16);
+  box-shadow: var(--shadow-float);
 }
 .sv2-landing-actions .primary:not(:disabled):active {
   transform: translateY(0);
@@ -377,7 +376,7 @@
   border-top: 1px solid var(--sv2-line);
 }
 .sv2-landing-notes > li {
-  animation: sv2-rise 340ms var(--sv2-out) both;
+  animation: sv2-rise 340ms var(--ease-settle) both;
   animation-delay: 210ms;
 }
 .sv2-landing-notes > li:nth-child(2) {
@@ -393,7 +392,7 @@
   display: flex;
   align-items: center;
   gap: 7px;
-  color: var(--tone-15);
+  color: var(--ink);
 }
 .sv2-landing-notes p {
   color: var(--sv2-quiet);
@@ -419,36 +418,36 @@
   animation-delay: calc(var(--i) * 2.4s);
 }
 .sv2-sheet-body {
-  fill: var(--tone-100);
-  stroke: var(--tone-80);
+  fill: var(--surface);
+  stroke: var(--line-strong);
   stroke-width: 1.4;
 }
 .sv2-sheet-rule {
-  fill: var(--tone-90);
+  fill: var(--sunk);
 }
 .sv2-scene-path {
   fill: none;
-  stroke: var(--tone-80);
+  stroke: var(--line-strong);
   stroke-width: 2;
   stroke-linecap: round;
   stroke-dasharray: 3 9;
   animation: sv2-drift 2.4s linear infinite;
 }
 .sv2-cal-body {
-  fill: var(--tone-100);
-  stroke: var(--tone-75);
+  fill: var(--surface);
+  stroke: var(--line-strong);
   stroke-width: 1.5;
 }
 .sv2-cal-ring,
 .sv2-cal-title {
-  fill: var(--tone-70);
+  fill: var(--data-neutral);
 }
 .sv2-cal-line {
-  stroke: var(--tone-85);
+  stroke: var(--line);
   stroke-width: 1.4;
 }
 .sv2-cal-cell {
-  fill: var(--tone-85);
+  fill: var(--line);
   animation: sv2-cell-fill 7.2s ease-in-out infinite;
   animation-delay: calc(var(--i) * 0.16s + 0.7s);
 }
@@ -484,17 +483,17 @@
 @keyframes sv2-cell-fill {
   0%,
   12% {
-    fill: var(--tone-95);
+    fill: var(--sunk);
   }
   34%,
   100% {
-    fill: var(--tone-85);
+    fill: var(--line);
   }
 }
 @keyframes sv2-cell-accent {
   0%,
   12% {
-    fill: var(--tone-95);
+    fill: var(--sunk);
   }
   34%,
   100% {
@@ -509,7 +508,7 @@
 }
 .sv2-calendar {
   padding: 22px 26px 15px;
-  animation: sv2-rise 340ms var(--sv2-out) both;
+  animation: sv2-rise 340ms var(--ease-settle) both;
 }
 .sv2-grid {
   width: 100%;
@@ -531,7 +530,7 @@
 .sv2-grid thead th {
   font-size: 11px;
   font-weight: 500;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   letter-spacing: 0;
   text-transform: none;
   padding-bottom: 9px;
@@ -540,16 +539,16 @@
   display: block;
   font-size: 9px;
   line-height: 14px;
-  color: var(--tone-60);
+  color: var(--ink-tertiary);
 }
 .sv2-grid tbody tr {
-  animation: sv2-fade 300ms var(--sv2-out) both;
+  animation: sv2-fade 300ms var(--ease-settle) both;
   animation-delay: calc(var(--r, 0) * 34ms);
 }
 .sv2-grid tbody th {
   font-size: 12px;
   font-weight: 500;
-  color: var(--tone-20);
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
 }
 .sv2-grid tbody th .sv2-dot {
@@ -570,32 +569,32 @@
   padding: 0;
   border: 0;
   background: transparent;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .sv2-grid-cell i {
   display: block;
   width: 22px;
   height: 22px;
-  border-radius: 7px;
-  background: var(--tone-95);
-  border: 1px solid var(--tone-90);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
+  border: 1px solid var(--line);
   transition:
-    transform 180ms var(--sv2-ease),
-    box-shadow 180ms var(--sv2-ease);
+    transform 180ms var(--ease-out),
+    box-shadow 180ms var(--ease-out);
 }
 .sv2-grid-cell.sv2-filled i {
-  background: var(--sv2-account, var(--tone-45));
-  border-color: var(--sv2-account, var(--tone-45));
-  animation: sv2-cell-in 340ms var(--sv2-out) both;
+  background: var(--sv2-account, var(--ink-tertiary));
+  border-color: var(--sv2-account, var(--ink-tertiary));
+  animation: sv2-cell-in 340ms var(--ease-settle) both;
   animation-delay: calc(var(--r, 0) * 34ms + var(--i, 0) * 16ms);
 }
 .sv2-grid-cell.sv2-filled:hover {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .sv2-grid-cell.sv2-filled:hover i,
 .sv2-grid-cell.sv2-filled:focus-visible i {
   transform: translateY(-2px) scale(1.06);
-  box-shadow: 0 5px 12px rgb(from var(--tone-5) r g b / 0.2);
+  box-shadow: var(--shadow-float);
 }
 .sv2-grid-cell.sv2-filled:active i {
   transform: translateY(0) scale(0.96);
@@ -607,9 +606,9 @@
   right: 0;
   width: 220px;
   padding: 12px 14px;
-  border-radius: 12px;
-  background: var(--tone-10);
-  color: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--sunk);
   text-align: left;
   pointer-events: none;
   visibility: hidden;
@@ -617,9 +616,9 @@
   transform: translateY(-5px) scale(0.98);
   transform-origin: 85% 0;
   transition:
-    opacity 130ms var(--sv2-out),
-    transform 180ms var(--sv2-out);
-  box-shadow: 0 12px 30px rgb(from var(--tone-5) r g b / 0.22);
+    opacity 130ms var(--ease-settle),
+    transform 180ms var(--ease-settle);
+  box-shadow: var(--shadow-float);
 }
 .sv2-tip strong,
 .sv2-tip span,
@@ -628,7 +627,7 @@
 }
 .sv2-tip strong {
   font-size: 12px;
-  color: var(--tone-100);
+  color: var(--surface);
 }
 .sv2-tip span {
   font-size: 12px;
@@ -636,7 +635,7 @@
 }
 .sv2-tip small {
   font-size: 10.5px;
-  color: var(--tone-75);
+  color: var(--line-strong);
   margin-top: 6px;
   line-height: 1.5;
 }
@@ -652,7 +651,7 @@
   gap: 18px;
   flex-wrap: wrap;
   font-size: 10px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   margin-top: 14px !important;
   padding-top: 12px;
   border-top: 1px solid var(--sv2-hair);
@@ -666,17 +665,17 @@
   width: 9px;
   height: 9px;
   border-radius: 3px;
-  border: 1px solid var(--tone-85);
-  background: var(--tone-95);
+  border: 1px solid var(--line);
+  background: var(--sunk);
 }
 .sv2-legend .sv2-legend-filled {
-  background: var(--tone-45);
-  border-color: var(--tone-45);
+  background: var(--ink-tertiary);
+  border-color: var(--ink-tertiary);
 }
 .sv2-legend small {
   margin-left: auto;
   font-size: 10px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .sv2-dock {
   display: flex;
@@ -684,22 +683,22 @@
   gap: 22px;
   margin-top: 16px;
   padding: 15px 20px;
-  border: 1.5px dashed var(--tone-80);
-  border-radius: var(--sv2-r);
-  background: var(--tone-95);
-  animation: sv2-rise 380ms var(--sv2-out) 80ms both;
+  border: 1.5px dashed var(--line-strong);
+  border-radius: var(--radius-xl);
+  background: var(--sunk);
+  animation: sv2-rise 380ms var(--ease-settle) 80ms both;
   transition:
-    border-color var(--sv2-mid) var(--sv2-ease),
-    background var(--sv2-mid) var(--sv2-ease),
-    box-shadow var(--sv2-mid) var(--sv2-ease);
+    border-color var(--duration-base) var(--ease-out),
+    background var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
 }
 .sv2-dock:hover {
-  border-color: var(--tone-70);
+  border-color: var(--line-strong);
 }
 .sv2-dragging .sv2-dock,
 .sv2-dock.sv2-over {
   border-color: var(--sv2-accent);
-  background: var(--tone-100);
+  background: var(--surface);
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--sv2-accent) 8%, transparent);
 }
 .sv2-dock-mark {
@@ -713,17 +712,17 @@
   top: 3px;
   left: 2px;
   transform: rotate(-10deg);
-  background: var(--tone-95);
-  transition: transform var(--sv2-mid) var(--sv2-ease);
+  background: var(--sunk);
+  transition: transform var(--duration-base) var(--ease-out);
 }
 .sv2-dock-mark .sv2-glyph:last-child {
   top: 0;
   left: 20px;
   transform: rotate(9deg);
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-dragging .sv2-dock-mark .sv2-glyph {
-  animation: sv2-nudge 1.5s var(--sv2-ease) infinite;
+  animation: sv2-nudge 1.5s var(--ease-out) infinite;
 }
 .sv2-dragging .sv2-dock-mark .sv2-glyph:last-child {
   animation-delay: 160ms;
@@ -761,7 +760,7 @@
   align-content: start;
 }
 .sv2-flow > .sv2-panel {
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
 }
 .sv2-rail {
   display: inline-flex;
@@ -772,10 +771,10 @@
   flex-wrap: wrap;
   margin: 0 0 16px;
   padding: 4px;
-  border-radius: 999px;
-  background: var(--tone-95);
+  border-radius: var(--radius-full);
+  background: var(--sunk);
   box-shadow: inset 0 0 0 1px var(--sv2-hair);
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
 }
 .sv2-rail-step {
   display: inline-flex;
@@ -783,15 +782,15 @@
   gap: 9px;
   border: 0;
   background: transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   padding: 6px 15px 6px 6px;
   min-height: 34px;
   font-size: 12px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
 }
 .sv2-rail-step:not(:disabled, [aria-current="step"]):hover {
-  color: var(--tone-15);
-  background: color-mix(in srgb, var(--tone-100) 70%, transparent);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 70%, transparent);
 }
 .sv2-rail-step i {
   display: grid;
@@ -799,27 +798,27 @@
   width: 22px;
   height: 22px;
   border-radius: 50%;
-  background: var(--tone-90);
-  color: var(--tone-40);
+  background: var(--sunk);
+  color: var(--ink-tertiary);
   font-size: 11px;
   font-style: normal;
   transition:
-    background var(--sv2-mid) var(--sv2-ease),
-    color var(--sv2-mid) var(--sv2-ease);
+    background var(--duration-base) var(--ease-out),
+    color var(--duration-base) var(--ease-out);
 }
 .sv2-rail-step.sv2-rail-done i {
   background: var(--sv2-accent);
-  color: var(--tone-100);
-  animation: sv2-tick 340ms var(--sv2-ease);
+  color: var(--surface);
+  animation: sv2-tick 340ms var(--ease-out);
 }
 .sv2-rail-step[aria-current="step"] {
-  color: var(--tone-10);
-  background: var(--tone-100);
-  box-shadow: 0 1px 3px rgb(from var(--tone-5) r g b / 0.14);
+  color: var(--ink);
+  background: var(--surface);
+  box-shadow: var(--shadow-rest);
 }
 .sv2-rail-step[aria-current="step"] i {
-  background: var(--tone-20);
-  color: var(--tone-100);
+  background: var(--ink-secondary);
+  color: var(--surface);
 }
 .sv2-rail-step[aria-current="step"].sv2-rail-done i {
   background: var(--sv2-accent);
@@ -843,18 +842,18 @@
   gap: 14px;
   padding: 11px 12px 11px 14px;
   border: 1px solid var(--sv2-hair);
-  border-radius: var(--sv2-r-card);
-  background: var(--tone-100);
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  animation: sv2-rise 300ms var(--ease-settle) both;
   animation-delay: min(calc(var(--i, 0) * var(--sv2-step)), 300ms);
   transition:
-    background var(--sv2-fast) var(--sv2-ease),
-    border-color var(--sv2-fast) var(--sv2-ease),
-    opacity var(--sv2-mid) var(--sv2-ease);
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
 }
 .sv2-file-row:hover {
   border-color: var(--sv2-line);
-  background: color-mix(in srgb, var(--tone-95) 55%, var(--tone-100));
+  background: color-mix(in srgb, var(--sunk) 55%, var(--surface));
 }
 .sv2-file-main {
   flex: 1;
@@ -863,7 +862,7 @@
 .sv2-file-main strong {
   display: block;
   font-size: 13px;
-  color: var(--tone-15);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .sv2-file-main small {
@@ -875,11 +874,11 @@
 }
 .sv2-held {
   opacity: 0.52;
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .sv2-held .sv2-file-main strong {
   text-decoration: line-through;
-  text-decoration-color: var(--tone-65);
+  text-decoration-color: var(--ink-tertiary);
 }
 .sv2-include {
   display: inline-flex;
@@ -891,19 +890,19 @@
   color: var(--sv2-quiet);
   padding: 6px 11px 6px 9px;
   border: 1px solid transparent;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   transition:
-    background var(--sv2-fast) var(--sv2-ease),
-    border-color var(--sv2-fast) var(--sv2-ease),
-    color var(--sv2-fast) var(--sv2-ease);
+    background var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out);
 }
 .sv2-include:hover {
-  color: var(--tone-20);
-  background: var(--tone-95);
+  color: var(--ink-secondary);
+  background: var(--sunk);
   border-color: var(--sv2-hair);
 }
 .sv2-file-row:not(.sv2-held) .sv2-include {
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .sv2-remove {
   display: grid;
@@ -916,13 +915,13 @@
   border: 0;
   border-radius: 50%;
   background: transparent;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 17px;
   line-height: 1;
 }
 .sv2-remove:not(:disabled):hover {
-  background: color-mix(in srgb, var(--theme-negative, var(--tone-40)) 12%, var(--tone-100));
-  color: var(--theme-negative, var(--tone-20));
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface));
+  color: var(--danger);
 }
 
 /* ---------- Flow: layouts ---------- */
@@ -936,8 +935,8 @@
   /* The panel border sits outside these panes, so their corners are one pixel
      tighter than the panel's own radius. Rounding here rather than clipping the
      panel keeps focus rings from being cut off at the edges. */
-  border-radius: calc(var(--sv2-r) - 1px) 0 0 0;
-  background: color-mix(in srgb, var(--tone-95) 45%, var(--tone-100));
+  border-radius: calc(var(--radius-xl) - 1px) 0 0 0;
+  background: color-mix(in srgb, var(--sunk) 45%, var(--surface));
   padding: 22px 18px;
   min-width: 0;
 }
@@ -953,7 +952,7 @@
   padding: 0;
 }
 .sv2-list ul > li {
-  animation: sv2-rise 280ms var(--sv2-out) both;
+  animation: sv2-rise 280ms var(--ease-settle) both;
   animation-delay: min(calc(var(--i, 0) * 28ms), 280ms);
 }
 .sv2-list-item {
@@ -964,11 +963,11 @@
   text-align: left;
   border: 0;
   background: transparent;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   padding: 10px;
 }
 .sv2-list-item:hover {
-  background: color-mix(in srgb, var(--tone-90) 50%, transparent);
+  background: color-mix(in srgb, var(--sunk) 50%, transparent);
 }
 .sv2-list-item > span {
   min-width: 0;
@@ -976,7 +975,7 @@
 .sv2-list-item strong {
   display: block;
   font-size: 12px;
-  color: var(--tone-20);
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
 }
 .sv2-list-item small {
@@ -986,45 +985,45 @@
   margin-top: 3px;
 }
 .sv2-list-item.sv2-current {
-  background: var(--tone-100);
-  box-shadow: 0 1px 3px rgb(from var(--tone-5) r g b / 0.1);
+  background: var(--surface);
+  box-shadow: var(--shadow-rest);
 }
 .sv2-list-item.sv2-current strong {
-  color: var(--tone-5);
+  color: var(--ink);
 }
 .sv2-pip {
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  border: 1px solid var(--tone-70);
+  border: 1px solid var(--line-strong);
   flex: none;
   transition:
-    background var(--sv2-mid) var(--sv2-ease),
-    border-color var(--sv2-mid) var(--sv2-ease),
-    box-shadow var(--sv2-mid) var(--sv2-ease);
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
 }
 .sv2-pip-on {
   background: var(--sv2-accent);
   border-color: transparent;
-  animation: sv2-pip-on 420ms var(--sv2-out);
+  animation: sv2-pip-on 420ms var(--ease-settle);
 }
 .sv2-detail {
   padding: 22px 24px;
-  border-radius: 0 calc(var(--sv2-r) - 1px) 0 0;
+  border-radius: 0 calc(var(--radius-xl) - 1px) 0 0;
   min-width: 0;
 }
 .sv2-panel-foot.sv2-span {
   grid-column: 1 / -1;
   margin-top: 0;
   border-top: 1px solid var(--sv2-hair);
-  border-radius: 0 0 calc(var(--sv2-r) - 1px) calc(var(--sv2-r) - 1px);
+  border-radius: 0 0 calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px);
   padding: 14px 24px;
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 
 /* ---------- Layout editor ---------- */
 .sv2-editor {
-  animation: sv2-rise 260ms var(--sv2-out) both;
+  animation: sv2-rise 260ms var(--ease-settle) both;
 }
 .sv2-editor-loading {
   color: var(--sv2-quiet);
@@ -1046,19 +1045,19 @@
   align-items: center;
   gap: 8px;
   font-size: 11px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   padding: 5px 9px;
-  background: var(--tone-95);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
   white-space: nowrap;
 }
 .sv2-badge-ok {
-  background: color-mix(in srgb, var(--sv2-accent) 12%, var(--tone-100));
-  color: var(--tone-20);
+  background: color-mix(in srgb, var(--sv2-accent) 12%, var(--surface));
+  color: var(--ink-secondary);
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--sv2-accent) 24%, transparent);
 }
 .sv2-badge-edit {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .sv2-recognized-line {
   display: flex;
@@ -1087,21 +1086,21 @@
   font-size: 12px;
   min-height: 34px;
   padding: 7px 13px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--sv2-line);
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-chip em {
   font-style: normal;
   font-size: 10.5px;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
 }
 .sv2-chip:not(:disabled):hover {
-  border-color: var(--tone-55);
+  border-color: var(--line-strong);
   transform: translateY(-1px);
 }
 .sv2-chip:not(:disabled):hover em {
-  color: var(--tone-25);
+  color: var(--ink-secondary);
 }
 .sv2-chip:not(:disabled):active {
   transform: translateY(0);
@@ -1128,14 +1127,14 @@
   align-items: center;
   gap: 7px;
   min-height: 18px;
-  color: var(--tone-25);
-  font-weight: 550;
+  color: var(--ink-secondary);
+  font-weight: 500;
 }
 .sv2-field > span em {
   font-style: normal;
   font-weight: 400;
   font-size: 11px;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
 }
 .sv2-field input {
   width: 100%;
@@ -1144,7 +1143,7 @@
 }
 .sv2-field-sample {
   min-height: 15px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 10.5px;
   line-height: 1.4;
   overflow-wrap: anywhere;
@@ -1171,8 +1170,8 @@
   align-items: center;
   gap: 7px;
   font-size: 12px;
-  font-weight: 550;
-  color: var(--tone-25);
+  font-weight: 500;
+  color: var(--ink-secondary);
   padding: 0;
   margin-bottom: 10px;
 }
@@ -1191,30 +1190,30 @@
   text-align: left;
   font-size: 12px;
   padding: 10px 13px;
-  border-radius: 11px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--sv2-line);
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-choice em {
   font-style: normal;
   font-size: 10.5px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   overflow-wrap: anywhere;
 }
 .sv2-choice[aria-pressed="true"] {
-  background: var(--tone-95);
-  box-shadow: inset 0 0 0 1.5px var(--tone-35);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1.5px var(--ink-secondary);
   border-color: transparent;
-  animation: sv2-pick 300ms var(--sv2-ease);
+  animation: sv2-pick 300ms var(--ease-out);
 }
 .sv2-choice[aria-pressed="true"] em {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .sv2-live {
   margin-top: 22px;
   padding: 18px;
-  border-radius: 14px;
-  background: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
   border: 1px solid var(--sv2-hair);
 }
 .sv2-live-head {
@@ -1225,9 +1224,9 @@
 }
 .sv2-preview {
   border: 1px solid var(--sv2-hair);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-preview table {
   width: 100%;
@@ -1240,26 +1239,26 @@
   padding: 10px 14px;
   font-size: 11px;
   color: var(--sv2-quiet);
-  background: var(--tone-95);
+  background: var(--sunk);
   border-bottom: 1px solid var(--sv2-hair);
 }
 .sv2-preview th {
   text-align: left;
   font-size: 9.5px;
-  letter-spacing: 1px;
-  text-transform: uppercase;
-  font-weight: 650;
-  color: var(--tone-50);
+  
+  
+  font-weight: 600;
+  color: var(--ink-tertiary);
   padding: 9px 14px;
   border-bottom: 1px solid var(--sv2-hair);
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-preview td {
   padding: 9px 14px;
-  border-bottom: 1px solid var(--tone-95);
+  border-bottom: 1px solid var(--line);
 }
 .sv2-preview tbody tr {
-  animation: sv2-fade 260ms var(--sv2-out) both;
+  animation: sv2-fade 260ms var(--ease-settle) both;
 }
 .sv2-preview tbody tr:nth-child(2) {
   animation-delay: 45ms;
@@ -1275,7 +1274,7 @@
 }
 .sv2-preview-date {
   white-space: nowrap;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   width: 110px;
 }
 .sv2-preview-text {
@@ -1288,10 +1287,10 @@
   font-variant-numeric: tabular-nums;
 }
 .sv2-in {
-  color: var(--theme-positive, var(--tone-25));
+  color: var(--accent-text);
 }
 .sv2-out {
-  color: var(--tone-25);
+  color: var(--ink-secondary);
 }
 .sv2-editor-foot {
   display: flex;
@@ -1321,9 +1320,9 @@
   margin-top: 12px;
   padding: 10px 13px;
   border: 1px solid var(--sv2-hair);
-  border-radius: var(--sv2-r-card);
-  background: color-mix(in srgb, var(--tone-95) 65%, var(--tone-100));
-  animation: sv2-rise 280ms var(--sv2-out) both;
+  border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--sunk) 65%, var(--surface));
+  animation: sv2-rise 280ms var(--ease-settle) both;
 }
 .sv2-date-status {
   flex: 1 1 190px;
@@ -1351,25 +1350,25 @@
   text-align: left;
   min-height: 40px;
   padding: 6px 12px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--sv2-line);
-  background: var(--tone-100);
+  background: var(--surface);
   font-size: 11.5px;
 }
 .sv2-date-option:not(:disabled, [aria-pressed="true"]):hover {
-  border-color: var(--tone-60);
-  background: var(--tone-100);
+  border-color: var(--line-strong);
+  background: var(--surface);
 }
 .sv2-date-option[aria-pressed="true"] {
   border-color: transparent;
-  background: var(--tone-95);
-  box-shadow: inset 0 0 0 1.5px var(--tone-35);
-  animation: sv2-pick 300ms var(--sv2-ease);
+  background: var(--sunk);
+  box-shadow: inset 0 0 0 1.5px var(--ink-secondary);
+  animation: sv2-pick 300ms var(--ease-out);
 }
 .sv2-date-format {
   flex: 0 0 auto;
-  font-weight: 550;
-  color: var(--tone-20);
+  font-weight: 500;
+  color: var(--ink-secondary);
   letter-spacing: -0.1px;
 }
 .sv2-date-example {
@@ -1378,34 +1377,34 @@
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 10.5px;
   line-height: 1.5;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   overflow-wrap: anywhere;
 }
 .sv2-date-option[aria-pressed="true"] .sv2-date-example {
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .sv2-date-count {
   font-size: 10px;
   line-height: 1.5;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   white-space: nowrap;
 }
 .sv2-date-option .sv2-date-count {
   padding: 1px 6px;
-  border-radius: 999px;
-  background: var(--tone-95);
+  border-radius: var(--radius-full);
+  background: var(--sunk);
 }
 .sv2-date-option[aria-pressed="true"] .sv2-date-count {
-  background: var(--tone-100);
-  color: var(--tone-30);
+  background: var(--surface);
+  color: var(--ink-secondary);
 }
 .sv2-date-invalid {
-  color: var(--theme-negative, var(--tone-25));
+  color: var(--danger);
 }
 .sv2-date-assist.sv2-date-invalid,
 .sv2-date-assist:has(.sv2-date-invalid) {
-  border-color: color-mix(in srgb, var(--theme-negative, var(--tone-40)) 26%, var(--tone-90));
-  background: color-mix(in srgb, var(--theme-negative, var(--tone-40)) 5%, var(--tone-100));
+  border-color: color-mix(in srgb, var(--danger) 26%, var(--line));
+  background: color-mix(in srgb, var(--danger) 5%, var(--surface));
 }
 
 /* ---------- Accounts ---------- */
@@ -1418,23 +1417,23 @@
   gap: 11px;
   padding: 14px 16px;
   border: 1px solid var(--sv2-hair);
-  border-radius: var(--sv2-r-card);
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  border-radius: var(--radius-lg);
+  animation: sv2-rise 300ms var(--ease-settle) both;
   animation-delay: min(calc(var(--i, 0) * var(--sv2-step)), 300ms);
   transition:
-    background var(--sv2-mid) var(--sv2-ease),
-    border-color var(--sv2-mid) var(--sv2-ease),
-    box-shadow var(--sv2-mid) var(--sv2-ease);
+    background var(--duration-base) var(--ease-out),
+    border-color var(--duration-base) var(--ease-out),
+    box-shadow var(--duration-base) var(--ease-out);
 }
 .sv2-assign-row.sv2-assigned {
-  background: color-mix(in srgb, var(--tone-95) 70%, var(--tone-100));
+  background: color-mix(in srgb, var(--sunk) 70%, var(--surface));
   border-color: var(--sv2-line);
-  box-shadow: inset 3px 0 0 var(--sv2-account, var(--tone-60));
+  box-shadow: inset 3px 0 0 var(--sv2-account, var(--ink-tertiary));
 }
 .sv2-assign-file strong {
   display: block;
   font-size: 13px;
-  color: var(--tone-15);
+  color: var(--ink);
   overflow-wrap: anywhere;
 }
 .sv2-assign-file small {
@@ -1457,32 +1456,32 @@
   font-size: 12px;
   min-height: 34px;
   padding: 7px 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--sv2-line);
-  background: var(--tone-100);
+  background: var(--surface);
 }
 .sv2-account-chip:not(:disabled):hover {
-  border-color: var(--sv2-account, var(--tone-55));
+  border-color: var(--sv2-account, var(--line-strong));
 }
 .sv2-account-chip[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 1.5px var(--sv2-account, var(--tone-40));
-  background: color-mix(in srgb, var(--sv2-account, var(--tone-60)) 9%, var(--tone-100));
+  box-shadow: inset 0 0 0 1.5px var(--sv2-account, var(--ink-tertiary));
+  background: color-mix(in srgb, var(--sv2-account, var(--ink-tertiary)) 9%, var(--surface));
   border-color: transparent;
-  animation: sv2-pick 320ms var(--sv2-ease);
+  animation: sv2-pick 320ms var(--ease-out);
 }
 .sv2-account-chip[aria-pressed="true"] .sv2-dot {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv2-account, var(--tone-60)) 22%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--sv2-account, var(--ink-tertiary)) 22%, transparent);
 }
 .sv2-account-new {
   border-style: dashed;
-  border-color: var(--tone-70);
+  border-color: var(--line-strong);
   background: transparent;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .sv2-account-new:not(:disabled):hover {
   border-style: solid;
-  border-color: var(--tone-55);
-  background: var(--tone-100);
+  border-color: var(--line-strong);
+  background: var(--surface);
 }
 .sv2-assign-note {
   display: flex;
@@ -1492,7 +1491,7 @@
   font-size: 11px;
   line-height: 1.6;
   color: var(--sv2-quiet);
-  animation: sv2-fade 260ms var(--sv2-out) both;
+  animation: sv2-fade 260ms var(--ease-settle) both;
 }
 .sv2-assign-note .sv2-inline {
   min-height: 26px;
@@ -1512,7 +1511,7 @@
   font-size: 11px;
   min-height: 30px;
   padding: 5px 11px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
 }
 .sv2-prefix-presets .sv2-inline {
   min-height: 30px;
@@ -1520,15 +1519,15 @@
 .sv2-prefix-result {
   display: grid;
   gap: 8px;
-  animation: sv2-fade 200ms var(--sv2-out) both;
+  animation: sv2-fade 200ms var(--ease-settle) both;
 }
 .sv2-segments {
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 12px;
   line-height: 2;
-  background: var(--tone-100);
+  background: var(--surface);
   border: 1px solid var(--sv2-hair);
-  border-radius: 9px;
+  border-radius: var(--radius-sm);
   padding: 9px 12px;
   overflow-wrap: anywhere;
 }
@@ -1540,20 +1539,20 @@
   text-underline-offset: 3px;
 }
 .sv2-seg-literal {
-  background: var(--tone-90);
-  color: var(--tone-5);
-  text-decoration: underline solid var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink);
+  text-decoration: underline solid var(--ink-secondary);
   text-decoration-thickness: 2px;
 }
 .sv2-seg-pattern {
-  background: var(--tone-95);
-  color: var(--tone-35);
-  text-decoration: underline dashed var(--tone-60);
+  background: var(--sunk);
+  color: var(--ink-secondary);
+  text-decoration: underline dashed var(--ink-tertiary);
   text-decoration-thickness: 1.5px;
 }
 .sv2-seg-unmatched {
-  color: var(--tone-60);
-  text-decoration: line-through solid var(--tone-70);
+  color: var(--ink-tertiary);
+  text-decoration: line-through solid var(--ink-tertiary);
   text-decoration-thickness: 1.5px;
 }
 .sv2-seg-legend {
@@ -1562,12 +1561,12 @@
   gap: 10px;
   flex-wrap: wrap;
   font-size: 10.5px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
 }
 .sv2-seg-legend .sv2-seg {
   font-family: inherit;
   padding: 2px 7px;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .sv2-colors {
   display: flex;
@@ -1582,10 +1581,10 @@
   padding: 0;
   border-radius: 50%;
   background: var(--sv2-account);
-  color: var(--tone-100);
+  color: var(--surface);
   font-size: 13px;
   line-height: 1;
-  border: 3px solid var(--tone-100);
+  border: 3px solid var(--surface);
   outline: 1px solid transparent;
 }
 .sv2-colors > button:not(:disabled):hover {
@@ -1593,7 +1592,7 @@
 }
 .sv2-colors > button[aria-pressed="true"] {
   outline-color: var(--sv2-account);
-  animation: sv2-pick 300ms var(--sv2-ease);
+  animation: sv2-pick 300ms var(--ease-out);
 }
 .sv2-custom-color {
   display: flex;
@@ -1621,10 +1620,10 @@
 }
 .sv2-summary > li {
   border: 1px solid var(--sv2-hair);
-  border-left: 3px solid var(--sv2-account, var(--tone-60));
-  border-radius: var(--sv2-r-card);
+  border-left: 3px solid var(--sv2-account, var(--line-strong));
+  border-radius: var(--radius-lg);
   padding: 13px 16px;
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
   animation-delay: min(calc(var(--i, 0) * var(--sv2-step)), 300ms);
 }
 .sv2-summary-account {
@@ -1632,8 +1631,8 @@
   align-items: center;
   gap: 9px;
   font-size: 13px;
-  font-weight: 550;
-  color: var(--tone-15);
+  font-weight: 500;
+  color: var(--ink);
 }
 .sv2-summary ul {
   list-style: none;
@@ -1650,8 +1649,8 @@
 }
 .sv2-summary ul strong {
   font-size: 12px;
-  font-weight: 450;
-  color: var(--tone-25);
+  font-weight: 400;
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
 }
 .sv2-summary ul small {
@@ -1662,7 +1661,7 @@
   display: grid;
   gap: 8px;
   margin-top: 18px;
-  animation: sv2-rise 260ms var(--sv2-out) both;
+  animation: sv2-rise 260ms var(--ease-settle) both;
 }
 .sv2-progress-line {
   display: flex;
@@ -1670,7 +1669,7 @@
   justify-content: space-between;
   gap: 14px;
   font-size: 11.5px;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 .sv2-progress-line > span:first-child {
   min-width: 0;
@@ -1687,27 +1686,27 @@
   width: 100%;
   height: 7px;
   border: 0;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
-  background: var(--tone-90);
+  background: var(--sunk);
   accent-color: var(--sv2-accent);
 }
 .sv2-progress progress::-webkit-progress-bar {
-  background: var(--tone-90);
-  border-radius: 999px;
+  background: var(--sunk);
+  border-radius: var(--radius-full);
 }
 .sv2-progress progress::-webkit-progress-value {
   background: var(--sv2-accent);
-  border-radius: 999px;
-  transition: width 320ms var(--sv2-ease);
+  border-radius: var(--radius-full);
+  transition: width 320ms var(--ease-out);
 }
 .sv2-progress progress::-moz-progress-bar {
   background: var(--sv2-accent);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 .sv2-results {
   max-width: 720px;
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
 }
 .sv2-results h2 {
   position: relative;
@@ -1725,7 +1724,7 @@
   border-radius: 2px;
   background: var(--sv2-accent);
   transform-origin: left center;
-  animation: sv2-sweep 440ms var(--sv2-ease) 80ms both;
+  animation: sv2-sweep 440ms var(--ease-out) 80ms both;
 }
 .sv2-results .sv2-chiprow {
   margin-top: 4px;
@@ -1734,7 +1733,7 @@
   margin-top: 14px !important;
 }
 .sv2-results .sv2-chip {
-  animation: sv2-rise 280ms var(--sv2-out) both;
+  animation: sv2-rise 280ms var(--ease-settle) both;
   animation-delay: calc(260ms + var(--i, 0) * 34ms);
 }
 .sv2-stats {
@@ -1743,11 +1742,11 @@
   gap: 12px;
   margin: 20px 0;
   padding: 20px 22px;
-  border-radius: 15px;
-  background: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--sunk);
 }
 .sv2-stat {
-  animation: sv2-rise 320ms var(--sv2-out) both;
+  animation: sv2-rise 320ms var(--ease-settle) both;
   animation-delay: 110ms;
 }
 .sv2-stats > :nth-child(2) {
@@ -1765,7 +1764,7 @@
   font-weight: 500;
   line-height: 1.1;
   letter-spacing: -1.2px;
-  color: var(--tone-10);
+  color: var(--ink);
   font-variant-numeric: tabular-nums;
 }
 .sv2-stat span {
@@ -1790,19 +1789,19 @@
   min-height: 17px;
   padding: 0;
   border-radius: 50%;
-  border: 1px solid var(--tone-75);
+  border: 1px solid var(--line-strong);
   background: transparent;
-  color: var(--tone-45);
-  font-family: Georgia, serif;
+  color: var(--ink-tertiary);
+  font-family: var(--font-title);
   font-style: italic;
   font-size: 11px;
   line-height: 1;
 }
 .sv2-info-dot:hover,
 .sv2-info-dot[aria-expanded="true"] {
-  background: var(--tone-15);
-  border-color: var(--tone-15);
-  color: var(--tone-100);
+  background: var(--ink);
+  border-color: var(--ink);
+  color: var(--surface);
 }
 .sv2-pop {
   position: absolute;
@@ -1815,29 +1814,29 @@
   overflow: auto;
   overscroll-behavior: contain;
   padding: 13px 15px;
-  border-radius: 12px;
-  background: var(--tone-10);
-  color: var(--tone-90);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--sunk);
   font-size: 11.5px;
   line-height: 1.7;
   font-weight: 400;
   text-align: left;
   letter-spacing: 0;
   text-transform: none;
-  box-shadow: 0 16px 38px rgb(from var(--tone-5) r g b / 0.24);
-  animation: sv2-pop 160ms var(--sv2-out);
+  box-shadow: var(--shadow-overlay);
+  animation: sv2-pop 160ms var(--ease-settle);
 }
 .sv2-pop strong {
   display: block;
-  color: var(--tone-100);
+  color: var(--surface);
   font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 1.1px;
-  text-transform: uppercase;
+  font-weight: 600;
+  
+  
   margin-bottom: 6px;
 }
 .sv2-pop code {
-  background: rgb(from var(--tone-100) r g b / 0.16);
+  background: rgb(from var(--surface) r g b / 0.16);
   border-radius: 4px;
   padding: 1px 4px;
   font-size: 11px;
@@ -1850,7 +1849,7 @@
   width: 10px;
   height: 10px;
   border-radius: 2px;
-  background: var(--tone-10);
+  background: var(--ink);
   rotate: 45deg;
 }
 
@@ -1868,25 +1867,25 @@
   overflow: hidden;
   max-width: min(580px, calc(100vw - 300px));
   padding: 12px 10px 12px 18px;
-  border-radius: 14px;
-  background: var(--tone-15);
-  color: var(--tone-95);
+  border-radius: var(--radius-lg);
+  background: var(--ink);
+  color: var(--sunk);
   font-size: 12.5px;
   line-height: 1.5;
-  box-shadow: 0 16px 42px rgb(from var(--tone-5) r g b / 0.26);
-  animation: sv2-snack 260ms var(--sv2-out);
+  box-shadow: var(--shadow-overlay);
+  animation: sv2-snack 260ms var(--ease-settle);
 }
 .sv2-snack button {
   flex: none;
   border: 0;
   background: transparent;
-  color: var(--tone-75);
+  color: var(--line-strong);
   font-size: 17px;
   min-height: 26px;
   padding: 0 8px;
 }
 .sv2-snack button:hover {
-  color: var(--tone-100);
+  color: var(--surface);
   background: transparent;
 }
 /* A hairline that empties over the same 5.2s the message is held for. */
@@ -1897,7 +1896,7 @@
   right: 0;
   bottom: 0;
   height: 2px;
-  background: rgb(from var(--tone-100) r g b / 0.28);
+  background: rgb(from var(--surface) r g b / 0.28);
   transform-origin: left center;
   animation: sv2-hold 5200ms linear forwards;
 }
@@ -1905,13 +1904,13 @@
 /* ---------- Dialogs ---------- */
 .workspace-dialog.sv2-dialog {
   width: min(640px, calc(100vw - 70px));
-  border-radius: 20px;
+  border-radius: var(--radius-xl);
 }
 .workspace-dialog.sv2-dialog-wide {
   width: min(880px, calc(100vw - 70px));
 }
 .workspace-dialog.sv2-dialog[open] {
-  animation: sv2-dialog-in 240ms var(--sv2-out);
+  animation: sv2-dialog-in 240ms var(--ease-settle);
 }
 .workspace-dialog.sv2-dialog[open]::backdrop {
   animation: sv2-backdrop 220ms ease-out;
@@ -1944,7 +1943,7 @@
 }
 .sv2-history > li {
   border-bottom: 1px solid var(--sv2-hair);
-  animation: sv2-rise 280ms var(--sv2-out) both;
+  animation: sv2-rise 280ms var(--ease-settle) both;
   animation-delay: calc(var(--i, 0) * 26ms);
 }
 .sv2-history summary {
@@ -1955,7 +1954,7 @@
   padding: 11px 8px;
   list-style: none;
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
 }
 .sv2-history summary::-webkit-details-marker {
   display: none;
@@ -1963,16 +1962,16 @@
 .sv2-history summary::after {
   content: "›";
   justify-self: end;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
   font-size: 15px;
   line-height: 1;
-  transition: rotate 200ms var(--sv2-ease);
+  transition: rotate 200ms var(--ease-out);
 }
 .sv2-history details[open] > summary::after {
   rotate: 90deg;
 }
 .sv2-history summary:hover {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .sv2-history-account {
   display: flex;
@@ -1988,11 +1987,11 @@
   display: block;
   margin-top: 3px;
   font-size: 10px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .sv2-history time {
   font-size: 10.5px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
 }
 .sv2-history .sv2-badge {
   justify-self: end;
@@ -2003,11 +2002,11 @@
   justify-content: space-between;
   gap: 16px;
   padding: 0 8px 14px 26px;
-  animation: sv2-reveal 240ms var(--sv2-out);
+  animation: sv2-reveal 240ms var(--ease-settle);
 }
 .sv2-history-file {
   font-size: 11px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   overflow-wrap: anywhere;
 }
 .sv2-history-body button {
@@ -2029,10 +2028,10 @@
 }
 .sv2-archive-month {
   border: 1px solid var(--sv2-line);
-  border-radius: var(--sv2-r-card);
+  border-radius: var(--radius-lg);
   padding: 13px 16px;
   margin-bottom: 9px;
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 .sv2-archive-month h4 {
@@ -2043,7 +2042,7 @@
   align-items: center;
   gap: 12px;
   padding: 8px 0;
-  border-top: 1px solid var(--tone-95);
+  border-top: 1px solid var(--line);
   font-size: 12px;
 }
 .sv2-archive-account {
@@ -2052,11 +2051,11 @@
   gap: 9px;
   flex: 1;
   min-width: 0;
-  color: var(--tone-20);
+  color: var(--ink-secondary);
   overflow-wrap: anywhere;
 }
 .sv2-archive-row small {
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -2086,18 +2085,18 @@
 .sv2-originals > summary::after {
   content: "›";
   margin-left: auto;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
   font-size: 15px;
   line-height: 1;
-  transition: rotate 200ms var(--sv2-ease);
+  transition: rotate 200ms var(--ease-out);
 }
 .sv2-originals[open] > summary::after {
   rotate: 90deg;
 }
 .sv2-originals > summary span {
   padding: 2px 7px;
-  border-radius: 5px;
-  background: var(--tone-90);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
   font-size: 11px;
   font-weight: 400;
 }
@@ -2110,9 +2109,9 @@
 }
 .sv2-template-list > li {
   border: 1px solid var(--sv2-hair);
-  border-radius: var(--sv2-r-card);
+  border-radius: var(--radius-lg);
   padding: 14px 16px;
-  animation: sv2-rise 300ms var(--sv2-out) both;
+  animation: sv2-rise 300ms var(--ease-settle) both;
   animation-delay: calc(var(--i, 0) * 30ms);
 }
 .sv2-template-head {
@@ -2122,11 +2121,11 @@
 }
 .sv2-template-head strong {
   font-size: 13px;
-  color: var(--tone-15);
+  color: var(--ink);
 }
 .sv2-template-map {
   font-size: 11.5px;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   margin: 7px 0 0 !important;
   overflow-wrap: anywhere;
 }
@@ -2143,10 +2142,10 @@
   flex-wrap: wrap;
   margin-top: 12px;
   padding-top: 12px;
-  border-top: 1px solid var(--tone-95);
+  border-top: 1px solid var(--line);
 }
 .sv2-confirm {
-  animation: sv2-reveal 220ms var(--sv2-out);
+  animation: sv2-reveal 220ms var(--ease-settle);
 }
 .sv2-template-actions button,
 .sv2-confirm button {
@@ -2158,7 +2157,7 @@
   min-width: 180px;
   font-size: 11.5px;
   line-height: 1.6;
-  color: var(--tone-30);
+  color: var(--ink-secondary);
 }
 
 /* ---------- Motion ---------- */
@@ -2280,7 +2279,7 @@
   .sv2-list {
     border-right: 0;
     border-bottom: 1px solid var(--sv2-hair);
-    border-radius: calc(var(--sv2-r) - 1px) calc(var(--sv2-r) - 1px) 0 0;
+    border-radius: calc(var(--radius-xl) - 1px) calc(var(--radius-xl) - 1px) 0 0;
   }
   .sv2-detail {
     border-radius: 0;
@@ -2365,27 +2364,27 @@
 .sv2-mapping-heading .sv2-choices {
   gap: 3px;
   padding: 3px;
-  border-radius: 9px;
-  background: var(--tone-95);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
   box-shadow: inset 0 0 0 1px var(--sv2-hair);
 }
 .sv2-mapping-heading button {
   min-height: 30px;
   padding: 5px 11px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   background: transparent;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   font-size: 11px;
 }
 .sv2-mapping-heading button:hover {
-  color: var(--tone-15);
-  background: color-mix(in srgb, var(--tone-100) 60%, transparent);
+  color: var(--ink);
+  background: color-mix(in srgb, var(--surface) 60%, transparent);
 }
 .sv2-mapping-heading button[aria-pressed="true"] {
-  background: var(--tone-100);
-  color: var(--tone-10);
-  box-shadow: 0 1px 3px rgb(from var(--tone-5) r g b / 0.14);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-rest);
 }
 /* Column pickers and reading options share one three-column rhythm so the
    selects line up down the editor whichever amount format is chosen. */
@@ -2421,23 +2420,23 @@
   font-size: 11px;
   color: var(--sv2-quiet);
   padding: 5px 0;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
 }
 .sv2-layout-extra summary:hover,
 .sv2-layout-reuse summary:hover {
-  color: var(--tone-20);
+  color: var(--ink-secondary);
 }
 .sv2-layout-extra > label {
   max-width: 260px;
   margin-top: 8px;
-  animation: sv2-reveal 220ms var(--sv2-out);
+  animation: sv2-reveal 220ms var(--ease-settle);
 }
 .sv2-layout-reuse {
   margin-bottom: 14px;
 }
 .sv2-layout-reuse .sv2-chiprow {
   margin-top: 8px;
-  animation: sv2-reveal 220ms var(--sv2-out);
+  animation: sv2-reveal 220ms var(--ease-settle);
 }
 .sv2-layout-preview {
   margin-top: 18px;
@@ -2454,13 +2453,13 @@
 .sv2-layout-preview .sv2-live-head .sv2-quiet {
   flex: none;
   font-size: 11px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .sv2-raw-scroll {
   width: 100%;
   overflow-x: auto;
   border: 1px solid var(--sv2-hair);
-  border-radius: 11px;
+  border-radius: var(--radius-md);
 }
 .sv2-raw-scroll table {
   width: 100%;
@@ -2476,9 +2475,9 @@
   overflow-wrap: anywhere;
 }
 .sv2-raw-scroll th {
-  font-weight: 550;
-  color: var(--tone-35);
-  background: var(--tone-95);
+  font-weight: 500;
+  color: var(--ink-secondary);
+  background: var(--sunk);
   white-space: nowrap;
 }
 .sv2-raw-scroll tr:last-child td {

@@ -1,6 +1,6 @@
 .data-room {
-  --dr-border: var(--tone-85);
-  --dr-muted: var(--tone-40);
+  --dr-border: var(--line);
+  --dr-muted: var(--ink-tertiary);
 }
 .dr-heading,
 .dr-section-line,
@@ -42,12 +42,12 @@
   font-size: 12px;
   padding: 7px 4px;
   min-height: 32px;
-  color: var(--tone-25);
+  color: var(--ink-secondary);
 }
 .dr-library {
   border: 1px solid var(--dr-border);
-  background: var(--tone-100);
-  border-radius: 17px;
+  background: var(--surface);
+  border-radius: var(--radius-xl);
   padding: 23px 25px 17px;
   margin-bottom: 24px;
 }
@@ -73,7 +73,7 @@
 }
 .dr-calendar thead th {
   font-size: 11px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -82,7 +82,7 @@
   display: block;
   font-size: 9px;
   line-height: 15px;
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
 }
 .dr-calendar tbody th {
   font-size: 12px;
@@ -97,7 +97,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--account-color, var(--tone-30));
+  background: var(--account-color, var(--ink-secondary));
   margin-right: 8px;
   flex: none;
 }
@@ -115,15 +115,15 @@
   padding: 4px;
   border: 0;
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
 }
 .dr-cell span {
   display: block;
   width: 21px;
   height: 21px;
-  border-radius: 6px;
-  background: var(--tone-95);
-  border: 1px solid var(--tone-90);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
+  border: 1px solid var(--line);
   transition:
     transform 0.18s,
     box-shadow 0.18s;
@@ -134,7 +134,7 @@
 }
 .dr-cell:hover span {
   transform: translateY(-2px);
-  box-shadow: 0 3px 7px rgb(from var(--tone-5) r g b / 0.1020);
+  box-shadow: var(--shadow-rest);
 }
 .dr-tooltip {
   pointer-events: none;
@@ -147,10 +147,10 @@
   width: 230px;
   text-align: left;
   padding: 12px 14px;
-  background: var(--tone-10);
-  color: var(--paper);
-  border-radius: 10px;
-  box-shadow: 0 8px 24px rgb(from var(--tone-5) r g b / 0.1333);
+  background: var(--ink);
+  color: var(--surface);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-float);
   transition: opacity 0.12s;
 }
 .dr-tooltip strong,
@@ -164,11 +164,11 @@
 }
 .dr-tooltip span {
   font-size: 12px;
-  color: var(--tone-90);
+  color: var(--sunk);
 }
 .dr-tooltip small {
   font-size: 11px;
-  color: var(--tone-75);
+  color: var(--line-strong);
   margin-top: 6px;
   line-height: 1.5;
 }
@@ -183,7 +183,7 @@
   flex-wrap: wrap;
   gap: 16px;
   font-size: 10px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .dr-calendar-legend span {
   display: flex;
@@ -193,13 +193,13 @@
 .dr-calendar-legend i {
   width: 9px;
   height: 9px;
-  border: 1px solid var(--tone-85);
+  border: 1px solid var(--line);
   border-radius: 3px;
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dr-calendar-legend .dr-legend-filled {
-  background: var(--tone-40);
-  border-color: var(--tone-40);
+  background: var(--ink-tertiary);
+  border-color: var(--ink-tertiary);
 }
 .dr-calendar-legend small {
   margin-left: auto;
@@ -212,7 +212,7 @@
 .dr-calendar-empty > span {
   display: block;
   font-size: 40px;
-  color: var(--tone-65);
+  color: var(--ink-tertiary);
 }
 .dr-desk-columns {
   display: grid;
@@ -223,16 +223,16 @@
 .dr-dropbox,
 .dr-results,
 .dr-archive-card {
-  background: var(--tone-100);
+  background: var(--surface);
   border: 1px solid var(--dr-border);
-  border-radius: 17px;
+  border-radius: var(--radius-xl);
   padding: 23px;
   min-width: 0;
 }
 .dr-count {
   font-size: 11px;
-  border-radius: 6px;
-  background: var(--tone-95);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
   padding: 4px 7px;
   vertical-align: middle;
   margin-left: 6px;
@@ -241,9 +241,9 @@
   margin-top: 20px;
   padding: 24px 14px 22px;
   text-align: center;
-  background: var(--tone-95);
-  border: 1px dashed var(--tone-80);
-  border-radius: 12px;
+  background: var(--sunk);
+  border: 1px dashed var(--line-strong);
+  border-radius: var(--radius-lg);
 }
 .dr-drop-pad h3 {
   font-size: 17px;
@@ -270,10 +270,10 @@
   height: 43px;
   top: 4px;
   left: 20px;
-  border: 1px solid var(--tone-70);
-  background: var(--paper);
-  color: var(--tone-40);
-  border-radius: 6px;
+  border: 1px solid var(--line-strong);
+  background: var(--surface);
+  color: var(--ink-tertiary);
+  border-radius: var(--radius-xs);
   font-size: 9px;
   padding-top: 19px;
   transform: rotate(-12deg);
@@ -282,7 +282,7 @@
   left: 40px;
   top: 0;
   transform: rotate(12deg);
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dr-drop-illustration b {
   position: absolute;
@@ -291,8 +291,8 @@
   border-radius: 50%;
   width: 24px;
   height: 24px;
-  background: var(--tone-90);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
   padding-top: 2px;
 }
 .dr-drop-pad:hover .dr-drop-illustration span:first-child {
@@ -324,7 +324,7 @@
 }
 .dr-queue-item small {
   display: block;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   font-size: 10px;
   margin-top: 5px;
 }
@@ -338,35 +338,35 @@
   place-items: center;
   width: 28px;
   height: 34px;
-  border: 1px solid var(--tone-85);
-  border-radius: 5px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xs);
   font-size: 8px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   flex: none;
 }
 .dr-status {
   display: inline-block;
-  border-radius: 5px;
+  border-radius: var(--radius-xs);
   padding: 5px 7px;
   font-size: 10px;
-  background: var(--tone-95);
-  color: var(--tone-35);
+  background: var(--sunk);
+  color: var(--ink-secondary);
   white-space: nowrap;
 }
 .dr-status.queued,
 .dr-status.complete {
-  background: var(--tone-95);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .dr-status.error,
 .dr-status.overlap {
-  background: var(--tone-95);
-  color: var(--tone-35);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .dr-remove {
   border: 0;
   background: none;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 17px !important;
 }
 .dr-queue-actions {
@@ -384,8 +384,8 @@
   padding: 20px 0 4px;
 }
 .dr-queue-empty > span {
-  background: var(--tone-95);
-  color: var(--tone-45);
+  background: var(--sunk);
+  color: var(--ink-tertiary);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -398,22 +398,22 @@
   font-size: 12px;
 }
 .dr-queue-empty small {
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   font-size: 11px;
   margin-top: 3px;
 }
 .dr-footnote {
   margin: 21px 0 0;
   font-size: 10px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
 }
 .dr-desk-aside {
   display: grid;
   gap: 20px;
 }
 .dr-results {
-  background: var(--tone-95);
-  border-color: var(--tone-85);
+  background: var(--sunk);
+  border-color: var(--line);
 }
 .dr-results h2,
 .dr-archive-card h2 {
@@ -442,10 +442,10 @@
   display: block;
   margin-top: 4px;
   font-size: 10px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .dr-result-months {
-  border-top: 1px solid var(--tone-85);
+  border-top: 1px solid var(--line);
   padding-top: 14px;
   display: flex;
   flex-wrap: wrap;
@@ -453,13 +453,13 @@
   font-size: 11px;
 }
 .dr-result-months span {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .dr-result-time {
   display: block;
   margin-top: 13px;
   font-size: 10px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
 }
 .dr-resting-dots {
   display: flex;
@@ -469,14 +469,14 @@
 .dr-resting-dots i {
   width: 21px;
   height: 21px;
-  border-radius: 6px;
-  background: var(--tone-75);
+  border-radius: var(--radius-xs);
+  background: var(--data-neutral);
 }
 .dr-resting-dots i:nth-child(2) {
-  background: var(--tone-80);
+  background: var(--data-neutral);
 }
 .dr-resting-dots i:nth-child(3) {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .dr-archive-card .dr-actions {
   justify-content: flex-start;
@@ -488,9 +488,9 @@
 }
 .dr-clear-confirm {
   padding: 14px;
-  border: 1px solid var(--tone-80);
-  border-radius: 9px;
-  background: var(--tone-95);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
   margin-top: 15px;
   font-size: 12px;
 }
@@ -515,7 +515,7 @@
 .dr-processing progress {
   width: 80%;
   height: 6px;
-  accent-color: var(--tone-45);
+  accent-color: var(--ink-tertiary);
 }
 .dr-file-flight {
   position: relative;
@@ -530,10 +530,10 @@
   left: 6px;
   top: 6px;
   padding-top: 13px;
-  border: 1px solid var(--tone-70);
-  border-radius: 5px;
-  color: var(--tone-45);
-  background: var(--tone-100);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-xs);
+  color: var(--ink-tertiary);
+  background: var(--surface);
   font-size: 8px;
   font-style: normal;
   opacity: 0;
@@ -549,7 +549,7 @@
   position: absolute;
   right: 6px;
   top: 0;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   font-size: 40px;
   font-weight: 400;
 }
@@ -581,11 +581,11 @@
   width: min(740px, calc(100vw - 70px));
   max-height: 86vh;
   padding: 27px;
-  border: 1px solid var(--tone-85);
-  border-radius: 18px;
-  background: var(--tone-100);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-xl);
+  background: var(--surface);
   color: var(--ink);
-  box-shadow: 0 24px 90px rgb(from var(--tone-5) r g b / 0.1686);
+  box-shadow: var(--shadow-overlay);
   overflow: hidden;
 }
 .workspace-dialog[open] {
@@ -610,15 +610,14 @@
   width: 7px;
 }
 .workspace-dialog-scroll::-webkit-scrollbar-thumb {
-  background: var(--tone-75);
-  border-radius: 8px;
+  background: var(--data-neutral);
+  border-radius: var(--radius-sm);
 }
 .workspace-dialog-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .workspace-dialog::backdrop {
-  background: rgb(from var(--tone-0) r g b / 0.3765);
-  backdrop-filter: blur(3px);
+  background: var(--scrim);
 }
 .workspace-dialog > header {
   display: flex;
@@ -646,7 +645,7 @@
   padding: 10px 0;
 }
 .workspace-dialog summary:focus-visible {
-  outline: 3px solid var(--tone-65);
+  outline: 3px solid var(--line-strong);
 }
 .dr-search {
   width: 100%;
@@ -654,7 +653,7 @@
 }
 /* Account-led receipts; source filenames are available on expansion. */
 .dr-history-entry {
-  border-bottom: 1px solid var(--tone-90);
+  border-bottom: 1px solid var(--line);
 }
 .dr-history-entry summary {
   display: grid;
@@ -664,14 +663,14 @@
   min-height: 58px;
   padding: 10px 3px;
   list-style: none;
-  border-radius: 6px;
+  border-radius: var(--radius-xs);
 }
 .dr-history-entry summary::-webkit-details-marker {
   display: none;
 }
 .dr-history-entry summary::after {
   content: "›";
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 18px;
   transition: transform 0.15s;
 }
@@ -679,7 +678,7 @@
   transform: rotate(90deg);
 }
 .dr-history-entry summary:hover {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dr-history-account {
   display: flex;
@@ -695,18 +694,18 @@
 }
 .dr-history-account strong {
   font-size: 12px;
-  font-weight: 550;
+  font-weight: 500;
   overflow-wrap: anywhere;
 }
 .dr-history-account small {
   display: block;
   margin-top: 3px;
-  color: var(--tone-50);
+  color: var(--ink-tertiary);
   font-size: 10px;
 }
 .dr-history-entry time {
   font-size: 10px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
 }
 .dr-history-entry .dr-status {
   justify-self: end;
@@ -723,7 +722,7 @@
 }
 .dr-upload-filename {
   font-size: 11px;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   overflow-wrap: anywhere;
 }
 .dr-upload-details p {
@@ -741,11 +740,11 @@
 .dr-original small {
   display: block;
   font-size: 11px;
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   margin-top: 6px;
 }
 .dr-error-text {
-  color: var(--tone-30) !important;
+  color: var(--ink-secondary) !important;
   overflow-wrap: anywhere;
 }
 .dr-empty-copy {
@@ -757,7 +756,7 @@
   justify-content: space-between;
   gap: 15px;
   padding: 14px 0;
-  border-bottom: 1px solid var(--tone-90);
+  border-bottom: 1px solid var(--line);
 }
 .dr-original button {
   flex: none;
@@ -767,8 +766,8 @@
   margin-bottom: 27px;
 }
 .dr-archive-months > div {
-  border: 1px solid var(--tone-85);
-  border-radius: 9px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
   padding: 14px;
   margin-bottom: 10px;
 }
@@ -778,7 +777,7 @@
   font-size: 13px;
 }
 .dr-archive-months summary small {
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   margin-left: 10px;
 }
 .dr-saved-row {
@@ -787,7 +786,7 @@
   align-items: center;
   gap: 10px;
   font-size: 11px;
-  border-top: 1px solid var(--tone-90);
+  border-top: 1px solid var(--line);
   padding: 10px 0;
 }
 .dr-saved-row > span {
@@ -814,8 +813,8 @@
   height: 40px;
   display: grid;
   place-items: center;
-  border-radius: 12px;
-  color: var(--paper);
+  border-radius: var(--radius-lg);
+  color: var(--surface);
   background: var(--account-color);
   margin-bottom: 18px;
   font-size: 12px;
@@ -823,9 +822,9 @@
 .account-prefix {
   display: block;
   padding: 9px;
-  background: var(--tone-95);
-  border-radius: 6px;
-  color: var(--tone-40);
+  background: var(--sunk);
+  border-radius: var(--radius-xs);
+  color: var(--ink-tertiary);
   font-size: 11px;
   margin: 14px 0;
   overflow-wrap: anywhere;
@@ -863,8 +862,8 @@
   text-transform: capitalize;
 }
 .account-options button[aria-pressed="true"] {
-  background: var(--tone-95);
-  border-color: var(--tone-50);
+  background: var(--sunk);
+  border-color: var(--ink-tertiary);
 }
 .account-colors > button {
   width: 30px;
@@ -873,8 +872,8 @@
   border-radius: 50%;
   padding: 0;
   background: var(--account-color);
-  color: var(--paper);
-  border: 3px solid var(--tone-100);
+  color: var(--surface);
+  border: 3px solid var(--surface);
   outline: 1px solid transparent;
 }
 .account-colors > button[aria-pressed="true"] {
@@ -897,14 +896,14 @@
 }
 .account-editor .prefix-feedback {
   margin: -7px 0 0;
-  background: var(--tone-95);
+  background: var(--sunk);
   padding: 10px;
-  border-radius: 7px;
+  border-radius: var(--radius-xs);
   font-size: 12px;
 }
 .account-editor .prefix-feedback.invalid {
-  background: var(--tone-95);
-  color: var(--tone-30);
+  background: var(--sunk);
+  color: var(--ink-secondary);
 }
 .account-editor details p {
   margin: 5px 0;
@@ -913,7 +912,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid var(--tone-85);
+  border-top: 1px solid var(--line);
   padding-top: 17px;
 }
 @media (max-width: 1200px) {
@@ -1006,10 +1005,10 @@
   padding-top: 13px;
 }
 .dr-archive-card {
-  background: var(--tone-95);
+  background: var(--sunk);
 }
 .dr-archive-icon {
-  color: var(--tone-55);
+  color: var(--ink-tertiary);
   font-size: 30px;
   margin-bottom: 8px;
 }
@@ -1022,7 +1021,7 @@
   justify-content: space-between;
   align-items: center;
   border: 0;
-  border-top: 1px solid var(--tone-85);
+  border-top: 1px solid var(--line);
   border-radius: 0;
   background: transparent;
   padding: 12px 0;
@@ -1039,7 +1038,7 @@
   align-items: center;
   gap: 12px;
   padding: 9px 0;
-  border-top: 1px solid var(--tone-90);
+  border-top: 1px solid var(--line);
 }
 .dr-snapshot-account {
   flex: 1;
@@ -1048,7 +1047,7 @@
   overflow-wrap: anywhere;
 }
 .dr-account-snapshot small {
-  color: var(--tone-45);
+  color: var(--ink-tertiary);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -1059,17 +1058,17 @@
   flex: none;
 }
 .dr-originals {
-  border-top: 1px solid var(--tone-85);
+  border-top: 1px solid var(--line);
 }
 .dr-originals > summary {
   padding: 16px 0;
-  font-weight: 550;
+  font-weight: 500;
 }
 .dr-originals > summary span {
   margin-left: 8px;
   padding: 2px 6px;
-  border-radius: 5px;
-  background: var(--tone-90);
+  border-radius: var(--radius-xs);
+  background: var(--sunk);
   font-size: 11px;
 }
 .notice.snackbar {
@@ -1082,10 +1081,10 @@
   max-width: calc(100vw - 310px);
   margin: 0;
   padding: 12px 16px;
-  border: 1px solid var(--tone-80);
-  border-radius: 12px;
-  box-shadow: 0 8px 30px rgb(from var(--tone-5) r g b / 0.1333);
-  background: var(--tone-95);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-float);
+  background: var(--sunk);
   animation: snackbar-in 0.2s ease-out;
 }
 .dr-result-popup {
@@ -1104,21 +1103,21 @@
   place-items: center;
   width: 65px;
   height: 65px;
-  border-radius: 22px;
-  color: var(--tone-40);
-  background: var(--tone-90);
+  border-radius: var(--radius-xl);
+  color: var(--ink-tertiary);
+  background: var(--sunk);
   font-size: 32px;
 }
 .dr-result-emblem.complete {
-  color: var(--tone-40);
-  background: var(--tone-90);
+  color: var(--ink-tertiary);
+  background: var(--sunk);
   animation: result-pop 0.5s cubic-bezier(0.2, 1.5, 0.5, 1);
 }
 .dr-result-popup .dr-result-numbers {
   margin: 20px 0 0;
   padding: 20px;
-  background: var(--tone-95);
-  border-radius: 12px;
+  background: var(--sunk);
+  border-radius: var(--radius-lg);
 }
 .dr-result-popup .dr-result-months {
   border: 0;
@@ -1263,17 +1262,17 @@
   padding-inline: 8px;
 }
 .workspace-dialog-scroll :is(input, button, summary):focus-visible {
-  outline: 2px solid var(--tone-55);
+  outline: 2px solid var(--line-strong);
   outline-offset: 2px;
 }
 .account-delete-link {
   margin-left: 9px;
   border: 0;
   background: transparent;
-  color: var(--tone-35);
+  color: var(--ink-secondary);
 }
 .account-delete-link:hover {
-  background: var(--tone-90);
+  background: var(--sunk);
 }
 .account-delete-confirm h3 {
   font-size: 19px;
@@ -1285,22 +1284,22 @@
   margin-top: 24px;
 }
 button.danger {
-  background: var(--tone-30);
-  color: var(--paper);
-  border-color: var(--tone-30);
+  background: var(--ink-secondary);
+  color: var(--surface);
+  border-color: var(--ink-secondary);
 }
 button.danger:hover {
-  background: var(--tone-20);
+  background: var(--ink-secondary);
 }
 .deleted-accounts {
   margin: 20px 0;
-  border: 1px solid var(--tone-85);
-  border-radius: 10px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
   padding: 4px 16px;
 }
 .deleted-accounts summary {
   cursor: pointer;
-  color: var(--tone-40);
+  color: var(--ink-tertiary);
   padding: 12px 0;
 }
 .deleted-accounts > div {
@@ -1309,7 +1308,7 @@ button.danger:hover {
   justify-content: space-between;
   gap: 14px;
   padding: 11px 0;
-  border-top: 1px solid var(--tone-90);
+  border-top: 1px solid var(--line);
   font-size: 12px;
 }
 @media (max-width: 1000px) {
@@ -1319,7 +1318,7 @@ button.danger:hover {
   }
 }
 .dr-auto-import {
-  color: var(--tone-35);
+  color: var(--ink-secondary);
   font-size: 12px;
   line-height: 1.6;
   margin: 12px 0;
