@@ -149,7 +149,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
       groups: [event],
     },
   ]);
-  c.save("Dinner", { kind: "expense", reviewed: true });
+  c.save("Dinner", { kind: "expense", reviewed: true, shares: [{ id: "me", cents: 6000 }, { id: person, cents: 6000 }] });
   c.save("Alex payment", {
     kind: "repayment",
     reviewed: true,
@@ -185,7 +185,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
   assert.deepEqual(c.store.review.records(), records);
   assert.equal(
     c.store.db.prepare("PRAGMA user_version").get().user_version,
-    21,
+    22,
   );
   assert.equal(
     c.store.review.entities().filter((e) => e.kind === "tag").length,
@@ -203,7 +203,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
     c.store.db
       .prepare("SELECT * FROM review_entity_history ORDER BY rowid")
       .all()
-      .map((e) => ({ ...e, tags: JSON.parse(e.tags) })),
+      .map((e) => ({ ...e, tags: JSON.parse(e.tags), participants: JSON.parse(e.participants || "[]") })),
     entities,
   );
   assert.throws(() => c.store.review.removeEntity(food), /transactions/);
@@ -230,6 +230,7 @@ test("repayments span months, preserve expense review, respect agreed shares and
       { id: alex, cents: 6000 },
     ],
   });
+  c.save("Cabin", { kind: "expense", reviewed: true, shares: [{ id: "me", cents: 15000 }, { id: alex, cents: 15000 }] });
   const dinner = c.row("Dinner"),
     cabin = c.row("Cabin");
   c.save("Alex payment", {
@@ -334,6 +335,7 @@ test("transfers pair both accounts atomically, exclude used expenses, and unlink
   assert.equal(c.row("Transfer in").review.kind, "unreviewed");
   assert.equal(c.row("Transfer in").review.reviewed, false);
   const alex = c.entity("person", "Alex");
+  c.save("Dinner", { kind: "expense", reviewed: true, shares: [{ id: "me", cents: 6000 }, { id: alex, cents: 6000 }] });
   c.save("Alex payment", {
     kind: "repayment",
     personId: alex,

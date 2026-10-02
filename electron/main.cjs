@@ -12,19 +12,22 @@ const fs = require("node:fs");
 const { pathToFileURL } = require("node:url");
 const { ImportStore } = require("./imports/store.cjs");
 const { seedConfiguration } = require("./configuration.cjs");
+const { resolveWorkspace } = require("./workspace-location.cjs");
+const { createUpdateManager, parseUpdateConfig } = require("./updates.cjs");
 
-const privateRoot =
-  process.env.URBANOMICS_DATA_DIR ||
-  (app.isPackaged
-    ? path.join(app.getPath("appData"), "Urbanomics", "private")
-    : path.join(__dirname, "..", "private", "desktop"));
-const configurationDir =
-  process.env.URBANOMICS_CONFIG_DIR ||
-  (!process.env.URBANOMICS_DATA_DIR
-    ? app.isPackaged
-      ? path.join(app.getPath("appData"), "Urbanomics", "configuration")
-      : path.join(__dirname, "..", "configuration")
-    : null);
+// Development runs (electron ., unpacked builds) keep the repository workspace; installed
+// releases keep theirs under application data unless Urbanomics/workspace.json points elsewhere.
+const workspace = resolveWorkspace({
+  env: process.env,
+  isPackaged: app.isPackaged,
+  appData: app.getPath("appData"),
+  repoRoot: path.join(__dirname, ".."),
+});
+const privateRoot = workspace.dataDir, configurationDir = workspace.configurationDir;
+// Only an installer built on the release channel updates itself (scripts/release.cjs).
+const build = app.isPackaged && require("../package.json").channel === "release" ? "release" : "development";
+const updateConfigFile = path.join(process.resourcesPath || "", "app-update.yml");
+const updatesEnabled = build === "release" && fs.existsSync(updateConfigFile);
 fs.mkdirSync(privateRoot, { recursive: true });
 app.setPath("userData", path.join(privateRoot, "electron"));
 app.setPath("logs", path.join(privateRoot, "logs"));
@@ -35,8 +38,17 @@ const appURL = dev
 let window,
   store,
   service,
+  updates,
   remoteServer,
   quitAfterProcessing = false;
+const logUpdates = (status, details) => {
+  try {
+    const dir = path.join(privateRoot, "logs"); fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, "updates.log");
+    if (fs.existsSync(file) && fs.statSync(file).size > 512 * 1024) fs.renameSync(file, file + ".previous");
+    fs.appendFileSync(file, JSON.stringify({ time: new Date().toISOString(), status, details: typeof details === "string" ? details : { ...details } }) + "\n");
+  } catch {}
+};
 if (!app.requestSingleInstanceLock()) app.quit();
 else {
   app.on("second-instance", () => {
@@ -80,6 +92,17 @@ else {
         if (fs.existsSync(seed)) seedConfiguration(store.db, seed);
       }
       store.scanDropbox();
+      updates = createUpdateManager({
+        autoUpdater: updatesEnabled ? require("electron-updater").autoUpdater : null,
+        enabled: updatesEnabled,
+        version: app.getVersion(),
+        build,
+        token: workspace.updateToken,
+        config: updatesEnabled ? parseUpdateConfig(fs.readFileSync(updateConfigFile, "utf8")) : null,
+        emit: (name, value) => { if (window && !window.isDestroyed()) window.webContents.send("workspace:" + name, value); },
+        log: logUpdates,
+      });
+      logUpdates("start", { build, version: app.getVersion(), updates: updatesEnabled, workspace: workspace.source });
       session.defaultSession.setPermissionRequestHandler(
         (_wc, _permission, respond) => respond(false),
       );
@@ -106,6 +129,7 @@ else {
           if (quitAfterProcessing) app.quit();
         },
         platform: {
+          updates,
           choose: async (folder) => {
             const response = await dialog.showOpenDialog(window, {
               title: folder
@@ -248,6 +272,7 @@ else {
       );
       window.once("ready-to-show", () => window.show());
       await window.loadURL(appURL);
+      updates.start();
     })
     .catch((error) => {
       dialog.showErrorBox("Urbanomics could not start", error.message);

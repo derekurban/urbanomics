@@ -299,7 +299,7 @@ test("schema 11 adds empty rule tables without rewriting existing ledger or revi
   s.close();
   s = new ImportStore(root);
   try {
-    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 21);
+    assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 22);
     for (const [name, rows] of Object.entries(before))
       assert.deepEqual(
         s.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),
@@ -529,7 +529,7 @@ test("schema 16 keeps legacy regex rules and every financial table unchanged", (
   try {
     assert.equal(
       upgraded.db.prepare("PRAGMA user_version").get().user_version,
-      21,
+      22,
     );
     assert.deepEqual(
       upgraded.db

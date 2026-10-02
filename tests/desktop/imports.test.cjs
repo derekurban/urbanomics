@@ -130,7 +130,7 @@ test("version 2 accounts migrate without changing the ledger or immutable snapsh
   ctx.reopen();
   assert.equal(
     ctx.store.db.prepare("PRAGMA user_version").get().user_version,
-    21,
+    22,
   );
   assert.deepEqual(
     ctx.store.db.prepare("SELECT * FROM snapshots").all(),

@@ -3,11 +3,11 @@
 // Add an icon here before using <Icon name="…"/>.
 import {
   ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Check, ChevronLeft, ChevronRight, Ellipsis, Plus, Receipt, ArrowLeftRight, RefreshCw,
-  Layers, LayoutDashboard, List, Settings, Tags, Wallet, X,
+  Layers, LayoutDashboard, List, Settings, Tags, Wallet, X, Search, Link2, Undo2, User,
 } from 'lucide';
 
 const icons = {
   ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Check, ChevronLeft, ChevronRight, Ellipsis, Plus, Receipt, ArrowLeftRight, RefreshCw,
-  Layers, LayoutDashboard, List, Settings, Tags, Wallet, X,
+  Layers, LayoutDashboard, List, Settings, Tags, Wallet, X, Search, Link2, Undo2, User,
 };
 window.lucide = { ...(window.lucide || {}), icons: { ...(window.lucide?.icons || {}), ...icons } };

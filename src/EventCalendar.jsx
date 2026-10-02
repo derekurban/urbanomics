@@ -88,9 +88,7 @@ export function EventCalendar({
       rows.map((t) => ({
         id: t.id,
         version: t.version,
-        groups: linked(t)
-          ? t.review.groups.filter((id) => id !== event.id)
-          : [...t.review.groups, event.id],
+        groups: linked(t) ? [] : [event.id],
       })),
     );
   const suggestions = event

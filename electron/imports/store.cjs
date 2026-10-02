@@ -44,7 +44,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 21) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 22) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -294,6 +294,14 @@ class ImportStore {
         UPDATE sources SET schema=NULL,canonical=NULL WHERE schema IN ('eq','pc','simplii')
           AND NOT EXISTS(SELECT 1 FROM imports WHERE source_hash=sources.hash);
         PRAGMA user_version=21; COMMIT;`);
+    }
+    if(this.db.prepare('PRAGMA user_version').get().user_version<22){
+      // Events name their participants; a repayment may only reduce an expense shared with the payer.
+      this.db.exec('BEGIN IMMEDIATE');try{
+        if(!this.db.prepare('PRAGMA table_info(review_entities)').all().some(c=>c.name==='participants'))this.db.exec("ALTER TABLE review_entities ADD COLUMN participants TEXT NOT NULL DEFAULT '[]'");
+        require('../review/shares-migration.cjs').recordSharesForRepayments(this.db,this.root);
+        this.db.exec('PRAGMA user_version=22; COMMIT');
+      }catch(error){this.db.exec('ROLLBACK');throw error;}
     }
     this.layouts = new (require('./layouts.cjs').ImportLayouts)(this);
     this.transferLab = new TransferLabStore(this);

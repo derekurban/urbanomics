@@ -11,6 +11,8 @@
   "untagAll": "admin:untag-all",
   "previewUnlinkAll": "admin:unlink-preview",
   "unlinkAllTransfers": "admin:unlink-all",
+  "previewClearShares": "admin:shares-preview",
+  "clearAllShares": "admin:shares-clear",
   "reviewState": "review:state",
   "transactionRuleCoverage": "transaction-rules:coverage",
   "transactionRulesState": "transaction-rules:state",
@@ -32,6 +34,7 @@
   "voidCash": "review:cash-void",
   "saveFinancial": "review:financial",
   "saveAllocation": "review:allocation",
+  "followEventSplit": "review:event-split",
   "linkTransfer": "review:transfer-link",
   "unlinkTransfer": "review:transfer-unlink",
   "scan": "workspace:scan",
@@ -62,5 +65,8 @@
   "applyImportLayout": "imports:apply-layout",
   "removeImportLayout": "imports:remove-layout",
   "assignImportAccount": "imports:assign",
-  "processImportBatch": "imports:process"
+  "processImportBatch": "imports:process",
+  "updatesState": "updates:state",
+  "checkForUpdates": "updates:check",
+  "installUpdate": "updates:install"
 }

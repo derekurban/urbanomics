@@ -64,6 +64,7 @@ test('transfer and deduction tags follow real links, preserve original expense t
  const out=row('Outgoing'),inc=row('Incoming');store.review.linkTransfer(out.id,out.version,inc.id,inc.version,0);
  for(const name of ['Outgoing','Incoming']){assert.equal(view(name).systemTags[0].id,TRANSFER_TAG);assert.equal(view(name).tagsAutomatic,false);assert.equal(needsTagging(view(name)),false);}
  const person=store.review.entity('person',{name:'Sample friend',color:'#123456'}),expense=row('Dinner'),pay=row('Repayment');
+ store.review.financial(expense.id,expense.version,{kind:'expense',reviewed:true,shares:[{id:'me',cents:4000},{id:person,cents:6000}],personId:'',allocations:[],remainder:0,transferId:''});
  store.review.financial(pay.id,pay.version,{kind:'repayment',personId:person,allocations:[{id:expense.id,cents:6000}],remainder:1000});
  assert.equal(view('Dinner').systemTags[0].id,DEDUCTION_TAG);assert.equal(view('Repayment').systemTags[0].id,DEDUCTION_TAG);
  assert.equal(view('Dinner').review.tags[0].id,OTHER_EXPENSE);assert.equal(view('Dinner').review.tags[0].cents,10000);

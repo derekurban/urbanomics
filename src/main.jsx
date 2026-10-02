@@ -54,6 +54,14 @@ function App() {
     [busy, setBusy] = useState(false);
   const running = useRef(false);
   const [connected, setConnected] = useState(true);
+  const [update, setUpdate] = useState(null);
+  useEffect(() => {
+    let live = true;
+    api?.updatesState?.().then((s) => { if (live) setUpdate(s); }).catch(() => {});
+    const off = api?.onUpdate?.((s) => { if (live) setUpdate(s); });
+    return () => { live = false; off?.(); };
+  }, []);
+  useEffect(() => { if (api?.host !== "browser" && update && update.build !== "release") document.title = "Urbanomics (development)"; }, [update?.build]);
   useEffect(() => {
     const update = event => setConnected(event.detail);
     window.addEventListener("urbanomics-connection", update);
@@ -245,6 +253,12 @@ function App() {
             </button></React.Fragment>
           ))}
         </nav>
+        {update?.status === "ready" && (
+          <div className="update-note" role="status">
+            <span>Urbanomics {update.latest} is ready.</span>
+            <button className="primary" onClick={() => api.installUpdate().catch((e) => setError(e.message))}>Restart to update</button>
+          </div>
+        )}
         <div className="local-note">
           <span className="local-dot" /> Stored on this computer
           <small>Your files stay in your workspace.</small>
@@ -300,10 +314,10 @@ function App() {
           )}
           {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={()=>openOrganize()} onOpenSnapshot={async(target)=>{try{const saved=await api.snapshot(target.id);setMonth(target.month);setAccountFilter(target.accountId);setRevision(saved);setPage("transactions");}catch(e){setError(e.message);}}}/>}
           {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={()=>setPage("snapshots")} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "organize" && <OrganizeHub data={data} run={run} busy={busy} target={organizeTarget} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
+          {page === "organize" && <OrganizeHub data={data} run={run} busy={busy} target={organizeTarget} onSettings={()=>{setOrganizeSection("transfers");setPage("settings");}} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
           {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
           {page === "transactions" && <TransactionsWorkspace data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={()=>setRevision(null)} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
+          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
         </main>
         <footer>
           <span>Urbanomics · local workspace</span>

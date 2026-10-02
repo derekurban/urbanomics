@@ -4,7 +4,7 @@ September 20, 2026. This structure supersedes the earlier Review/Experimental na
 
 The sidebar separates Overview (Dashboard), Workspace (Snapshots, Organize, Transactions, Events, Accounts) and Preferences (Settings). Snapshots remains the default entry point. Existing allocation, experimental and review URL fragments resolve to Organize.
 
-Organize preserves the amount-layer allocation editor, connections, exact-cent splits and reusable transaction decisions. Transfers has pending/linked pairing and the auto-link route tool. Switching these two tools keeps allocation drafts mounted. Links from Transactions and event payments open the specified record in Organize.
+Organize is the desk described in [organize-desk.md](organize-desk.md) (October 2, 2026): one cross-account ledger with a shape strip per row, rows that open in place, one describe box and immediate versioned saves with undo. Transfer pairing settings live under Settings → Transfers. Links from Transactions and event payments open the specified row in Organize.
 
 Transactions defaults to all months, with a single currency selected to avoid adding unlike money. Search includes original descriptions; account, month, direction, tag, event, person and connection filters combine. Dates, descriptions and signed amounts can be sorted. The table renders at most 50 records at once. Row details expose original files, an explicit saved person assignment, allocation editing and financial settings for shares/repayments. Manual cash receipts remain available. Partial imported history never implies an account balance.
 

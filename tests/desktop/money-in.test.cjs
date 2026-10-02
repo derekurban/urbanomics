@@ -47,6 +47,10 @@ test("cash and bank contributions share expense caps, stay out of snapshots/conf
     store.review.records().find((t) => t.description === name);
   const snapshot = store.db.prepare("SELECT * FROM snapshots").all(),
     originals = store.db.prepare("SELECT * FROM transactions").all();
+  for (const [name, mine, theirs] of [["Dinner", 0, 10000], ["Household", 17000, 3000]]) {
+    const e = row(name);
+    store.review.financial(e.id, e.version, { kind: "expense", reviewed: true, shares: [{ id: "me", cents: mine }, { id: person, cents: theirs }], personId: "", allocations: [], remainder: 0, transferId: "" });
+  }
   const dinner = row("Dinner"),
     house = row("Household");
   const id = store.review.saveCash({

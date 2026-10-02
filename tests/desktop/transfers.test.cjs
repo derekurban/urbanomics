@@ -247,8 +247,9 @@ test("transfer linking blocks assigned income, same-account entries, out-of-band
       name: "Synthetic person",
       color: "#78976A",
     }),
-    payment = c.row("Competing in"),
-    expense = c.row("Exact out");
+    payment = c.row("Competing in");
+  c.store.review.financial(c.row("Exact out").id, c.row("Exact out").version, { kind: "expense", reviewed: true, shares: [{ id: "me", cents: 0 }, { id: person, cents: 20000 }], personId: "", allocations: [], remainder: 0, transferId: "" });
+  const expense = c.row("Exact out");
   c.store.review.financial(payment.id, payment.version, {
     kind: "repayment",
     reviewed: true,

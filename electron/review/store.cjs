@@ -9,6 +9,7 @@ const {
   pendingTransfers,
   transferParts,
 } = require("./transfer-model.mjs");
+const { splitShares, repaidByPerson, followsEvent } = require("./share-model.mjs");
 const empty = () => ({
   tags: [],
   groups: [],
@@ -75,7 +76,7 @@ class ReviewStore {
     }
   }
   entities() {
-    const stored = this.db.prepare("SELECT * FROM review_entities ORDER BY rowid").all().map(e => ({...e, tags:JSON.parse(e.tags)}));
+    const stored = this.db.prepare("SELECT * FROM review_entities ORDER BY rowid").all().map(e => ({...e, tags:JSON.parse(e.tags), participants: e.participants ? JSON.parse(e.participants) : []}));
     // Reuse existing Other IDs, preserving assignments and rule references.
     // Renames live separately so the original identity never depends on its label.
     const system = systemDefinitions.map(t => ({...t,
@@ -283,13 +284,20 @@ class ReviewStore {
           .get(parentId))
     )
       throw new Error("Choose an existing category for this tag.");
+    let participants = existing?.participants ? JSON.parse(existing.participants) : [];
+    if (kind === "group" && values.participants !== undefined) {
+      participants = ids(values.participants, "participants");
+      if (participants.some((p) => !this.db.prepare("SELECT id FROM review_entities WHERE id=? AND kind='person'").get(p)))
+        throw new Error("Choose existing people for this event.");
+    }
     const id = existing?.id || randomUUID();
+    if (kind === "group" && existing) this.guardParticipants(id, JSON.parse(existing.participants || "[]"), participants);
     const lastOrder = this.db.prepare("SELECT COALESCE(MAX(sortOrder),0) n FROM review_entities WHERE kind='category' AND parentId=? AND flowType=?").get(parentId, flowType).n;
     const sortOrder = kind === "category" && (!existing || existing.parentId !== parentId || existing.flowType !== flowType)
       ? (lastOrder ? lastOrder + 1 : 0) : existing?.sortOrder || 0;
     this.db
       .prepare(
-        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType,gradientStart,gradientEnd,sortOrder) VALUES (?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType,gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd,sortOrder=excluded.sortOrder",
+        "INSERT INTO review_entities (id,kind,name,color,tags,startDate,endDate,parentId,flowType,gradientStart,gradientEnd,sortOrder,participants) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,color=excluded.color,tags=excluded.tags,startDate=excluded.startDate,endDate=excluded.endDate,parentId=excluded.parentId,flowType=excluded.flowType,gradientStart=excluded.gradientStart,gradientEnd=excluded.gradientEnd,sortOrder=excluded.sortOrder,participants=excluded.participants",
       )
       .run(
         id,
@@ -308,8 +316,61 @@ class ReviewStore {
         gradientStart,
         gradientEnd,
         sortOrder,
+        JSON.stringify(participants),
       );
+    if (kind === "group" && existing) this.atomic(() => this.applyEventSplit(id, participants));
     return id;
+  }
+  personNames() {
+    return new Map(this.entities().filter((e) => e.kind === "person").map((e) => [e.id, e.name]));
+  }
+  /* Removing a participant who has repaid a member expense would orphan that repayment. */
+  guardParticipants(eventId, previous, next) {
+    const removed = previous.filter((p) => !next.includes(p));
+    if (!removed.length) return;
+    const records = this.records(), names = this.personNames();
+    for (const e of records.filter((r) => !r.deleted && r.amountCents < 0 && r.review.groups.includes(eventId) && followsEvent(r.review, eventId))) {
+      const paid = repaidByPerson(records, e.id);
+      for (const p of removed)
+        if (paid[p] > 0) throw new Error(`${names.get(p) || "This person"} has repaid part of ${e.description}. Move that repayment before removing them from the event.`);
+    }
+  }
+  /* Member expenses that follow the event take its split; custom splits are left alone. */
+  applyEventSplit(eventId, participants) {
+    const records = this.records();
+    for (const e of records.filter((r) => !r.deleted && !r.manual && r.amountCents < 0 && r.review.kind !== "transfer" && r.review.groups.includes(eventId))) {
+      const hasShares = !!(e.review.shares && e.review.shares.length);
+      if (hasShares && !followsEvent(e.review, eventId)) continue;
+      if (!hasShares && !participants.length) continue;
+      const paid = repaidByPerson(records, e.id), review = { ...e.review };
+      if (participants.length) { review.shares = splitShares(Math.abs(e.amountCents), participants, paid); review.sharesSource = "event:" + eventId; if (review.kind === "unreviewed") review.kind = "expense"; }
+      else if (Object.keys(paid).length) review.sharesSource = "manual";
+      else { review.shares = null; delete review.sharesSource; }
+      this.write(e.id, review, e.version);
+    }
+  }
+  /* Joining an event applies its split to an expense without a custom one; leaving releases it. */
+  applySplitInPlace(row, review, records) {
+    if (row.amountCents >= 0 || row.manual || review.kind === "transfer") return;
+    const eventId = review.groups[0], event = eventId && this.entities().find((e) => e.id === eventId && e.kind === "group");
+    const hasShares = !!(review.shares && review.shares.length), fromEvent = typeof review.sharesSource === "string" && review.sharesSource.startsWith("event:");
+    if (event && event.participants.length && (!hasShares || fromEvent)) {
+      review.shares = splitShares(Math.abs(row.amountCents), event.participants, repaidByPerson(records, row.id));
+      review.sharesSource = "event:" + eventId;
+      if (review.kind === "unreviewed") review.kind = "expense";
+    } else if (fromEvent && (!event || !event.participants.length || review.sharesSource !== "event:" + eventId)) {
+      if (Object.keys(repaidByPerson(records, row.id)).length) review.sharesSource = "manual";
+      else { review.shares = null; delete review.sharesSource; }
+    }
+  }
+  followEventSplit(id, version) {
+    return this.atomic(() => {
+      const row = this.current(id, version), event = this.entities().find((e) => e.kind === "group" && e.id === row.review.groups[0]);
+      if (row.amountCents >= 0) throw new Error("Only expenses have shares.");
+      if (!event || !event.participants.length) throw new Error("This expense is not in an event with participants.");
+      const shares = splitShares(Math.abs(row.amountCents), event.participants, repaidByPerson(this.records(), id));
+      this.financialWrite(id, version, { kind: "expense", reviewed: row.review.reviewed, shares, sharesSource: "event:" + event.id, personId: "", allocations: [], remainder: 0, transferId: "" });
+    });
   }
   starterHierarchy() {
     return this.atomic(() => {
@@ -387,6 +448,8 @@ class ReviewStore {
       throw new Error(
         "Move this category's tags elsewhere before deleting it.",
       );
+    if (entity.kind === "person" && this.entities().some((e) => e.kind === "group" && e.participants?.includes(id)))
+      throw new Error("Remove this person from their events first.");
     const records = this.records();
     if (
       entity.kind === "category" &&
@@ -583,9 +646,12 @@ class ReviewStore {
         }
         if (change.groups !== undefined) {
           review.groups = ids(change.groups, "groups");
+          if (review.groups.length > 1)
+            throw new Error("A transaction belongs to one event. Choose one.");
           if (review.groups.some((id) => !groups.has(id)))
             throw new Error("Group no longer exists.");
           review.groupsReviewed = review.groups.length > 0;
+          this.applySplitInPlace(row, review, this.records());
         }
         if (change.groupsReviewed !== undefined) {
           if (typeof change.groupsReviewed !== "boolean")
@@ -603,8 +669,10 @@ class ReviewStore {
     if(groups===undefined)return;
     const selected=ids(groups,'groups');
     if(selected.some(id=>!this.entities().some(e=>e.id===id&&e.kind==='group')))throw new Error('Group no longer exists.');
-    const row=this.records().find(r=>r.id===id&&!r.deleted);
-    this.write(id,{...row.review,groups:selected,groupsReviewed:selected.length>0},row.version);
+    if(selected.length>1)throw new Error('A transaction belongs to one event. Choose one.');
+    const records=this.records(),row=records.find(r=>r.id===id&&!r.deleted),review={...row.review,groups:selected,groupsReviewed:selected.length>0};
+    this.applySplitInPlace(row,review,records);
+    this.write(id,review,row.version);
   }
   allocation(id, version, draft) {
     return this.atomic(() => {
@@ -684,6 +752,9 @@ class ReviewStore {
         remainder: draft.remainder ?? 0,
         transferId: draft.transferId || "",
       };
+    if (draft.shares !== undefined && JSON.stringify(draft.shares) !== JSON.stringify(row.review.shares)) {
+      if (draft.shares === null) delete review.sharesSource; else review.sharesSource = draft.sharesSource || "manual";
+    }
     if(layerMode)review.allocationMode='layers';
     else if(draft.tags!==undefined)delete review.allocationMode;
     if(layerMode||draft.tags!==undefined)delete review.templateReview;
@@ -731,7 +802,7 @@ class ReviewStore {
     }
     if (row.manual && review.kind === "transfer")
       throw new Error("Cash receipts cannot be paired as bank transfers.");
-    if (review.kind !== "expense") review.shares = null;
+    if (review.kind !== "expense") { review.shares = null; delete review.sharesSource; }
     if (
       review.shares &&
       (sum(review.shares) !== Math.abs(row.amountCents) ||
@@ -827,7 +898,7 @@ class ReviewStore {
     }
     const projected = records.map((t) => (t.id === id ? { ...t, review } : t));
     // Validate every existing allocation too: expense edits cannot invalidate repayments.
-    const byExpense = new Map();
+    const byExpense = new Map(), names = this.personNames();
     for (const payment of projected.filter(
       (t) => t.review.kind === "repayment",
     )) {
@@ -848,17 +919,13 @@ class ReviewStore {
           (totals.people[payment.review.personId] || 0) + p.cents;
         if (totals.total > Math.abs(expense.amountCents))
           throw new Error("Repayments exceed the expense amount.");
-        if (
-          expense.review.shares &&
-          Object.entries(totals.people).some(
-            ([person, cents]) =>
-              cents >
-              (expense.review.shares.find((s) => s.id === person)?.cents || 0),
-          )
-        )
-          throw new Error(
-            "Repayment exceeds an agreed share. Adjust the expense split or payment allocation.",
-          );
+        for (const [person, cents] of Object.entries(totals.people)) {
+          const share = expense.review.shares?.find((s) => s.id === person)?.cents || 0;
+          if (!share)
+            throw new Error(`Share ${expense.description} with ${names.get(person) || "this person"} before applying their repayment.`);
+          if (cents > share)
+            throw new Error(`${names.get(person) || "This person"}'s repayments exceed their agreed share of ${expense.description}. Adjust the split or the payment.`);
+        }
         byExpense.set(p.id, totals);
       }
     }

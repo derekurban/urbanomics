@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld("urbanomics", {
   untagAll: (token) => invoke("admin:untag-all", token),
   previewUnlinkAll: () => invoke("admin:unlink-preview"),
   unlinkAllTransfers: (token) => invoke("admin:unlink-all", token),
+  previewClearShares: () => invoke("admin:shares-preview"),
+  clearAllShares: (token) => invoke("admin:shares-clear", token),
   reviewState: () => invoke("review:state"),
   transactionRuleCoverage: (id) => invoke("transaction-rules:coverage", id),
   transactionRulesState: () => invoke("transaction-rules:state"),
@@ -57,6 +59,7 @@ contextBridge.exposeInMainWorld("urbanomics", {
   saveFinancial: (id, version, values) =>
     invoke("review:financial", id, version, values),
   saveAllocation: (id, version, values) => invoke("review:allocation", id, version, values),
+  followEventSplit: (id, version) => invoke("review:event-split", id, version),
   linkTransfer: (outId, outVersion, inId, inVersion, band, groups) =>
     invoke("review:transfer-link", outId, outVersion, inId, inVersion, band, groups),
   unlinkTransfer: (id, version, counterpartVersion) =>
@@ -97,4 +100,12 @@ contextBridge.exposeInMainWorld("urbanomics", {
   removeRule: (key, schema, account) =>
     invoke("workspace:rule-remove", key, schema, account),
   reveal: (kind, id) => invoke("workspace:reveal", kind, id),
+  updatesState: () => invoke("updates:state"),
+  checkForUpdates: () => invoke("updates:check"),
+  installUpdate: () => invoke("updates:install"),
+  onUpdate: (callback) => {
+    const listener = (_event, value) => callback(value);
+    ipcRenderer.on("workspace:update", listener);
+    return () => ipcRenderer.removeListener("workspace:update", listener);
+  },
 });

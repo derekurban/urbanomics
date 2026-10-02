@@ -15,8 +15,9 @@ function createWorkspaceService({
   const readOnly = new Set([
     "workspace:state", "review:state", "transfer-lab:state", "transfer-lab:preview", "transfer-lab:validate",
     "aliases:state", "aliases:preview", "transaction-rules:coverage", "transaction-rules:state", "transaction-rules:preview",
-    "admin:reset-preview", "admin:untag-preview", "admin:unlink-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
+    "admin:reset-preview", "admin:untag-preview", "admin:unlink-preview", "admin:shares-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
     "workspace:reveal", "workspace:prefix-test", "imports:inspect", "imports:detect-dates", "imports:preview-layout", "imports:layouts",
+    "updates:state", "updates:check", "updates:install",
   ]);
   const handlers = new Map();
   const handle = (channel, fn) => handlers.set(channel, fn);
@@ -95,6 +96,8 @@ function createWorkspaceService({
   handle("admin:untag-all", (token) => store.admin.untagAll(token));
   handle("admin:unlink-preview", () => store.admin.previewUnlink());
   handle("admin:unlink-all", (token) => store.admin.unlinkAll(token));
+  handle("admin:shares-preview", () => store.admin.previewShares());
+  handle("admin:shares-clear", (token) => store.admin.clearShares(token));
   handle("review:entity", (kind, values) => store.review.entity(kind, values));
   handle("review:tag-order", (ids, expected) => store.review.reorderTags(ids, expected));
   handle("review:hierarchy-starter", () => store.review.starterHierarchy());
@@ -108,6 +111,7 @@ function createWorkspaceService({
     store.review.financial(id, version, values),
   );
   handle("review:allocation", (id, version, values) => store.review.allocation(id, version, values));
+  handle("review:event-split", (id, version) => store.review.followEventSplit(id, version));
   handle("review:transfer-link", (outId, outVersion, inId, inVersion, band, groups) =>
     store.review.linkTransfer(outId, outVersion, inId, inVersion, band, groups),
   );
@@ -194,6 +198,11 @@ function createWorkspaceService({
     store.removeRule(key, schema, account),
   );
   handle("workspace:reveal", (...args) => platform.reveal(...args));
+  // Release updates live in the Electron main process; the browser host has none to offer.
+  const noUpdates = { supported: false, build: "browser", version: null, status: "idle", latest: null, percent: 0, error: "", checkedAt: null };
+  handle("updates:state", () => platform.updates ? platform.updates.state() : noUpdates);
+  handle("updates:check", () => platform.updates ? platform.updates.check() : noUpdates);
+  handle("updates:install", () => { if (!platform.updates) throw new Error("Updates are managed by the desktop app."); platform.updates.install(); return true; });
 
   return {
     subscribe(callback) {
@@ -225,6 +234,7 @@ function createWorkspaceService({
             "workspace:snapshot",
             "workspace:reveal",
             "workspace:prefix-test",
+            "updates:state", "updates:check",
           ].includes(channel)
         )
           throw new Error("Wait for Dropbox processing to finish.");

@@ -223,11 +223,8 @@ export function TransferLab({ records, act, busy, onSource }) {
     <section className="transfer-lab" aria-label="Auto-link lab">
       <div className="tl-intro">
         <div>
-          <span className="tl-experiment">Temporary experiment</span>
-          <h2>Find the other half.</h2>
           <p>
-            Compare opposite amounts, nearby dates and allowed account routes.
-            Arrange the network, draw allowed directions, then test the matches.
+            Arrange the account network, draw the directions money may travel, set the date distance and amount tolerance, then test the matches below.
           </p>
         </div>
         <button disabled={locked} onClick={load}>

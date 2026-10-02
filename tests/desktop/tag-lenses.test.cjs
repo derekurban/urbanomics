@@ -47,7 +47,7 @@ test("typed tags migrate configuration without rewriting records and enforce sep
   );
   s.close();
   s = new ImportStore(path.join(root, "data"));
-  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 21);
+  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 22);
   assert.deepEqual(s.review.records(), before);
   assert.deepEqual(s.db.prepare("SELECT * FROM snapshots").all(), snapshots);
   assert.equal(

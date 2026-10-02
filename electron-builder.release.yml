@@ -1,0 +1,5 @@
+# Release channel: the same build as electron-builder.yml, marked so the app knows it may update
+# itself. Used by scripts/release.cjs and `npm run dist:win`; never by `npm run package:win`.
+extends: ./electron-builder.yml
+extraMetadata:
+  channel: release

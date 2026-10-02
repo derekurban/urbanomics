@@ -28,6 +28,8 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
     [confirm, setConfirm] = useState(false);
   const [startDate, setStartDate] = useState(entity.startDate || ""),
     [endDate, setEndDate] = useState(entity.endDate || "");
+  const [participants, setParticipants] = useState(entity.participants || []);
+  const people = entities.filter((e) => e.kind === "person");
   const parent =
     entity.kind === "category" &&
     flowType === "expense" &&
@@ -52,6 +54,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
                 endDate,
                 parentId,
                 flowType,
+                ...(entity.kind === "group" ? { participants } : {}),
               }),
             )) !== false
           )
@@ -174,6 +177,32 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
               Set the event's time span. The calendar also suggests transactions
               one day before and after; you choose what belongs.
             </p>
+            <div className="rv-field">
+              <span>Split with</span>
+              <div className="rv-people" role="group" aria-label="Participants">
+                {people.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    aria-pressed={participants.includes(p.id)}
+                    onClick={() =>
+                      setParticipants((list) =>
+                        list.includes(p.id) ? list.filter((id) => id !== p.id) : [...list, p.id],
+                      )
+                    }
+                  >
+                    <i style={{ background: p.color }}>{p.name.slice(0, 2)}</i>
+                    <span>{p.name}</span>
+                  </button>
+                ))}
+                {!people.length && <small>Add people under Settings → People first.</small>}
+              </div>
+              <small>
+                {participants.length
+                  ? `Every expense in this event is split evenly between you and ${participants.length === 1 ? "this person" : `these ${participants.length} people`}, unless you change a single expense's split in Organize. Anyone who has repaid part of an expense stays in its split.`
+                  : "Name who shares this event's expenses and each one gets an even split. Leave empty to split expenses one by one."}
+              </small>
+            </div>
           </>
         )}
         {error && (

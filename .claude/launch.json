@@ -4,9 +4,33 @@
     {
       "name": "web",
       "runtimeExecutable": "node",
-      "runtimeArgs": ["electron/web-server.cjs"],
+      "runtimeArgs": [
+        "electron/web-server.cjs"
+      ],
       "port": 4173,
       "url": "http://127.0.0.1:4173"
+    },
+    {
+      "name": "organize-desk",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--config",
+        "prototypes/organize-desk/vite.config.mjs"
+      ],
+      "port": 4184,
+      "url": "http://127.0.0.1:4184"
+    },
+    {
+      "name": "organize-card",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--config",
+        "prototypes/organize-card/vite.config.mjs"
+      ],
+      "port": 4185,
+      "url": "http://127.0.0.1:4185"
     }
   ]
 }

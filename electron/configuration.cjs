@@ -33,6 +33,7 @@ const tables = {
     "gradientStart",
     "gradientEnd",
     "sortOrder",
+    "participants",
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [

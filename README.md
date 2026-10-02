@@ -8,7 +8,7 @@ The desktop app combines local CSV imports, immutable source/monthly archives, a
 
 - **Dashboard** — spending, income, cash flow and account insights.
 - **Snapshots** — upload CSVs, configure layouts/accounts, import and inspect archives.
-- **Organize** — allocate transaction amounts, tag income and expenses, connect repayments, and link transfers. Transfer matching and account-route controls live in its Transfers tool.
+- **Organize** — one ledger across every account where each row shows the shape of its amount. Open a row and describe it: a tag, who paid you back, an event or the account it moved to. Changes save at once with undo. Transfer matching settings live under Settings → Transfers.
 - **Transactions** — search and filter the full ledger, sort and page through records, inspect originals, assign people, manage financial settings and record cash receipts.
 - **Events** — create dated events, link transactions through a calendar, and inspect costs and repayments.
 - **Accounts** — account settings, reported balances and account movement.
@@ -57,7 +57,7 @@ The Snapshots section brings Dropbox intake, upload history and archives togethe
 
 Snapshots is one page with a compact calendar of the last 12 months through the latest imported month (or last completed month, whichever is later). Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
-**Organize** is the management hub for Categories, Events, People, Accounts, Aliases and Rules. Its Overview highlights uncategorized transactions, alias/rule conflicts, events missing dates, transfer differences and unused definitions, with links to the relevant tools. Compact searchable rows show transaction and rule usage; shared editors keep names, colors and dates consistent. Tags and people referenced by transactions or rules are protected from deletion.
+**Settings** is the management hub for Categories & tags, People, Aliases, Rules, Transfers, Admin and Appearance (Accounts and Events have their own pages). Its Overview highlights uncategorized transactions, alias/rule conflicts, events missing dates, transfer differences and unused definitions, with links to the relevant tools. Compact searchable rows show transaction and rule usage; shared editors keep names, colors and dates consistent. Tags and people referenced by transactions or rules are protected from deletion.
 
 **Organize → Admin** offers confirmed workspace maintenance. **Untag all transactions** previews its affected count, then clears expense and income tag assignments across all months/accounts and cash receipts. It preserves financial relationships and definitions, saves a private recovery copy, and reports the result. Cancel leaves transactions untouched.
 
@@ -103,6 +103,7 @@ npm run test:desktop    # Real Electron UI + persistence checks; build first
 npm run test:dashboard  # Dashboard totals, filters, relationships and source drilldowns
 npm run test:money-in   # Income sources, cash lifecycle and deductions without events
 npm run test:events     # Event dates/calendar, shared costs, cross-month repayments and migration checks
+npm run test:organize-desk  # Organize desk: tagging, splits, repayments, transfer twins, undo, batch, settings
 npm run test:review     # Synthetic categorization, grouping, financial review and restart checks
 npm run test:orbit      # Quick category saves, modal splits/cancellation, events and responsive layout
 npm run test:organize   # Shared management, direct categories, deletion safeguards and persistence
@@ -153,3 +154,7 @@ The explicitly approved configuration definitions and synthetic examples belong 
 Review radial refinement: each category and tag level uses one growing circle with fixed-size targets, never concentric overflow rings or pages. The expanded tag circle closes when the pointer leaves its circular boundary, including during captured card drags; moving between its tags keeps it open. Keyboard expansion stays until pointer movement leaves, Escape, or Back. Keep the dragged stack below the tags and preserve single-save/cancel behavior.
 
 Dashboard now separates **Expenses** and **Income** alongside Cash flow and Events. Expenses rolls tags into broad categories with tag/vendor drilldowns. Income shows flat income tags, monthly receipts, and saved income versus repayments and unassigned money. Filters are independent; palettes match Organize.
+
+## Releases
+
+Installed releases come from `npm run release` and update themselves from GitHub Releases; development runs never check. See [docs/releases.md](docs/releases.md) for the two kinds of build, where each keeps its workspace, and how to cut a release.

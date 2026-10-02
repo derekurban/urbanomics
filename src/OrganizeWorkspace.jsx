@@ -1,4 +1,5 @@
 import { AppearanceWorkspace } from "./AppearanceWorkspace.jsx";
+import { AboutWorkspace } from "./AboutWorkspace.jsx";
 import { AdminWorkspace } from "./AdminWorkspace.jsx";
 import { categoryColors } from "./category-colors.js";
 import { eventDateLabel } from "../electron/review/event-model.mjs";
@@ -7,6 +8,7 @@ import { TagHierarchy } from "./TagHierarchy.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
 import { RulesWorkspace } from "./RulesWorkspace.jsx";
+import { TransferLab } from "./TransferLab.jsx";
 import "./organize-workspace.css";
 
 const api = window.urbanomics;
@@ -15,8 +17,10 @@ const sections = [
   ["person", "People"],
   ["aliases", "Aliases"],
   ["rules", "Rules"],
+  ["transfers", "Transfers"],
   ["admin", "Admin"],
   ["appearance", "Appearance"],
+  ["about", "About"],
 ];
 const titles = Object.fromEntries(sections);
 const singular = {
@@ -68,6 +72,7 @@ export function OrganizeWorkspace({
   section,
   onSection,
   onNavigate,
+  onSource,
 }) {
   const [state, setState] = useState(null),
     [query, setQuery] = useState(""),
@@ -202,7 +207,7 @@ export function OrganizeWorkspace({
         })}
       </nav>
       {extrasError&&<p role="alert" className="dr-error-text">{extrasError}</p>}
-      {section === "appearance" ? <AppearanceWorkspace/> : section === "admin" ? (
+      {section === "about" ? <AboutWorkspace/> : section === "appearance" ? <AppearanceWorkspace/> : section === "admin" ? (
         <AdminWorkspace data={data} act={act} busy={busy} />
       ) : section === "aliases" ? (
         <AliasesWorkspace
@@ -220,6 +225,11 @@ export function OrganizeWorkspace({
           busy={busy || !state}
           error={editing ? "" : error}
         />
+      ) : section === "transfers" ? (
+        <section className="settings-transfers">
+          <div className="og-heading"><div><h2>Transfers</h2><p>How Organize finds the other half of a transfer between your accounts: allowed routes, how many days apart the two entries may be, and how far the amounts may differ. Organize offers matches within these settings; nothing links without you.</p></div></div>
+          <TransferLab records={records} act={act} busy={busy || !state} onSource={onSource || (() => {})} />
+        </section>
       ) : section === "rules" ? (
         <RulesWorkspace
           data={data}

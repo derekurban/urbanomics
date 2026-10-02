@@ -3,6 +3,7 @@ import React, { useEffect, useState, useRef } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import "./admin-workspace.css";
 import { AdminUnlinkTransfers } from "./AdminUnlinkTransfers.jsx";
+import { AdminClearShares } from "./AdminClearShares.jsx";
 const api = window.urbanomics;
 export function AdminWorkspace({ data, act, busy }) {
   const [preview, setPreview] = useState(null),
@@ -100,6 +101,7 @@ export function AdminWorkspace({ data, act, busy }) {
       </article>
       <AdminResetWorkspace act={act} busy={busy || working} />
       <AdminUnlinkTransfers data={data} act={act} busy={busy || working} />
+      <AdminClearShares data={data} act={act} busy={busy || working} />
       {error && !confirmation && (
         <p role="alert" className="dr-error-text">
           {error}

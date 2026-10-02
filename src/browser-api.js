@@ -120,6 +120,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
       listeners.changed.add(callback);
       return () => listeners.changed.delete(callback);
     },
+    onUpdate: () => () => {},
     drop,
     choose: (folder=false)=>choose(folder),
     stageChoose: (folder=false)=>choose(folder,true),
