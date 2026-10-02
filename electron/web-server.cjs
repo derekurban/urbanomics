@@ -44,7 +44,7 @@ async function startWebServer({
   let store = sharedStore;
   try {
     if (!shared) store = new ImportStore(root);
-    if (!shared && seed && !store.db.prepare("SELECT COUNT(*) n FROM accounts").get().n)
+    if (!shared && seed && !store.db.prepare("SELECT COUNT(*) n FROM accounts").get().n && !store.db.prepare("SELECT 1 FROM settings WHERE key='workspaceReset'").get())
       require("./web-sample.cjs").seedWebSample(store);
     if (!shared) store.scanDropbox();
   } catch (error) {
@@ -157,7 +157,7 @@ async function startWebServer({
             return json(
               res,
               200,
-              await service.invoke("workspace:ingest", [file]),
+              await service.invoke(req.headers["x-stage-only"] === "true" ? "imports:stage" : "workspace:ingest", [file]),
             );
           } finally {
             fs.unlinkSync(file);
@@ -171,7 +171,7 @@ async function startWebServer({
         );
         if (
           !Object.hasOwn(channels, method) ||
-          ["drop", "choose", ...(shared ? ["reveal"] : [])].includes(method) ||
+          ["drop", "choose", "stageDrop", "stageChoose", ...(shared ? ["reveal"] : [])].includes(method) ||
           !Array.isArray(args) ||
           args.length > 16
         )

@@ -1,3 +1,4 @@
+import {isOther} from '../electron/review/system-tags.mjs';
 export const sum = (rows) => rows.reduce((s, r) => s + r.cents, 0);
 export const money = (cents) =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(
@@ -9,7 +10,13 @@ export function equal(ids, total) {
     cents: Math.floor(total / ids.length) + (i < total % ids.length ? 1 : 0),
   }));
 }
-export function retag(previous, ids, total) {
+export function retag(previous, ids, total, entities=[]) {
+  // Selecting a specific tag replaces the sole fallback. It remains available
+  // to add back deliberately as a partial Other allocation.
+  if (previous.length === 1 && isOther(previous[0].id, entities) && ids.some(id => !isOther(id, entities))) {
+    ids = ids.filter(id => !isOther(id, entities));
+    previous = [];
+  }
   if (!ids.length) return [];
   const oldEqual = equal(
     previous.map((p) => p.id),

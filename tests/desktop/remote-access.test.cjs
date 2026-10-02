@@ -35,6 +35,6 @@ test('Tailscale proxy checks owner, origin and CSRF before reads/writes; HTTP an
   assert.equal((await (await call('reveal',['private'])).json()).ok,false);
   assert.equal((await fetch(server.origin+'/api/session',{headers:{...trusted,Origin:'https://evil.example'}})).status,403);
   assert.equal((await fetch(server.origin+'/api/call',{method:'POST',headers:{...headers,'X-Urbanomics-Token':'wrong'},body:'{}'})).status,403);
-  await server.close();assert.equal(store.review.entities().length,2);
+  await server.close();assert.equal(store.review.entities().filter(e=>!e.systemRole).length,2);
  } finally {if(server) await server.close();store.close();}
 });

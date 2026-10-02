@@ -1,3 +1,4 @@
+import {otherId} from '../electron/review/system-tags.mjs';
 import {
   orderedTags as alphabetical,
   tagFits,
@@ -31,7 +32,7 @@ export function TransactionSettings({
       retag(
         parts,
         ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id],
-        Math.abs(row.amountCents),
+        Math.abs(row.amountCents), categories,
       ),
     );
   };
@@ -54,7 +55,7 @@ export function TransactionSettings({
         {
           id: row.id,
           version: row.version,
-          tags: parts,
+          tags: parts.length || !taggable(row) ? parts : [{id:otherId(row,categories),cents:Math.abs(row.amountCents)}],
           ...(people ? { assignedPersonId: assignedPerson } : {}),
         },
       ]);
@@ -122,6 +123,7 @@ export function TransactionSettings({
           Resolve them in Organize → Aliases.
         </p>
       )}
+      {!!row.systemTags?.length && <div className="rv-state-badges" aria-label="Automatic tags">{row.systemTags.map(t=><small key={t.id} title={t.description}>{t.name} · Automatic</small>)}</div>}
       <fieldset disabled={busy} className="ts-fields">
         {people && (
           <label>

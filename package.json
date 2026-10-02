@@ -18,6 +18,9 @@
     "test:review": "node scripts/smoke-review.cjs",
     "test:review-flow": "node scripts/smoke-review-flow.cjs",
     "test:mobile": "node scripts/smoke-mobile.cjs",
+    "test:experimental": "node --test tests/desktop/experimental.test.cjs && node scripts/smoke-experimental.cjs",
+    "test:system-tags": "node --test tests/desktop/system-tags.test.cjs && node scripts/smoke-system-tags.cjs",
+    "test:virtual-roll": "node scripts/smoke-virtual-roll.cjs",
     "test:orbit": "node scripts/smoke-orbit.cjs",
     "test:organize": "node scripts/smoke-organize.cjs",
     "test:rules": "node scripts/smoke-rules.cjs",
@@ -26,7 +29,9 @@
     "test:transfers": "node scripts/smoke-transfers.cjs",
     "package:win": "npm run build && electron-builder --win dir",
     "web": "npm run build && node electron/web-server.cjs",
-    "remote:setup": "node scripts/setup-remote.cjs"
+    "remote:setup": "node scripts/setup-remote.cjs",
+    "docs:serve": "node scripts/serve-experience-map.cjs",
+    "prototype:ingest": "vite build --config prototypes/ingest/vite.config.mjs"
   },
   "dependencies": {
     "csv-parse": "7.0.2",

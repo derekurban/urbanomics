@@ -1,366 +1,53 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useId, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { InfoDot, PatternSegments, PatternLegend, palette } from "./snapshots-v2-atoms.jsx";
 
 const api = window.urbanomics;
-const palette = [
-  "#427A64",
-  "#6883C5",
-  "#B87654",
-  "#9674B7",
-  "#BE6684",
-  "#529BA5",
-  "#A38A38",
-  "#687786",
-];
-const banks = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
-
-function AccountEditor({ account, busy, run, onClose }) {
-  const [name, setName] = useState(account?.name || ""),
-    [schema, setSchema] = useState(account?.schema || "pc");
-  const [kind, setKind] = useState(account?.kind || "chequing");
-  const [prefixRegex, setPrefix] = useState(account?.prefixRegex || ""),
-    [color, setColor] = useState(account?.color || palette[0]);
-  const [filename, setFilename] = useState(""),
-    [test, setTest] = useState(null);
-  const [saveError, setSaveError] = useState("");
-  useEffect(() => {
-    let active = true;
-    setTest(null);
-    const timer = setTimeout(
-      () =>
-        api
-          .testPrefix(prefixRegex, filename)
-          .then((result) => {
-            if (active)
-              setTest({
-                text: !prefixRegex.trim()
-                  ? "No prefix rule. Choose an account when uploading."
-                  : !filename
-                    ? "Valid pattern. Enter a filename to try it."
-                    : result.matches
-                      ? "Matches this prefix."
-                      : "Does not match this prefix.",
-                valid: true,
-              });
-          })
-          .catch((error) => {
-            if (active) setTest({ text: error.message, valid: false });
-          }),
-      160,
-    );
-    return () => {
-      active = false;
-      clearTimeout(timer);
-    };
-  }, [prefixRegex, filename]);
-  return (
-    <WorkspaceModal
-      title={account ? "Edit account" : "Add account"}
-      onClose={onClose}
-    >
-      <form
-        className="account-editor"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          const values = { name, prefixRegex, color };
-          setSaveError("");
-          const saved = await run(async () => {
-            try {
-              return account
-                ? await api.updateAccount(account.id, values)
-                : await api.addAccount(name, schema, kind, values);
-            } catch (error) {
-              setSaveError(error.message);
-              throw error;
-            }
-          }, "Account saved. Matching unassigned files are ready to process.");
-          if (saved !== false) onClose();
-        }}
-      >
-        <label>
-          Account name
-          <input
-            required
-            maxLength={80}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Everyday savings"
-          />
-        </label>
-        {account ? (
-          <p className="muted">
-            {banks[schema]} · {kind === "credit" ? "Credit card" : kind}
-          </p>
-        ) : (
-          <>
-            <fieldset>
-              <legend>Bank export format</legend>
-              <div className="account-options">
-                {Object.entries(banks).map(([id, label]) => (
-                  <button
-                    type="button"
-                    key={id}
-                    aria-pressed={schema === id}
-                    onClick={() => setSchema(id)}
-                  >
-                    {label}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-            <fieldset>
-              <legend>Account type</legend>
-              <div className="account-options">
-                {["chequing", "savings", "credit"].map((id) => (
-                  <button
-                    type="button"
-                    key={id}
-                    aria-pressed={kind === id}
-                    onClick={() => setKind(id)}
-                  >
-                    {id === "credit" ? "Credit card" : id}
-                  </button>
-                ))}
-              </div>
-            </fieldset>
-          </>
-        )}
-        <fieldset>
-          <legend>Account color</legend>
-          <div className="account-colors">
-            {palette.map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-label={`Color ${value}`}
-                aria-pressed={color.toUpperCase() === value}
-                style={{ "--account-color": value }}
-                onClick={() => setColor(value)}
-              >
-                {color.toUpperCase() === value ? "✓" : ""}
-              </button>
-            ))}
-            <label className="custom-color">
-              Custom
-              <input
-                type="color"
-                aria-label="Custom account color"
-                value={color}
-                onChange={(e) => setColor(e.target.value)}
-              />
-            </label>
-          </div>
-        </fieldset>
-        <label>
-          Filename prefix regex
-          <input
-            spellCheck={false}
-            maxLength={256}
-            value={prefixRegex}
-            onChange={(e) => setPrefix(e.target.value)}
-            placeholder="pc[_-]mastercard"
-          />
-        </label>
-        <p className="field-help">
-          Matches the start of a filename, ignoring capitalization. For example,{" "}
-          <code>pc[_-]mastercard</code> matches{" "}
-          <code>PC_Mastercard_2026-08.csv</code>. Leave blank for manual
-          assignment or remembered filenames.
-        </p>
-        <label>
-          Try a filename
-          <input
-            spellCheck={false}
-            maxLength={255}
-            value={filename}
-            onChange={(e) => setFilename(e.target.value)}
-            placeholder="PC_Mastercard_2026-08.csv"
-          />
-        </label>
-        <p
-          className={`prefix-feedback ${test?.valid === false ? "invalid" : ""}`}
-          role="status"
-        >
-          {test?.text || "Checking pattern…"}
-        </p>
-        <details>
-          <summary>Pattern syntax & matching</summary>
-          <p>
-            Use RE2 syntax without / delimiters. Character classes, groups and
-            alternatives are supported; lookarounds and backreferences are not.
-            Matching uses the bank format too. Conflicting rules ask for review.
-            Previously imported originals keep their account, and files already
-            assigned stay assigned.
-          </p>
-        </details>
-        {saveError && (
-          <p className="dr-error-text" role="alert">
-            {saveError}
-          </p>
-        )}
-        <footer>
-          <button type="button" onClick={onClose}>
-            Cancel
-          </button>
-          <button
-            className="primary"
-            disabled={busy || !name.trim() || !test?.valid}
-          >
-            Save account
-          </button>
-        </footer>
-      </form>
-    </WorkspaceModal>
-  );
+export function AccountEditor({ account, layouts, history = [], busy, run, onClose, onSnapshots }) {
+  const formId=useId(), filenameInput=useRef(null);
+  const [showFiles,setShowFiles]=useState(false),[fileQuery,setFileQuery]=useState(""),[allAccounts,setAllAccounts]=useState(!account);
+  const previousFiles=useMemo(()=>{
+    const seen=new Set();
+    return history.filter(item=>{
+      const key=JSON.stringify([item.account_id,item.filename]);
+      if(seen.has(key))return false;
+      seen.add(key);return true;
+    });
+  },[history]);
+  const visibleFiles=previousFiles.filter(item=>(allAccounts||item.account_id===account?.id)&&`${item.filename} ${item.account||""}`.toLowerCase().includes(fileQuery.trim().toLowerCase()));
+  const [name,setName]=useState(account?.name||""),[kind,setKind]=useState(account?.kind||"");
+  const [schema,setSchema]=useState(layouts[0]?"custom:"+layouts[0].id:"");
+  const [prefixRegex,setPrefix]=useState(account?.prefixRegex||""),[color,setColor]=useState(account?.color||palette[0]);
+  const [filename,setFilename]=useState(""),[test,setTest]=useState(null),[error,setError]=useState("");
+  useEffect(()=>{let active=true;setTest(null);const timer=setTimeout(()=>api.testPrefix(prefixRegex,filename).then(result=>{if(active)setTest({valid:true,...result});}).catch(e=>{if(active)setTest({valid:false,error:e.message});}),180);return()=>{active=false;clearTimeout(timer);};},[prefixRegex,filename]);
+  return <WorkspaceModal className="accounts-modal" title={account?"Edit account":"Add account"} onClose={onClose} footer={<><button disabled={busy} onClick={onClose}>Cancel</button><button form={formId} type="submit" className="primary" disabled={busy||!name.trim()||!test?.valid||(!account&&!schema)}>Save account</button></>}>
+    <form id={formId} className="account-editor" onSubmit={async e=>{e.preventDefault();setError("");const values={name,kind,prefixRegex,color};const result=await run(async()=>{try{return account?await api.updateAccount(account.id,values):await api.addAccount(name,schema,kind,values);}catch(e){setError(e.message);throw e;}},"Account saved.");if(result!==false)onClose();}}>
+      <div className="accounts-form-pair"><label>Account name<input required maxLength={80} value={name} onChange={e=>setName(e.target.value)} placeholder="Everyday account"/></label><label>Type (optional)<input maxLength={80} value={kind} onChange={e=>setKind(e.target.value)} placeholder="Chequing, savings, credit…"/></label></div>
+      {!account&&(layouts.length?<label>Saved CSV layout<select aria-label="Saved CSV layout" value={schema} onChange={e=>setSchema(e.target.value)}>{layouts.map(t=><option key={t.id} value={"custom:"+t.id}>{t.name}</option>)}</select></label>:<div className="accounts-notice"><p>Create a CSV layout in Snapshots to connect your first account.</p><button type="button" onClick={()=>{onClose();onSnapshots();}}>Set up in Snapshots →</button></div>)}
+      <fieldset><legend>Account color</legend><div className="account-colors">{palette.map(value=><button type="button" key={value} aria-label={`Color ${value}`} aria-pressed={color.toUpperCase()===value} style={{"--account-color":value}} onClick={()=>setColor(value)}>{color.toUpperCase()===value?"✓":""}</button>)}<label className="custom-color">Custom<input type="color" aria-label="Custom account color" value={color} onChange={e=>setColor(e.target.value)}/></label></div></fieldset>
+      <div className="accounts-field-title">Filename rule <InfoDot label="Account filename rule">Matches the start of filenames, ignoring capitalization. Use RE2 syntax without / delimiters. Leave blank to assign files manually. CSV layout rules are separate; previously imported files keep their account.</InfoDot></div>
+      <label className="accounts-rule-label"><span className="sr-only">Filename prefix regex</span><input spellCheck={false} maxLength={256} value={prefixRegex} onChange={e=>setPrefix(e.target.value)} placeholder="^everyday_.*"/></label>
+      <div className="accounts-filename-test">
+        <div className="accounts-filename-heading"><label htmlFor={formId+"-filename"}>Try a filename</label><button type="button" aria-expanded={showFiles} aria-controls={formId+"-previous"} onClick={()=>setShowFiles(v=>!v)}>Previous files <span aria-hidden="true">{showFiles?"−":"+"}</span></button></div>
+        <input ref={filenameInput} id={formId+"-filename"} spellCheck={false} maxLength={255} value={filename} onChange={e=>setFilename(e.target.value)} placeholder="everyday_2026.csv"/>
+        {showFiles&&<div className="accounts-previous-files" id={formId+"-previous"} role="region" aria-label="Previous imported files">
+          <div className="accounts-previous-toolbar">{account&&<div role="group" aria-label="File accounts"><button type="button" aria-pressed={!allAccounts} onClick={()=>setAllAccounts(false)}>This account</button><button type="button" aria-pressed={allAccounts} onClick={()=>setAllAccounts(true)}>All accounts</button></div>}<input aria-label="Search previous files" value={fileQuery} onChange={e=>setFileQuery(e.target.value)} placeholder="Find a filename or account…"/></div>
+          <div className="accounts-previous-list">{visibleFiles.slice(0,50).map(item=><button type="button" key={JSON.stringify([item.account_id,item.filename])} aria-label={`Test ${item.filename} from ${item.account||"Unassigned"}`} onClick={()=>{setFilename(item.filename);setShowFiles(false);filenameInput.current?.focus();}}><span><strong>{item.filename}</strong><small>{item.account||"Unassigned"} · Imported {new Date(item.created).toLocaleDateString("en-CA",{month:"short",day:"numeric",year:"numeric"})}</small></span><span aria-hidden="true">↗</span></button>)}</div>
+          {!visibleFiles.length&&<p className="accounts-previous-empty">{fileQuery?"No files match your search.":!previousFiles.length?"No imported files yet.":"No imported files for this account. Try All accounts."}</p>}
+          {visibleFiles.length>50&&<p className="accounts-previous-empty">Showing the newest 50 filenames. Search to narrow the list.</p>}
+        </div>}
+      </div>
+      {filename&&test?.valid&&prefixRegex&&<div className="sv2-prefix"><PatternSegments result={test} filename={filename}/><PatternLegend/></div>}
+      <p role="status" className="prefix-feedback">{!test?"Checking pattern…":test.error||(!prefixRegex.trim()?"Manual assignment":!filename?"Valid pattern":test.matches?"Matches this filename":"Does not match this filename")}</p>
+      {error&&<p role="alert" className="dr-error-text">{error}</p>}
+    </form>
+  </WorkspaceModal>;
 }
 
-export function AccountSettings({ data, busy, run }) {
-  const [editing, setEditing] = useState(null);
-  const [deleting, setDeleting] = useState(null),
-    [deleteError, setDeleteError] = useState("");
-  return (
-    <>
-      <div className="account-section-heading">
-        <p className="muted">
-          Names, colors and routing for your bank exports.
-        </p>
-        <button disabled={busy} onClick={() => setEditing({})}>
-          + Add account
-        </button>
-      </div>
-      <div className="account-grid">
-        {data.accounts.map((account) => (
-          <article
-            className="account-card editable-account"
-            key={account.id}
-            style={{ "--account-color": account.color }}
-          >
-            <span className="account-symbol">
-              {account.name
-                .split(/\s+/)
-                .slice(0, 2)
-                .map((part) => part[0])
-                .join("")}
-            </span>
-            <h2>{account.name}</h2>
-            <p>
-              {banks[account.schema]} ·{" "}
-              {account.kind === "credit" ? "Credit card" : account.kind}
-            </p>
-            <code className="account-prefix">
-              {account.prefixRegex || "No prefix regex"}
-            </code>
-            <button
-              disabled={busy}
-              aria-label={`Edit ${account.name}`}
-              onClick={() => setEditing(account)}
-            >
-              Edit account
-            </button>
-            <button
-              className="account-delete-link"
-              disabled={busy}
-              aria-label={`Delete ${account.name}`}
-              onClick={() => {
-                setDeleteError("");
-                setDeleting(account);
-              }}
-            >
-              Delete
-            </button>
-          </article>
-        ))}
-      </div>
-      {!data.accounts.length && (
-        <p className="empty-text">
-          Add your accounts now, or assign them when you upload an export.
-        </p>
-      )}
-      {!!data.deletedAccounts?.length && (
-        <details className="deleted-accounts">
-          <summary>Deleted accounts ({data.deletedAccounts.length})</summary>
-          {data.deletedAccounts.map((account) => (
-            <div key={account.id}>
-              <span>
-                <i
-                  className="dr-account-dot"
-                  style={{ background: account.color }}
-                />
-                {account.name}
-              </span>
-              <button
-                disabled={busy}
-                aria-label={`Restore ${account.name}`}
-                onClick={() =>
-                  run(
-                    () => api.restoreAccount(account.id),
-                    "Account restored with its imported transactions and rules.",
-                  )
-                }
-              >
-                Restore
-              </button>
-            </div>
-          ))}
-        </details>
-      )}
-      {deleting && (
-        <WorkspaceModal
-          title="Delete account"
-          onClose={() => setDeleting(null)}
-        >
-          <div className="account-delete-confirm">
-            <h3>{deleting.name}</h3>
-            <p>
-              This removes the account and its {deleting.transactionCount}{" "}
-              imported transaction{deleting.transactionCount === 1 ? "" : "s"}{" "}
-              from active views and stops matching new uploads to it.
-            </p>
-            <p>
-              Original files, snapshots and upload history stay in your local
-              archive. You can restore the account from Deleted accounts.
-            </p>
-            {data.jobs.some((job) => job.accountId === deleting.id) && (
-              <p>Waiting uploads will need an account selected again.</p>
-            )}
-            {deleteError && (
-              <p role="alert" className="dr-error-text">
-                {deleteError}
-              </p>
-            )}
-            <footer>
-              <button disabled={busy} onClick={() => setDeleting(null)}>
-                Keep account
-              </button>
-              <button
-                className="danger"
-                disabled={busy}
-                onClick={async () => {
-                  const result = await run(async () => {
-                    try {
-                      return await api.deleteAccount(deleting.id);
-                    } catch (error) {
-                      setDeleteError(error.message);
-                      throw error;
-                    }
-                  }, "Account deleted. You can restore it from Deleted accounts.");
-                  if (result !== false) setDeleting(null);
-                }}
-              >
-                Delete account
-              </button>
-            </footer>
-          </div>
-        </WorkspaceModal>
-      )}
-      {editing && (
-        <AccountEditor
-          account={editing.id ? editing : null}
-          busy={busy}
-          run={run}
-          onClose={() => setEditing(null)}
-        />
-      )}
-    </>
-  );
+export function AccountDeleteDialog({account,data,busy,run,onClose}){
+  const [error,setError]=useState("");
+  return <WorkspaceModal className="accounts-modal" title="Delete account" onClose={onClose} footer={<><button disabled={busy} onClick={onClose}>Keep account</button><button className="danger" disabled={busy} onClick={async()=>{const result=await run(async()=>{try{return await api.deleteAccount(account.id);}catch(e){setError(e.message);throw e;}},"Account deleted. You can restore it from Deleted accounts.");if(result!==false)onClose();}}>Delete account</button></>}>
+    <h3>{account.name}</h3><p>This hides the account and its {account.transactionCount} imported transactions from active views and stops routing uploads to it.</p><p>Originals, snapshots and upload history stay archived. Restore the account at any time from Deleted accounts.</p>
+    {data.jobs.some(j=>j.accountId===account.id)&&<p>Waiting uploads will need an account selected again.</p>}{error&&<p role="alert">{error}</p>}
+  </WorkspaceModal>;
 }

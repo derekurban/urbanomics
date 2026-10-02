@@ -5,6 +5,8 @@ const { randomUUID } = require("node:crypto");
 // Explicit columns only: never export ledger rows, source files, reviews,
 // allocations, snapshot payloads, receipts, caches, or historical settings.
 const tables = {
+  import_layouts: ["id","name","headers","mapping","version","prefixRegex"],
+  system_tag_names: ["id", "name"],
   category_palettes: ["id", "gradientStart", "gradientEnd"],
   transfer_lab_config: ["id", "maxDays", "basisPoints", "routes", "version"],
   accounts: [
@@ -16,6 +18,7 @@ const tables = {
     "color",
     "deletedAt",
   ],
+  account_import_layouts: ["account_id","schema"],
   rules: ["key", "schema", "account_id"],
   review_entities: [
     "id",
@@ -33,6 +36,7 @@ const tables = {
   ],
   transaction_aliases: ["id", "name", "pattern", "version"],
   transaction_rules: [
+    "template",
     "matchType",
     "aliasIds",
     "id",

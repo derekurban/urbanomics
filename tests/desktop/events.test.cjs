@@ -50,7 +50,7 @@ test("schema 9 adds optional event dates without rewriting financial tables and 
   );
   store.close();
   store = new ImportStore(root);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 17);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 21);
   const event = store.review.entities().find((e) => e.id === id);
   assert.equal(event.startDate, "");
   assert.equal(event.endDate, "");

@@ -1,3 +1,4 @@
+import {needsTagging} from '../electron/review/system-tags.mjs';
 import { radialSize } from "./radial-hierarchy-layout.js";
 import React, {
   useEffect,
@@ -17,7 +18,7 @@ import { orbitLayout } from "./orbit-layout.js";
 const complete = (row, events) =>
   events
     ? row.review.groupsReviewed || row.review.groups.length > 0
-    : row.review.tags.length > 0;
+    : !needsTagging(row);
 
 export function OrbitSorter({
   rows,
@@ -126,7 +127,7 @@ export function OrbitSorter({
           retag(
             values,
             values.map((p) => p.id).filter((v) => v !== id),
-            Math.abs(row.amountCents),
+            Math.abs(row.amountCents), allTags,
           ),
           false,
         );
@@ -139,7 +140,7 @@ export function OrbitSorter({
     }
     const ids = events ? values : values.map((p) => p.id),
       next = ids.includes(id) ? ids.filter((v) => v !== id) : [...ids, id];
-    setValues(events ? next : retag(values, next, Math.abs(row.amountCents)));
+    setValues(events ? next : retag(values, next, Math.abs(row.amountCents), allTags));
   }
   function discard() {
     setDrafts((old) => {

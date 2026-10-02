@@ -3,22 +3,22 @@
    organize-workspace.css. */
 .rules-workspace,
 .rl-editor-dialog {
-  --rl-ready: #2f6b47;
-  --rl-ready-bg: #e1efe4;
-  --rl-ready-line: #8fc2a2;
-  --rl-conflict: #8a4b1f;
-  --rl-conflict-bg: #fdeedd;
-  --rl-conflict-line: #e3b27f;
-  --rl-protected: #3f5a86;
-  --rl-protected-bg: #e5ecf5;
-  --rl-protected-line: #a9bbd8;
-  --rl-unchanged: #6a746a;
-  --rl-unchanged-bg: #eef0ec;
-  --rl-unchanged-line: #d3d8d0;
-  --rl-person: #66507a;
-  --rl-person-bg: #ece6f2;
-  --rl-off: #7d6533;
-  --rl-off-bg: #f3eddc;
+  --rl-ready: var(--tone-25);
+  --rl-ready-bg: var(--tone-90);
+  --rl-ready-line: var(--tone-65);
+  --rl-conflict: var(--tone-20);
+  --rl-conflict-bg: var(--tone-95);
+  --rl-conflict-line: var(--tone-70);
+  --rl-protected: var(--tone-25);
+  --rl-protected-bg: var(--tone-90);
+  --rl-protected-line: var(--tone-70);
+  --rl-unchanged: var(--tone-35);
+  --rl-unchanged-bg: var(--tone-95);
+  --rl-unchanged-line: var(--tone-80);
+  --rl-person: var(--tone-25);
+  --rl-person-bg: var(--tone-90);
+  --rl-off: var(--tone-30);
+  --rl-off-bg: var(--tone-90);
 }
 
 /* How rules behave, in three short facts. */
@@ -85,9 +85,9 @@
   gap: 8px 16px;
   align-items: center;
   padding: 12px 14px;
-  border: 1px solid #cfe0d4;
+  border: 1px solid var(--tone-85);
   border-radius: 12px;
-  background: linear-gradient(135deg, #f2f7f0, #e6f0e6);
+  background: linear-gradient(135deg, var(--tone-95), var(--tone-90));
   margin-bottom: 18px;
 }
 .rl-apply-counts {
@@ -124,7 +124,7 @@
   align-items: center;
   gap: 4px 10px;
   color: var(--rl-ready);
-  background: white;
+  background: var(--paper);
   padding: 8px 10px;
   border-radius: 8px;
   font-size: 12px;
@@ -139,7 +139,7 @@
 .rl-rules {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--paper);
   margin-bottom: 22px;
 }
 .rl-rule {
@@ -154,7 +154,7 @@
   border-top: 0;
 }
 .rl-rule.is-off {
-  background: #fafbf8;
+  background: var(--tone-100);
 }
 .rl-rule.is-off h3,
 .rl-rule.is-off code {
@@ -167,11 +167,11 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #5d9a72;
+  background: var(--tone-45);
   box-shadow: 0 0 0 3px var(--rl-ready-bg);
 }
 .rl-rule.is-off .rl-dot {
-  background: #c2c8bf;
+  background: var(--tone-75);
   box-shadow: 0 0 0 3px var(--rl-unchanged-bg);
 }
 .rl-rule-body {
@@ -246,7 +246,7 @@
   padding: 2px 8px;
   border-radius: 12px;
   background: var(--soft);
-  color: #3f5a45;
+  color: var(--tone-20);
   max-width: 100%;
   overflow-wrap: anywhere;
 }
@@ -255,7 +255,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #9db39a;
+  background: var(--tone-60);
 }
 .rl-map em {
   font-style: normal;
@@ -306,7 +306,7 @@
 .rl-candidates {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--paper);
 }
 .rl-candidate {
   display: flex;
@@ -327,7 +327,7 @@
 }
 .rl-candidate.is-conflict {
   border-left-color: var(--rl-conflict-line);
-  background: #fffaf4;
+  background: var(--tone-100);
 }
 .rl-candidate.is-protected {
   border-left-color: var(--rl-protected-line);
@@ -362,7 +362,7 @@
   padding: 2px 8px;
   border-radius: 12px;
   border: 1px solid var(--line);
-  background: white;
+  background: var(--paper);
   color: var(--ink);
   max-width: 100%;
   overflow-wrap: anywhere;
@@ -406,9 +406,9 @@
   margin: 0;
   font-size: 12.5px;
   text-align: center;
-  border: 1px dashed #c4d0be;
+  border: 1px dashed var(--tone-75);
   border-radius: 12px;
-  background: #f6f8f3;
+  background: var(--tone-95);
 }
 .rl-empty .primary {
   margin-top: 4px;
@@ -446,11 +446,11 @@
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 9px;
-  background: white;
+  background: var(--paper);
   color: var(--ink);
 }
 .rl-fields select:focus-visible {
-  outline: 3px solid #95bea2;
+  outline: 3px solid var(--tone-65);
   outline-offset: 3px;
 }
 .rl-span {
@@ -554,7 +554,7 @@
   display: none;
 }
 .rl-alias-selected button {
-  background: #edf3ea;
+  background: var(--tone-95);
   padding: 5px 9px;
   font-size: 12px;
   min-height: 30px;
@@ -581,7 +581,7 @@
   overflow-wrap: anywhere;
 }
 .rl-alias-option:has(:checked) {
-  background: #edf3ea;
+  background: var(--tone-95);
 }
 .rl-alias-option:hover {
   background: var(--soft);

@@ -1,3 +1,4 @@
+import {needsTagging} from '../electron/review/system-tags.mjs';
 import { ReviewOverview } from "./ReviewOverview.jsx";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { transactionFlow } from "../electron/review/tag-model.mjs";
@@ -41,7 +42,7 @@ const colored = (list) => Object.fromEntries(list.map((e) => [e.id, e.color]));
 const toggle = (list, id) =>
   list.includes(id) ? list.filter((v) => v !== id) : [...list, id];
 
-function FinanceEditor({
+export function FinanceEditor({
   row: currentRow,
   records,
   people,
@@ -73,8 +74,6 @@ function FinanceEditor({
             : ""
         : row.review.kind),
   );
-  const [incomeType, setIncomeType] = useState(row.review.incomeType || ""),
-    [incomeSource, setIncomeSource] = useState(row.review.incomeSource || "");
   const [shares, setShares] = useState(row.review.shares),
     [person, setPerson] = useState(
       row.review.personId || row.review.assignedPersonId || "",
@@ -172,11 +171,10 @@ function FinanceEditor({
     const result = await act(() =>
       api.saveFinancial(row.id, row.version, {
         kind: purpose,
+        ...(purpose === "income" ? {tags:row.review.tags} : {}),
         reviewed: true,
         shares: purpose === "expense" ? shares : null,
         personId: person,
-        incomeType,
-        incomeSource,
         allocations: values.filter((p) => p.id !== "remainder"),
         remainder: values.find((p) => p.id === "remainder")?.cents || 0,
         transferId: transfer,
@@ -340,43 +338,7 @@ function FinanceEditor({
           )}
         </>
       )}
-      {kind === "income" && (
-        <section className="income-types" aria-label="Income source">
-          <h3>What kind of income?</h3>
-          <div className="rv-purpose">
-            {[
-              ["paycheck", "Paycheck"],
-              ["interest", "Interest"],
-              ["sale", "Sale"],
-              ["gift", "Gift"],
-              ["other", "Other income"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                aria-pressed={incomeType === id}
-                onClick={() => setIncomeType(id)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          {incomeType === "other" && (
-            <label>
-              Income source
-              <input
-                aria-label="Income source name"
-                maxLength={80}
-                placeholder="Name this source"
-                value={incomeSource}
-                onChange={(e) => setIncomeSource(e.target.value)}
-              />
-            </label>
-          )}
-          <p className="rv-help">
-            Keep the full amount as income. No expense allocation is needed.
-          </p>
-        </section>
-      )}
+      {kind === "income" && <p className="rv-help">Keep this money as income. Use income tags to describe it.</p>}
       {kind === "repayment" && (
         <>
           <div className="rv-section-title">
@@ -645,9 +607,6 @@ function FinanceEditor({
           disabled={
             busy ||
             !kind ||
-            (kind === "income" &&
-              (!incomeType ||
-                (incomeType === "other" && !incomeSource.trim()))) ||
             (kind === "repayment" && !person) ||
             (kind === "transfer" && !transfer)
           }
@@ -850,7 +809,7 @@ export function ReviewWorkspace({
           {scoped.filter(t => transactionFlow(t) === "transfer").length} transfers ·{" "}
           {scoped.filter(t => transactionFlow(t) === "income").length} income ·{" "}
           {scoped.filter(t => transactionFlow(t) === "expense").length} expenses ·{" "}
-          {scoped.filter((t) => taggable(t) && !t.review.tags.length).length} need tags
+          {scoped.filter((t) => taggable(t) && needsTagging(t)).length} using default tags
         </span>
       </div>
       {error &&
@@ -1070,7 +1029,7 @@ export function ReviewWorkspace({
                       {t.review.kind === "repayment"
                         ? `${money(sum(t.review.allocations))} deducted · ${money(t.review.remainder)} unassigned`
                         : t.review.kind === "income"
-                          ? `Income · ${t.review.incomeType || "choose type"}`
+                          ? "Income"
                           : "Choose income or deductions"}
                     </small>
                   )}

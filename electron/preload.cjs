@@ -5,6 +5,17 @@ async function invoke(channel, ...args) {
   return response.value;
 }
 contextBridge.exposeInMainWorld("urbanomics", {
+  stageChoose: (...args)=>invoke("imports:choose",...args),
+  detectImportDates: (id,column,delimiter) => invoke("imports:detect-dates", id,column,delimiter),
+  inspectImport: (...args)=>invoke("imports:inspect",...args),
+  importLayouts: (...args)=>invoke("imports:layouts",...args),
+  previewImportLayout: (...args)=>invoke("imports:preview-layout",...args),
+  saveImportLayout: (...args)=>invoke("imports:save-layout",...args),
+  applyImportLayout: (...args)=>invoke("imports:apply-layout",...args),
+  removeImportLayout: (...args)=>invoke("imports:remove-layout",...args),
+  assignImportAccount: (...args)=>invoke("imports:assign",...args),
+  processImportBatch: (...args)=>invoke("imports:process",...args),
+  stageDrop: (files)=>invoke("imports:stage",files.map(file=>webUtils.getPathForFile(file)).filter(Boolean)),
   state: () => invoke("workspace:state"),
   transferLabState: () => invoke("transfer-lab:state"),
   saveTransferLab: (values, version) =>
@@ -15,9 +26,14 @@ contextBridge.exposeInMainWorld("urbanomics", {
     invoke("transfer-lab:validate", values, token, keys),
   applyTransferLab: (values, token, keys) =>
     invoke("transfer-lab:apply", values, token, keys),
+  previewWorkspaceReset: () => invoke("admin:reset-preview"),
+  resetWorkspace: (token,confirmation) => invoke("admin:reset",token,confirmation),
   previewUntagAll: () => invoke("admin:untag-preview"),
   untagAll: (token) => invoke("admin:untag-all", token),
+  previewUnlinkAll: () => invoke("admin:unlink-preview"),
+  unlinkAllTransfers: (token) => invoke("admin:unlink-all", token),
   reviewState: () => invoke("review:state"),
+  transactionRuleCoverage: (id) => invoke("transaction-rules:coverage", id),
   transactionRulesState: () => invoke("transaction-rules:state"),
   previewTransactionRule: (values) =>
     invoke("transaction-rules:preview", values),
@@ -40,11 +56,12 @@ contextBridge.exposeInMainWorld("urbanomics", {
   voidCash: (id, version) => invoke("review:cash-void", id, version),
   saveFinancial: (id, version, values) =>
     invoke("review:financial", id, version, values),
-  linkTransfer: (outId, outVersion, inId, inVersion, band) =>
-    invoke("review:transfer-link", outId, outVersion, inId, inVersion, band),
+  saveAllocation: (id, version, values) => invoke("review:allocation", id, version, values),
+  linkTransfer: (outId, outVersion, inId, inVersion, band, groups) =>
+    invoke("review:transfer-link", outId, outVersion, inId, inVersion, band, groups),
   unlinkTransfer: (id, version, counterpartVersion) =>
     invoke("review:transfer-unlink", id, version, counterpartVersion),
-  scan: () => invoke("workspace:scan"),
+  scan: (manualLayouts = false) => invoke("workspace:scan", manualLayouts),
   process: () => invoke("workspace:process"),
   onProgress: (callback) => {
     const listener = (_event, progress) => callback(progress);

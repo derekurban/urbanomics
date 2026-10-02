@@ -2,20 +2,20 @@
    state, callout, panel) are reused by the Aliases and Rules sections.
    Everything is scoped under .organize-workspace. */
 .organize-workspace {
-  --og-sage: #dbe7d3;
-  --og-sage-ink: #3f6b45;
-  --og-mint: #e2efe6;
-  --og-mint-ink: #2f6b47;
-  --og-sand: #f3eddc;
-  --og-sand-ink: #7d6533;
-  --og-peach: #fdeedd;
-  --og-peach-ink: #8a4b1f;
-  --og-sky: #e5ecf5;
-  --og-sky-ink: #3f5a86;
-  --og-lilac: #ece6f2;
-  --og-lilac-ink: #66507a;
-  --og-gray: #eef0ec;
-  --og-gray-ink: #6a746a;
+  --og-sage: var(--tone-85);
+  --og-sage-ink: var(--tone-25);
+  --og-mint: var(--tone-90);
+  --og-mint-ink: var(--tone-25);
+  --og-sand: var(--tone-90);
+  --og-sand-ink: var(--tone-30);
+  --og-peach: var(--tone-95);
+  --og-peach-ink: var(--tone-20);
+  --og-sky: var(--tone-90);
+  --og-sky-ink: var(--tone-25);
+  --og-lilac: var(--tone-90);
+  --og-lilac-ink: var(--tone-25);
+  --og-gray: var(--tone-95);
+  --og-gray-ink: var(--tone-35);
   min-width: 0;
 }
 
@@ -43,7 +43,7 @@
   gap: 4px;
   padding: 4px;
   border-radius: 12px;
-  background: #e9eee5;
+  background: var(--tone-90);
   margin-bottom: 20px;
 }
 .og-sections button {
@@ -59,12 +59,12 @@
   border-radius: 9px;
   background: transparent;
   font-size: 12px;
-  color: #5b6c58;
+  color: var(--tone-30);
 }
 .og-sections button[aria-pressed="true"] {
-  background: white;
-  color: #244e34;
-  box-shadow: 0 1px 3px #243d2e14;
+  background: var(--paper);
+  color: var(--tone-15);
+  box-shadow: 0 1px 3px rgb(from var(--tone-10) r g b / 0.0784);
 }
 .og-sections small {
   font-size: 10.5px;
@@ -73,8 +73,8 @@
   text-align: center;
   padding: 1px 6px;
   border-radius: 5px;
-  background: #e0e7da;
-  color: #526d48;
+  background: var(--tone-90);
+  color: var(--tone-30);
 }
 .og-sections button[aria-pressed="true"] small {
   background: var(--og-mint);
@@ -127,11 +127,11 @@
 }
 .og-filter[aria-pressed="true"] {
   background: var(--og-mint);
-  border-color: #b9d3c1;
+  border-color: var(--tone-75);
   color: var(--og-mint-ink);
 }
 .og-filter[aria-pressed="true"] small {
-  background: white;
+  background: var(--paper);
 }
 .og-stat {
   margin-left: auto;
@@ -144,7 +144,7 @@
 .og-rows {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--paper);
 }
 .og-row {
   display: flex;
@@ -195,10 +195,10 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  color: #203023;
+  color: var(--tone-0);
   font-size: 11px;
   font-weight: 550;
-  background: color-mix(in srgb, var(--item-color) 35%, white);
+  background: color-mix(in srgb, var(--item-color) 35%, var(--paper));
 }
 .og-usage-bar {
   flex-shrink: 0;
@@ -214,7 +214,7 @@
   height: 100%;
   width: var(--fill, 0%);
   border-radius: 2px;
-  background: #8fb89c;
+  background: var(--tone-60);
 }
 .og-badge {
   font-size: 10px;
@@ -243,7 +243,7 @@
 .og-chips span {
   font-size: 12px;
   padding: 4px 9px;
-  background: #f2f5ee;
+  background: var(--tone-95);
   border-radius: 16px;
   overflow-wrap: anywhere;
   max-width: 100%;
@@ -258,10 +258,10 @@
 
 /* Empty and loading states. */
 .og-empty {
-  border: 1px dashed #c4d0be;
+  border: 1px dashed var(--tone-75);
   padding: 20px 22px;
   border-radius: 12px;
-  background: #edf2e9;
+  background: var(--tone-95);
   color: var(--muted);
   font-size: 13px;
 }
@@ -349,7 +349,7 @@
   text-align: left;
   min-height: 0;
   border-radius: 12px;
-  background: white;
+  background: var(--paper);
   border: 1px solid var(--line);
 }
 .og-tile i {
@@ -411,7 +411,7 @@
 .og-attention {
   border: 1px solid var(--line);
   border-radius: 12px;
-  background: white;
+  background: var(--paper);
 }
 .og-attention-row {
   display: flex;
@@ -495,14 +495,14 @@
   display: block;
   margin-top: 2px;
   font-size: 11.5px;
-  color: #4f7a5f;
+  color: var(--tone-35);
 }
 .og-pending {
   margin: 8px 0 0;
   font-size: 11.5px;
 }
 .og-pending.is-error {
-  color: #925a45;
+  color: var(--tone-30);
 }
 .og-links {
   display: grid;
@@ -517,7 +517,7 @@
 }
 .og-links .og-glyph {
   flex-shrink: 0;
-  color: #6f9a7c;
+  color: var(--tone-50);
 }
 .og-links span {
   min-width: 0;

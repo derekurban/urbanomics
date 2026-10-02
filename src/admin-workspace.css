@@ -16,9 +16,9 @@
   align-items: center;
   gap: 24px;
   padding: 24px;
-  border: 1px solid #e4d6cf;
+  border: 1px solid var(--tone-80);
   border-radius: 18px;
-  background: #fffaf6;
+  background: var(--tone-100);
 }
 .admin-action > div {
   flex: 1;
@@ -39,7 +39,7 @@
 }
 .admin-action-label {
   font-size: 11px;
-  color: #925c45;
+  color: var(--tone-30);
 }
 .admin-action button {
   flex-shrink: 0;
@@ -59,8 +59,8 @@
 .admin-result {
   padding: 18px 22px;
   border-radius: 14px;
-  background: #e7eee1;
-  color: #365740;
+  background: var(--tone-90);
+  color: var(--tone-20);
 }
 .admin-result p {
   margin: 7px 0 0;

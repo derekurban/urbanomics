@@ -1,6 +1,6 @@
 .data-room {
-  --dr-border: #dfe6dd;
-  --dr-muted: #748074;
+  --dr-border: var(--tone-85);
+  --dr-muted: var(--tone-40);
 }
 .dr-heading,
 .dr-section-line,
@@ -42,11 +42,11 @@
   font-size: 12px;
   padding: 7px 4px;
   min-height: 32px;
-  color: #456951;
+  color: var(--tone-25);
 }
 .dr-library {
   border: 1px solid var(--dr-border);
-  background: #fff;
+  background: var(--tone-100);
   border-radius: 17px;
   padding: 23px 25px 17px;
   margin-bottom: 24px;
@@ -73,7 +73,7 @@
 }
 .dr-calendar thead th {
   font-size: 11px;
-  color: #708071;
+  color: var(--tone-40);
   font-weight: 500;
   text-transform: none;
   letter-spacing: 0;
@@ -82,7 +82,7 @@
   display: block;
   font-size: 9px;
   line-height: 15px;
-  color: #949e94;
+  color: var(--tone-55);
 }
 .dr-calendar tbody th {
   font-size: 12px;
@@ -97,7 +97,7 @@
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: var(--account-color, #427a64);
+  background: var(--account-color, var(--tone-30));
   margin-right: 8px;
   flex: none;
 }
@@ -122,8 +122,8 @@
   width: 21px;
   height: 21px;
   border-radius: 6px;
-  background: #f0f3ed;
-  border: 1px solid #e4e9e0;
+  background: var(--tone-95);
+  border: 1px solid var(--tone-90);
   transition:
     transform 0.18s,
     box-shadow 0.18s;
@@ -134,7 +134,7 @@
 }
 .dr-cell:hover span {
   transform: translateY(-2px);
-  box-shadow: 0 3px 7px #263c291a;
+  box-shadow: 0 3px 7px rgb(from var(--tone-5) r g b / 0.1020);
 }
 .dr-tooltip {
   pointer-events: none;
@@ -147,10 +147,10 @@
   width: 230px;
   text-align: left;
   padding: 12px 14px;
-  background: #263e31;
-  color: white;
+  background: var(--tone-10);
+  color: var(--paper);
   border-radius: 10px;
-  box-shadow: 0 8px 24px #20362722;
+  box-shadow: 0 8px 24px rgb(from var(--tone-5) r g b / 0.1333);
   transition: opacity 0.12s;
 }
 .dr-tooltip strong,
@@ -164,11 +164,11 @@
 }
 .dr-tooltip span {
   font-size: 12px;
-  color: #e6eee6;
+  color: var(--tone-90);
 }
 .dr-tooltip small {
   font-size: 11px;
-  color: #b9cbb9;
+  color: var(--tone-75);
   margin-top: 6px;
   line-height: 1.5;
 }
@@ -183,7 +183,7 @@
   flex-wrap: wrap;
   gap: 16px;
   font-size: 10px;
-  color: #728070;
+  color: var(--tone-40);
 }
 .dr-calendar-legend span {
   display: flex;
@@ -193,13 +193,13 @@
 .dr-calendar-legend i {
   width: 9px;
   height: 9px;
-  border: 1px solid #dfe5da;
+  border: 1px solid var(--tone-85);
   border-radius: 3px;
-  background: #f0f3ed;
+  background: var(--tone-95);
 }
 .dr-calendar-legend .dr-legend-filled {
-  background: #648c72;
-  border-color: #648c72;
+  background: var(--tone-40);
+  border-color: var(--tone-40);
 }
 .dr-calendar-legend small {
   margin-left: auto;
@@ -212,7 +212,7 @@
 .dr-calendar-empty > span {
   display: block;
   font-size: 40px;
-  color: #a9b8a1;
+  color: var(--tone-65);
 }
 .dr-desk-columns {
   display: grid;
@@ -223,7 +223,7 @@
 .dr-dropbox,
 .dr-results,
 .dr-archive-card {
-  background: #fff;
+  background: var(--tone-100);
   border: 1px solid var(--dr-border);
   border-radius: 17px;
   padding: 23px;
@@ -232,7 +232,7 @@
 .dr-count {
   font-size: 11px;
   border-radius: 6px;
-  background: #eef3e9;
+  background: var(--tone-95);
   padding: 4px 7px;
   vertical-align: middle;
   margin-left: 6px;
@@ -241,8 +241,8 @@
   margin-top: 20px;
   padding: 24px 14px 22px;
   text-align: center;
-  background: #f7f9f3;
-  border: 1px dashed #cbd9c1;
+  background: var(--tone-95);
+  border: 1px dashed var(--tone-80);
   border-radius: 12px;
 }
 .dr-drop-pad h3 {
@@ -270,9 +270,9 @@
   height: 43px;
   top: 4px;
   left: 20px;
-  border: 1px solid #b8c6ad;
-  background: white;
-  color: #718a62;
+  border: 1px solid var(--tone-70);
+  background: var(--paper);
+  color: var(--tone-40);
   border-radius: 6px;
   font-size: 9px;
   padding-top: 19px;
@@ -282,7 +282,7 @@
   left: 40px;
   top: 0;
   transform: rotate(12deg);
-  background: #eef4e8;
+  background: var(--tone-95);
 }
 .dr-drop-illustration b {
   position: absolute;
@@ -291,8 +291,8 @@
   border-radius: 50%;
   width: 24px;
   height: 24px;
-  background: #dce9d1;
-  color: #487637;
+  background: var(--tone-90);
+  color: var(--tone-30);
   padding-top: 2px;
 }
 .dr-drop-pad:hover .dr-drop-illustration span:first-child {
@@ -324,7 +324,7 @@
 }
 .dr-queue-item small {
   display: block;
-  color: #798476;
+  color: var(--tone-40);
   font-size: 10px;
   margin-top: 5px;
 }
@@ -338,10 +338,10 @@
   place-items: center;
   width: 28px;
   height: 34px;
-  border: 1px solid #d7e0d2;
+  border: 1px solid var(--tone-85);
   border-radius: 5px;
   font-size: 8px;
-  color: #7a8d70;
+  color: var(--tone-45);
   flex: none;
 }
 .dr-status {
@@ -349,24 +349,24 @@
   border-radius: 5px;
   padding: 5px 7px;
   font-size: 10px;
-  background: #f0f2ed;
-  color: #667463;
+  background: var(--tone-95);
+  color: var(--tone-35);
   white-space: nowrap;
 }
 .dr-status.queued,
 .dr-status.complete {
-  background: #edf4e6;
-  color: #507742;
+  background: var(--tone-95);
+  color: var(--tone-30);
 }
 .dr-status.error,
 .dr-status.overlap {
-  background: #fff1de;
-  color: #9a6b37;
+  background: var(--tone-95);
+  color: var(--tone-35);
 }
 .dr-remove {
   border: 0;
   background: none;
-  color: #8c9588;
+  color: var(--tone-50);
   font-size: 17px !important;
 }
 .dr-queue-actions {
@@ -384,8 +384,8 @@
   padding: 20px 0 4px;
 }
 .dr-queue-empty > span {
-  background: #edf3e6;
-  color: #799066;
+  background: var(--tone-95);
+  color: var(--tone-45);
   border-radius: 50%;
   width: 28px;
   height: 28px;
@@ -398,22 +398,22 @@
   font-size: 12px;
 }
 .dr-queue-empty small {
-  color: #86907f;
+  color: var(--tone-45);
   font-size: 11px;
   margin-top: 3px;
 }
 .dr-footnote {
   margin: 21px 0 0;
   font-size: 10px;
-  color: #89917e;
+  color: var(--tone-50);
 }
 .dr-desk-aside {
   display: grid;
   gap: 20px;
 }
 .dr-results {
-  background: #eef3e8;
-  border-color: #dce5d2;
+  background: var(--tone-95);
+  border-color: var(--tone-85);
 }
 .dr-results h2,
 .dr-archive-card h2 {
@@ -442,10 +442,10 @@
   display: block;
   margin-top: 4px;
   font-size: 10px;
-  color: #74836b;
+  color: var(--tone-40);
 }
 .dr-result-months {
-  border-top: 1px solid #d8e2ce;
+  border-top: 1px solid var(--tone-85);
   padding-top: 14px;
   display: flex;
   flex-wrap: wrap;
@@ -453,13 +453,13 @@
   font-size: 11px;
 }
 .dr-result-months span {
-  color: #5f7a50;
+  color: var(--tone-35);
 }
 .dr-result-time {
   display: block;
   margin-top: 13px;
   font-size: 10px;
-  color: #7c8974;
+  color: var(--tone-45);
 }
 .dr-resting-dots {
   display: flex;
@@ -470,13 +470,13 @@
   width: 21px;
   height: 21px;
   border-radius: 6px;
-  background: #bfd0ac;
+  background: var(--tone-75);
 }
 .dr-resting-dots i:nth-child(2) {
-  background: #d0dcc2;
+  background: var(--tone-80);
 }
 .dr-resting-dots i:nth-child(3) {
-  background: #e0e8d7;
+  background: var(--tone-90);
 }
 .dr-archive-card .dr-actions {
   justify-content: flex-start;
@@ -488,9 +488,9 @@
 }
 .dr-clear-confirm {
   padding: 14px;
-  border: 1px solid #e5cfad;
+  border: 1px solid var(--tone-80);
   border-radius: 9px;
-  background: #fff8ec;
+  background: var(--tone-95);
   margin-top: 15px;
   font-size: 12px;
 }
@@ -515,7 +515,7 @@
 .dr-processing progress {
   width: 80%;
   height: 6px;
-  accent-color: #679253;
+  accent-color: var(--tone-45);
 }
 .dr-file-flight {
   position: relative;
@@ -530,10 +530,10 @@
   left: 6px;
   top: 6px;
   padding-top: 13px;
-  border: 1px solid #afc29c;
+  border: 1px solid var(--tone-70);
   border-radius: 5px;
-  color: #72905c;
-  background: #fff;
+  color: var(--tone-45);
+  background: var(--tone-100);
   font-size: 8px;
   font-style: normal;
   opacity: 0;
@@ -549,7 +549,7 @@
   position: absolute;
   right: 6px;
   top: 0;
-  color: #6d895a;
+  color: var(--tone-40);
   font-size: 40px;
   font-weight: 400;
 }
@@ -581,11 +581,11 @@
   width: min(740px, calc(100vw - 70px));
   max-height: 86vh;
   padding: 27px;
-  border: 1px solid #dce4d5;
+  border: 1px solid var(--tone-85);
   border-radius: 18px;
-  background: #fafbf7;
+  background: var(--tone-100);
   color: var(--ink);
-  box-shadow: 0 24px 90px #1f34282b;
+  box-shadow: 0 24px 90px rgb(from var(--tone-5) r g b / 0.1686);
   overflow: hidden;
 }
 .workspace-dialog[open] {
@@ -610,14 +610,14 @@
   width: 7px;
 }
 .workspace-dialog-scroll::-webkit-scrollbar-thumb {
-  background: #c4cebd;
+  background: var(--tone-75);
   border-radius: 8px;
 }
 .workspace-dialog-scroll::-webkit-scrollbar-track {
   background: transparent;
 }
 .workspace-dialog::backdrop {
-  background: #19302060;
+  background: rgb(from var(--tone-0) r g b / 0.3765);
   backdrop-filter: blur(3px);
 }
 .workspace-dialog > header {
@@ -646,7 +646,7 @@
   padding: 10px 0;
 }
 .workspace-dialog summary:focus-visible {
-  outline: 3px solid #95bea2;
+  outline: 3px solid var(--tone-65);
 }
 .dr-search {
   width: 100%;
@@ -654,7 +654,7 @@
 }
 /* Account-led receipts; source filenames are available on expansion. */
 .dr-history-entry {
-  border-bottom: 1px solid #e1e7dc;
+  border-bottom: 1px solid var(--tone-90);
 }
 .dr-history-entry summary {
   display: grid;
@@ -671,7 +671,7 @@
 }
 .dr-history-entry summary::after {
   content: "›";
-  color: #87937c;
+  color: var(--tone-50);
   font-size: 18px;
   transition: transform 0.15s;
 }
@@ -679,7 +679,7 @@
   transform: rotate(90deg);
 }
 .dr-history-entry summary:hover {
-  background: #f0f4eb;
+  background: var(--tone-95);
 }
 .dr-history-account {
   display: flex;
@@ -701,12 +701,12 @@
 .dr-history-account small {
   display: block;
   margin-top: 3px;
-  color: #89907e;
+  color: var(--tone-50);
   font-size: 10px;
 }
 .dr-history-entry time {
   font-size: 10px;
-  color: #7a8673;
+  color: var(--tone-40);
 }
 .dr-history-entry .dr-status {
   justify-self: end;
@@ -723,7 +723,7 @@
 }
 .dr-upload-filename {
   font-size: 11px;
-  color: #76836e;
+  color: var(--tone-40);
   overflow-wrap: anywhere;
 }
 .dr-upload-details p {
@@ -741,11 +741,11 @@
 .dr-original small {
   display: block;
   font-size: 11px;
-  color: #7e8977;
+  color: var(--tone-45);
   margin-top: 6px;
 }
 .dr-error-text {
-  color: #a25c34 !important;
+  color: var(--tone-30) !important;
   overflow-wrap: anywhere;
 }
 .dr-empty-copy {
@@ -757,7 +757,7 @@
   justify-content: space-between;
   gap: 15px;
   padding: 14px 0;
-  border-bottom: 1px solid #e0e6dc;
+  border-bottom: 1px solid var(--tone-90);
 }
 .dr-original button {
   flex: none;
@@ -767,7 +767,7 @@
   margin-bottom: 27px;
 }
 .dr-archive-months > div {
-  border: 1px solid #dce4d5;
+  border: 1px solid var(--tone-85);
   border-radius: 9px;
   padding: 14px;
   margin-bottom: 10px;
@@ -778,7 +778,7 @@
   font-size: 13px;
 }
 .dr-archive-months summary small {
-  color: #798771;
+  color: var(--tone-45);
   margin-left: 10px;
 }
 .dr-saved-row {
@@ -787,7 +787,7 @@
   align-items: center;
   gap: 10px;
   font-size: 11px;
-  border-top: 1px solid #e0e6dc;
+  border-top: 1px solid var(--tone-90);
   padding: 10px 0;
 }
 .dr-saved-row > span {
@@ -815,7 +815,7 @@
   display: grid;
   place-items: center;
   border-radius: 12px;
-  color: white;
+  color: var(--paper);
   background: var(--account-color);
   margin-bottom: 18px;
   font-size: 12px;
@@ -823,9 +823,9 @@
 .account-prefix {
   display: block;
   padding: 9px;
-  background: #f1f4ed;
+  background: var(--tone-95);
   border-radius: 6px;
-  color: #74806c;
+  color: var(--tone-40);
   font-size: 11px;
   margin: 14px 0;
   overflow-wrap: anywhere;
@@ -863,8 +863,8 @@
   text-transform: capitalize;
 }
 .account-options button[aria-pressed="true"] {
-  background: #edf3e6;
-  border-color: #7d9969;
+  background: var(--tone-95);
+  border-color: var(--tone-50);
 }
 .account-colors > button {
   width: 30px;
@@ -873,8 +873,8 @@
   border-radius: 50%;
   padding: 0;
   background: var(--account-color);
-  color: white;
-  border: 3px solid #fafbf7;
+  color: var(--paper);
+  border: 3px solid var(--tone-100);
   outline: 1px solid transparent;
 }
 .account-colors > button[aria-pressed="true"] {
@@ -897,14 +897,14 @@
 }
 .account-editor .prefix-feedback {
   margin: -7px 0 0;
-  background: #edf3e7;
+  background: var(--tone-95);
   padding: 10px;
   border-radius: 7px;
   font-size: 12px;
 }
 .account-editor .prefix-feedback.invalid {
-  background: #fff0e7;
-  color: #aa5e3d;
+  background: var(--tone-95);
+  color: var(--tone-30);
 }
 .account-editor details p {
   margin: 5px 0;
@@ -913,7 +913,7 @@
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  border-top: 1px solid #dfe6d9;
+  border-top: 1px solid var(--tone-85);
   padding-top: 17px;
 }
 @media (max-width: 1200px) {
@@ -1006,10 +1006,10 @@
   padding-top: 13px;
 }
 .dr-archive-card {
-  background: #eff3e9;
+  background: var(--tone-95);
 }
 .dr-archive-icon {
-  color: #8ba078;
+  color: var(--tone-55);
   font-size: 30px;
   margin-bottom: 8px;
 }
@@ -1022,7 +1022,7 @@
   justify-content: space-between;
   align-items: center;
   border: 0;
-  border-top: 1px solid #dce4d3;
+  border-top: 1px solid var(--tone-85);
   border-radius: 0;
   background: transparent;
   padding: 12px 0;
@@ -1039,7 +1039,7 @@
   align-items: center;
   gap: 12px;
   padding: 9px 0;
-  border-top: 1px solid #e3e9dd;
+  border-top: 1px solid var(--tone-90);
 }
 .dr-snapshot-account {
   flex: 1;
@@ -1048,7 +1048,7 @@
   overflow-wrap: anywhere;
 }
 .dr-account-snapshot small {
-  color: #7a8774;
+  color: var(--tone-45);
   font-size: 11px;
   white-space: nowrap;
 }
@@ -1059,7 +1059,7 @@
   flex: none;
 }
 .dr-originals {
-  border-top: 1px solid #dce4d5;
+  border-top: 1px solid var(--tone-85);
 }
 .dr-originals > summary {
   padding: 16px 0;
@@ -1069,7 +1069,7 @@
   margin-left: 8px;
   padding: 2px 6px;
   border-radius: 5px;
-  background: #e9eee3;
+  background: var(--tone-90);
   font-size: 11px;
 }
 .notice.snackbar {
@@ -1082,10 +1082,10 @@
   max-width: calc(100vw - 310px);
   margin: 0;
   padding: 12px 16px;
-  border: 1px solid #cedbc3;
+  border: 1px solid var(--tone-80);
   border-radius: 12px;
-  box-shadow: 0 8px 30px #243c2a22;
-  background: #edf4e7;
+  box-shadow: 0 8px 30px rgb(from var(--tone-5) r g b / 0.1333);
+  background: var(--tone-95);
   animation: snackbar-in 0.2s ease-out;
 }
 .dr-result-popup {
@@ -1105,19 +1105,19 @@
   width: 65px;
   height: 65px;
   border-radius: 22px;
-  color: #9b7746;
-  background: #f4ead8;
+  color: var(--tone-40);
+  background: var(--tone-90);
   font-size: 32px;
 }
 .dr-result-emblem.complete {
-  color: #61864a;
-  background: #e8f1dc;
+  color: var(--tone-40);
+  background: var(--tone-90);
   animation: result-pop 0.5s cubic-bezier(0.2, 1.5, 0.5, 1);
 }
 .dr-result-popup .dr-result-numbers {
   margin: 20px 0 0;
   padding: 20px;
-  background: #f0f4eb;
+  background: var(--tone-95);
   border-radius: 12px;
 }
 .dr-result-popup .dr-result-months {
@@ -1263,17 +1263,17 @@
   padding-inline: 8px;
 }
 .workspace-dialog-scroll :is(input, button, summary):focus-visible {
-  outline: 2px solid #85ad90;
+  outline: 2px solid var(--tone-55);
   outline-offset: 2px;
 }
 .account-delete-link {
   margin-left: 9px;
   border: 0;
   background: transparent;
-  color: #a36952;
+  color: var(--tone-35);
 }
 .account-delete-link:hover {
-  background: #f8ece6;
+  background: var(--tone-90);
 }
 .account-delete-confirm h3 {
   font-size: 19px;
@@ -1285,22 +1285,22 @@
   margin-top: 24px;
 }
 button.danger {
-  background: #a45842;
-  color: white;
-  border-color: #a45842;
+  background: var(--tone-30);
+  color: var(--paper);
+  border-color: var(--tone-30);
 }
 button.danger:hover {
-  background: #914935;
+  background: var(--tone-20);
 }
 .deleted-accounts {
   margin: 20px 0;
-  border: 1px solid #dfe5d9;
+  border: 1px solid var(--tone-85);
   border-radius: 10px;
   padding: 4px 16px;
 }
 .deleted-accounts summary {
   cursor: pointer;
-  color: #75826e;
+  color: var(--tone-40);
   padding: 12px 0;
 }
 .deleted-accounts > div {
@@ -1309,7 +1309,7 @@ button.danger:hover {
   justify-content: space-between;
   gap: 14px;
   padding: 11px 0;
-  border-top: 1px solid #e0e6dc;
+  border-top: 1px solid var(--tone-90);
   font-size: 12px;
 }
 @media (max-width: 1000px) {
@@ -1319,7 +1319,7 @@ button.danger:hover {
   }
 }
 .dr-auto-import {
-  color: #64715f;
+  color: var(--tone-35);
   font-size: 12px;
   line-height: 1.6;
   margin: 12px 0;

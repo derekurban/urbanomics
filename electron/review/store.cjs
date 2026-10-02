@@ -1,3 +1,4 @@
+const { systemDefinitions, systemTagRecords, isOther } = require("./system-tags.mjs");
 const { blend, endpoints, validColor } = require("./palette.mjs");
 const { tagType, tagFits, orderedTags } = require("./tag-model.mjs");
 const { eventDates, validDate } = require("./event-model.mjs");
@@ -74,10 +75,15 @@ class ReviewStore {
     }
   }
   entities() {
-    return this.db
-      .prepare("SELECT * FROM review_entities ORDER BY rowid")
-      .all()
-      .map((e) => ({ ...e, tags: JSON.parse(e.tags) }))
+    const stored = this.db.prepare("SELECT * FROM review_entities ORDER BY rowid").all().map(e => ({...e, tags:JSON.parse(e.tags)}));
+    // Reuse existing Other IDs, preserving assignments and rule references.
+    // Renames live separately so the original identity never depends on its label.
+    const system = systemDefinitions.map(t => ({...t,
+      id: t.kind === 'category' ? stored.find(e => e.kind === 'category' && e.name.toLowerCase() === 'other' && tagType(e) === t.flowType)?.id || t.id : t.id,
+      systemKey: t.id,
+      name: this.db.prepare('SELECT name FROM system_tag_names WHERE id=?').get(t.id)?.name || t.name,
+    }));
+    return stored.filter(e => !system.some(t => t.id === e.id)).concat(system)
       .concat(
         this.db
           .prepare("SELECT * FROM category_palettes ORDER BY id")
@@ -130,7 +136,8 @@ class ReviewStore {
     return [...imported, ...cash].sort((a, b) => b.date.localeCompare(a.date));
   }
   state() {
-    return { entities: this.entities(), records: this.records() };
+    const entities = this.entities();
+    return { entities, records: systemTagRecords(this.records(), entities) };
   }
   pending() {
     return (
@@ -150,9 +157,10 @@ class ReviewStore {
     return this.atomic(() => {
       if (!Array.isArray(ids) || !ids.length || !Array.isArray(expected) || new Set(ids).size !== ids.length)
         throw new Error("Choose the complete tag order.");
+      if (ids.some(id => this.entities().some(t => t.id === id && t.systemRole))) throw new Error("System tags have a fixed position.");
       const first = this.entities().find(t => t.id === ids[0] && t.kind === "category");
       if (!first) throw new Error("Tag no longer exists.");
-      const current = orderedTags(this.entities().filter(t => t.kind === "category" && t.flowType === first.flowType && t.parentId === first.parentId)).map(t => t.id);
+      const current = orderedTags(this.entities().filter(t => t.kind === "category" && !t.systemRole && t.flowType === first.flowType && t.parentId === first.parentId)).map(t => t.id);
       if (JSON.stringify(current) !== JSON.stringify(expected) || ids.length !== current.length || ids.some(id => !current.includes(id)))
         throw new Error("Tags changed. Refresh before reordering them.");
       const update = this.db.prepare("UPDATE review_entities SET sortOrder=? WHERE id=?");
@@ -161,6 +169,16 @@ class ReviewStore {
     });
   }
   entity(kind, values) {
+    const system = this.entities().find(t => t.systemRole && t.id === values?.id);
+    if (system) {
+      if (kind !== system.kind || typeof values.name !== 'string' || !values.name.trim() || values.name.trim().length > 80)
+        throw new Error('Enter a system tag name up to 80 characters.');
+      if (['color','flowType','parentId'].some(key => values[key] !== undefined && values[key] !== system[key]))
+        throw new Error('System tag roles, colors and locations are locked. Only the name can change.');
+      if (this.entities().some(t => t.id !== system.id && t.kind === system.kind && t.flowType === system.flowType && t.name.toLowerCase() === values.name.trim().toLowerCase())) throw new Error('That name already exists.');
+      this.db.prepare('INSERT INTO system_tag_names (id,name) VALUES (?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name').run(system.systemKey,values.name.trim());
+      return system.id;
+    }
     if (kind === "palette") {
       if (
         !["income", "ungrouped"].includes(values?.id) ||
@@ -220,12 +238,15 @@ class ReviewStore {
         .get(kind, name, values.id || "", flowType)
     )
       throw new Error("That name already exists.");
+    if (kind === 'category' && this.entities().some(t => t.systemRole && t.flowType === flowType && t.name.toLowerCase() === name.toLowerCase() && t.id !== values.id))
+      throw new Error('That system tag already exists. Use it or choose another name.');
     const dates = eventDates(
       kind === "group" ? { ...existing, ...values } : {},
     );
     if (kind === "group" && (!dates.startDate || !dates.endDate))
       throw new Error("Events need both a start date and an end date.");
     if (existing && tagType(existing) !== flowType) {
+      if(this.imports.transactionRules?.rules().some(r=>r.template?.tags.some(p=>p.id===existing.id)))throw new Error('Update template rules before changing this tag type.');
       if (
         this.records().some(
           (r) =>
@@ -345,6 +366,8 @@ class ReviewStore {
   removeEntity(id) {
     const entity = this.entities().find((e) => e.id === id);
     if (!entity) throw new Error("Item not found.");
+    if(this.imports.transactionRules?.rules().some(r=>r.template&&(r.template.tags.some(p=>p.id===id)||r.template.groups.includes(id))))throw new Error('This item is used by a template. Update or delete that rule first.');
+    if (entity.systemRole) throw new Error("System tags cannot be deleted. You can rename them.");
     if (entity.kind === "palette")
       throw new Error("This shared palette cannot be deleted.");
     if (
@@ -530,6 +553,8 @@ class ReviewStore {
           review.assignedPersonId = change.assignedPersonId;
         }
         if (change.tags !== undefined) {
+          delete review.allocationMode;
+          delete review.templateReview;
           review.tags = portions(change.tags, "tag portions");
           // Let legacy assignments remain unchanged during unrelated edits, or be removed.
           const unchanged =
@@ -574,7 +599,27 @@ class ReviewStore {
   financial(id, version, draft) {
     return this.atomic(() => this.financialWrite(id, version, draft));
   }
-  linkTransfer(outId, outVersion, inId, inVersion, basisPoints) {
+  allocationGroups(id, groups) {
+    if(groups===undefined)return;
+    const selected=ids(groups,'groups');
+    if(selected.some(id=>!this.entities().some(e=>e.id===id&&e.kind==='group')))throw new Error('Group no longer exists.');
+    const row=this.records().find(r=>r.id===id&&!r.deleted);
+    this.write(id,{...row.review,groups:selected,groupsReviewed:selected.length>0},row.version);
+  }
+  allocation(id, version, draft) {
+    return this.atomic(() => {
+      const row=this.current(id,version);
+      if(row.review.kind==='transfer')throw new Error('Unlink the transfer before editing allocations.');
+      const tags=portions(draft.tags||[], 'tag portions');
+      if(tags.some(p=>isOther(p.id,this.entities())))throw new Error('Leave the remainder unallocated instead of choosing Other.');
+      const allocations=portions(draft.allocations||[], 'repayments');
+      if(row.amountCents<=0&&allocations.length)throw new Error('Only incoming money can repay an expense.');
+      const kind=row.amountCents<0?'expense':row.amountCents===0?'zero':allocations.some(p=>p.cents>0)?'repayment':tags.some(p=>p.cents>0)?'income':'unreviewed';
+      this.financialWrite(id,version,{...row.review,tags,allocations,kind,reviewed:kind!=='unreviewed',personId:draft.personId||'',shares:row.review.shares,remainder:kind==='repayment'?row.amountCents-sum(allocations):0},0,true);
+      this.allocationGroups(id,draft.groups);
+    });
+  }
+  linkTransfer(outId, outVersion, inId, inVersion, basisPoints, groups) {
     return this.atomic(() => {
       if (!validBand(basisPoints))
         throw new Error(
@@ -597,6 +642,7 @@ class ReviewStore {
         { kind: "transfer", reviewed: true, transferId: inId },
         basisPoints,
       );
+      this.allocationGroups(inId,groups);
     });
   }
   unlinkTransfer(id, version, counterpartVersion) {
@@ -620,7 +666,7 @@ class ReviewStore {
         );
     });
   }
-  financialWrite(id, version, draft, basisPoints = 0) {
+  financialWrite(id, version, draft, basisPoints = 0, layerMode = false) {
     const row = this.current(id, version),
       review = {
         ...row.review,
@@ -638,6 +684,21 @@ class ReviewStore {
         remainder: draft.remainder ?? 0,
         transferId: draft.transferId || "",
       };
+    if(layerMode)review.allocationMode='layers';
+    else if(draft.tags!==undefined)delete review.allocationMode;
+    if(layerMode||draft.tags!==undefined)delete review.templateReview;
+    // Optional tags and financial purpose form one versioned, atomic decision.
+    if (draft.tags !== undefined) {
+      const entities=this.entities();
+      review.tags=portions(draft.tags,"tag portions");
+      const unchanged=JSON.stringify(review.tags)===JSON.stringify(row.review.tags);
+      if (review.tags.some(p=>!entities.some(e=>e.id===p.id&&e.kind==='category')) ||
+          (layerMode ? sum(review.tags)+sum(review.allocations)>Math.abs(row.amountCents) : (review.tags.length&&sum(review.tags)!==Math.abs(row.amountCents))) ||
+          (!unchanged&&review.tags.some(p=>!tagFits({...row,review},entities.find(e=>e.id===p.id)))))
+        throw new Error(layerMode?"Tags and connections must fit within the transaction and use its income or expense tags.":"Tag portions must total the amount and use tags from this transaction's lens.");
+    }
+    if(review.allocationMode==='layers'&&sum(review.tags)+(review.kind==='repayment'?sum(review.allocations):0)>Math.abs(row.amountCents))
+      throw new Error('Reduce tag allocations before increasing these repayments.');
     const people = new Set(
       this.entities()
         .filter((e) => e.kind === "person")
@@ -663,18 +724,8 @@ class ReviewStore {
       throw new Error(
         "Purpose does not match the direction of this transaction.",
       );
-    if (review.kind === "income") {
-      if (
-        !["paycheck", "interest", "sale", "gift", "other"].includes(
-          review.incomeType,
-        ) ||
-        review.incomeSource.length > 80 ||
-        (review.incomeType === "other" && !review.incomeSource)
-      )
-        throw new Error(
-          "Choose an income type; give other income a source name.",
-        );
-    } else {
+    // Legacy source labels remain archival metadata, never a required decision.
+    if (review.kind !== "income") {
       review.incomeType = "";
       review.incomeSource = "";
     }

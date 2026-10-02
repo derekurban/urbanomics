@@ -151,20 +151,9 @@ test("cash and bank contributions share expense caps, stay out of snapshots/conf
       .voidedAt,
   );
   const salary = row("Salary");
-  assert.throws(
-    () =>
-      store.review.financial(salary.id, salary.version, {
-        kind: "income",
-        reviewed: true,
-      }),
-    /income type/,
-  );
-  store.review.financial(salary.id, salary.version, {
-    kind: "income",
-    incomeType: "paycheck",
-    reviewed: true,
-  });
-  assert.equal(row("Salary").review.incomeType, "paycheck");
+  store.review.financial(salary.id, salary.version, {kind: "income", reviewed: true});
+  assert.equal(row("Salary").review.kind, "income");
+  assert.equal(row("Salary").review.incomeType, "");
   assert.throws(
     () => store.review.entity("group", { name: "Undated", color: "#78976A" }),
     /both a start date/,

@@ -277,7 +277,6 @@ async function saveReview() {
     );
     await selectTask("Salary");
     await page.getByRole("button", { name: "Income", exact: true }).click();
-    await page.getByRole("button", { name: "Paycheck", exact: true }).click();
     await saveReview();
     await selectTask("Transfer out");
     await page

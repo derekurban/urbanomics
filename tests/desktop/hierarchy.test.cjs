@@ -48,7 +48,7 @@ test("hierarchy preserves legacy assignments, validates parents, guards deletion
   );
   s.close();
   s = new ImportStore(path.join(root, "data"));
-  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 17);
+  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 21);
   assert.deepEqual(s.review.records(), before);
   s.review.starterHierarchy();
   const first = s.review.entities();

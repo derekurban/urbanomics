@@ -1,3 +1,5 @@
+const {normalizeTemplate,templateCandidate}=require('./template-rules.cjs');
+const { needsTagging, savedTags } = require("./system-tags.mjs");
 const { tagType, tagFits, tagLens } = require("./tag-model.mjs");
 const { randomUUID, createHash } = require("node:crypto");
 
@@ -13,6 +15,7 @@ class TransactionRuleStore {
       .map((r) => ({
         ...r,
         aliasIds: JSON.parse(r.aliasIds),
+        template:r.template?JSON.parse(r.template):null,
         enabled: !!r.enabled,
       }));
   }
@@ -52,7 +55,9 @@ class TransactionRuleStore {
     )
       throw new Error("Choose a valid rule direction and enabled state.");
     const entities = this.imports.review.entities();
-    if (!categoryId && !personId)
+    const template=normalizeTemplate(values.template,entities,direction);
+    if(template&&categoryId)throw Error('Template portions replace the single tag mapping.');
+    if (!categoryId && !personId && !template?.tags.length && !template?.groups.length)
       throw new Error("Choose a category, a person, or both.");
     if (
       categoryId &&
@@ -80,6 +85,7 @@ class TransactionRuleStore {
       matchType,
       aliasIds,
       categoryId,
+      template,
       personId,
       direction,
       enabled: values.enabled !== false,
@@ -97,10 +103,11 @@ class TransactionRuleStore {
         )
       )
         throw new Error("A rule with that name already exists.");
+      if(r.template&&r.enabled){const conflicts=this.preview(values).matches.filter(m=>m.status==='conflict');if(conflicts.length)throw Error('Competing rules still match: '+[...new Set(conflicts.flatMap(m=>m.ruleDetails.filter(x=>x.id!==(r.id||'draft')).map(x=>x.name)))].join(', ')+'. Refresh the preview and resolve these overlaps before enabling this rule.');}
       const id = old?.id || randomUUID();
       this.db
         .prepare(
-          "INSERT INTO transaction_rules(id,name,pattern,categoryId,personId,direction,enabled,version,matchType,aliasIds) VALUES(?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,pattern=excluded.pattern,categoryId=excluded.categoryId,personId=excluded.personId,direction=excluded.direction,enabled=excluded.enabled,version=excluded.version,matchType=excluded.matchType,aliasIds=excluded.aliasIds",
+          "INSERT INTO transaction_rules(id,name,pattern,categoryId,personId,direction,enabled,version,matchType,aliasIds,template) VALUES(?,?,?,?,?,?,?,?,?,?,?) ON CONFLICT(id) DO UPDATE SET name=excluded.name,pattern=excluded.pattern,categoryId=excluded.categoryId,personId=excluded.personId,direction=excluded.direction,enabled=excluded.enabled,version=excluded.version,matchType=excluded.matchType,aliasIds=excluded.aliasIds,template=excluded.template",
         )
         .run(
           id,
@@ -113,6 +120,7 @@ class TransactionRuleStore {
           (old?.version || 0) + 1,
           r.matchType,
           JSON.stringify(r.aliasIds),
+          r.template?JSON.stringify(r.template):null,
         );
       return id;
     });
@@ -156,6 +164,7 @@ class TransactionRuleStore {
               : r.regex.test(row.originalDescription ?? row.description)),
         );
         if (!matched.length) return [];
+        if(matched.some(r=>r.template))return [templateCandidate(row,matched,entities)];
         const categoryIds = [
             ...new Set(matched.map((r) => r.categoryId).filter(Boolean)),
           ],
@@ -182,7 +191,7 @@ class TransactionRuleStore {
               reasons.push(
                 "Tag type does not match this transaction or its financial purpose.",
               );
-            else if (!row.review.tags.length && row.amountCents !== 0)
+            else if (needsTagging(row) && row.amountCents !== 0 && (!row.review.tags.length || row.tagsAutomatic) && !(row.review.allocationMode==='layers'&&row.review.allocations?.some(a=>a.cents>0)))
               changes.categoryId = categoryId;
             else if (!(
               row.review.tags.length === 1 &&
@@ -229,7 +238,13 @@ class TransactionRuleStore {
             conflicts: status === "conflict" ? matched.map((r) => r.name) : [],
           },
         ];
-      });
+      }).map(candidate=>({...candidate,ruleDetails:rules.filter(r=>candidate.ruleIds.includes(r.id)).map(({id,name,pattern,matchType,aliasIds,categoryId,personId,direction,template,enabled,version})=>({id,name,pattern,matchType,aliasIds,categoryId,personId,direction,template,enabled,version}))}));
+  }
+  coverage(id) {
+    const records=this.imports.review.state().records.filter(r=>r.id===id);
+    if(!records.length)throw Error('This transaction is no longer available.');
+    const rules=this.rules(),matched=this.candidates(records,rules.map(r=>({...r,enabled:true})))[0];
+    return {transactionId:id,rules:rules.filter(r=>matched?.ruleIds.includes(r.id)),decision:this.candidates(records,rules)[0]||null};
   }
   state() {
     const rules = this.rules(),
@@ -288,7 +303,14 @@ class TransactionRuleStore {
         continue;
       }
       const row = byId.get(c.id),
-        review = { ...row.review };
+        review = { ...row.review, tags: savedTags(row) };
+      if(c.changes.template){
+        review.tags=c.changes.tags;review.allocationMode='layers';
+        review.groups=c.changes.template.groups;review.groupsReviewed=review.groups.length>0;
+        review.templateReview=c.changes.template.autoReview?'accepted':'pending';
+        review.templateRuleId=c.changes.templateRuleId;
+        review.kind=row.amountCents>0?'income':'expense';
+      }
       if (c.changes.categoryId)
         review.tags = [
           { id: c.changes.categoryId, cents: Math.abs(row.amountCents) },

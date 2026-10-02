@@ -13,7 +13,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
   const [query, setQuery] = useState(""),
     [over, setOver] = useState(null);
   const tags = alphabetical(
-      entities.filter((e) => e.kind === "category" && tagType(e) === lens),
+      entities.filter((e) => e.kind === "category" && !e.systemRole && tagType(e) === lens),
     ),
     buckets = entities.filter((e) => e.kind === "bucket");
   const incomePalette = systemPalette(entities, "income");
@@ -55,7 +55,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
       aria-label="Categories and tags hierarchy"
     >
       <div className="th-lenses" role="group" aria-label="Organization lens">
-        {["expense", "income", "transfer"].map((type) => (
+        {["expense", "income", "transfer", "system"].map((type) => (
           <button
             key={type}
             style={
@@ -75,16 +75,21 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
               setLifted("");
             }}
           >
-            <strong>{type === "expense" ? "Expenses" : type === "income" ? "Income" : "Transfers"}</strong>
+            <strong>{type === "expense" ? "Expenses" : type === "income" ? "Income" : type === "transfer" ? "Transfers" : "System tags"}</strong>
             <small>
               {type === "expense"
                 ? "Categories with detailed tags"
-                : type === "income" ? "Sources of money received" : "Linked movements between accounts"}
+                : type === "income" ? "Sources of money received" : type === "transfer" ? "Linked movements between accounts" : "Automatic classification"}
             </small>
           </button>
         ))}
       </div>
-      {lens === "transfer" ? <div className="th-transfer-info"><h2>Transfers have a place of their own.</h2><p>Link the money leaving one account to the money arriving in another in Review → Transfers. Both entries leave expense and income tagging automatically. Their saved tags stay preserved if you unlink them.</p><p>Transfer fees remain separate costs. No transfer tags are needed.</p></div> : <>
+      {(lens === 'system' || lens === 'expense' || lens === 'income') && <div className="th-system-tags" aria-label="System tags">
+        {entities.filter(t => t.systemRole && (lens === 'system' || t.systemRole === `other-${lens}`)).map(t => <article key={t.id}>
+          <i style={{background:t.color}}/><div><strong>{t.name}</strong><small>{t.systemRole === 'other-income' ? 'Income default' : t.systemRole === 'other-expense' ? 'Expense default' : 'Linked automatically'} · Locked</small><p>{t.description}</p></div><button disabled={busy} onClick={()=>edit(t)} aria-label={`Rename ${t.systemRole}`}>Rename</button>
+        </article>)}
+      </div>}
+      {lens === "system" ? null : lens === "transfer" ? <div className="th-transfer-info"><h2>Transfers have a place of their own.</h2><p>Link the money leaving one account to the money arriving in another in Review → Transfers. Both entries leave expense and income tagging automatically. Their saved tags stay preserved if you unlink them.</p><p>Transfer fees remain separate costs. The system Transfer tag follows the link automatically. Rename it under System tags.</p></div> : <>
       <div className="th-heading">
         <div>
           <h2>

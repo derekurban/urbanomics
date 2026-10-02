@@ -9,19 +9,19 @@
   h1 { font-size: 29px; letter-spacing: -.8px; }
   h2 { font-size: 20px; }
   .app-shell { display: block; }
-  .sidebar { inset: auto 0 0; width: 100%; min-width: 0; height: auto; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid var(--line); background: #f9fbf5f5; backdrop-filter: blur(18px); z-index: 30; }
+  .sidebar { inset: auto 0 0; width: 100%; min-width: 0; height: auto; padding: 6px 8px calc(6px + env(safe-area-inset-bottom)); border: 0; border-top: 1px solid var(--line); background: rgb(from var(--tone-100) r g b / 0.9608); backdrop-filter: blur(18px); z-index: 30; }
   .sidebar > :not(nav) { display: none; }
-  .sidebar nav { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 2px; }
-  .sidebar .nav-item { position: relative; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 0; min-height: 54px; font-size: 10px; border-radius: 13px; }
+  .sidebar nav { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); gap: 2px; }
+  .sidebar .nav-item { position: relative; flex-direction: column; justify-content: center; gap: 4px; padding: 6px 0; min-height: 54px; font-size: 9px; border-radius: 13px; }
   .sidebar .nav-item > span { font-size: 21px; width: auto; }
   .sidebar .nav-item b { position: absolute; top: 0; right: 2px; font-size: 9px; }
   .workspace { margin-left: 0; width: 100%; min-width: 0; }
   .workspace > .topbar { display: none; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; padding: calc(15px + env(safe-area-inset-top)) 18px 14px; border-bottom: 1px solid var(--line); gap: 8px; }
   .mobile-topbar > strong { font-size: 22px; letter-spacing: -1px; }
-  .mobile-topbar strong span { color: #8dab72; font-size: 8px; margin-left: 2px; }
-  .mobile-connection { font-size: 10px; color: #466647; padding: 6px 9px; border-radius: 20px; background: #e7f0df; }
-  .mobile-connection.offline { color: #985d31; background: #f6e6d8; }
+  .mobile-topbar strong span { color: var(--tone-55); font-size: 8px; margin-left: 2px; }
+  .mobile-connection { font-size: 10px; color: var(--tone-25); padding: 6px 9px; border-radius: 20px; background: var(--tone-90); }
+  .mobile-connection.offline { color: var(--tone-30); background: var(--tone-90); }
   .workspace > main { padding: 23px 16px calc(95px + env(safe-area-inset-bottom)); max-width: 100%; }
   .workspace > footer { display: none; }
   .page-heading, .rv-heading, .dash-heading, .dw-heading { flex-wrap: wrap; gap: 12px; align-items: flex-start; }
@@ -84,7 +84,7 @@
   .workspace-dialog-footer { padding: 12px 16px calc(12px + env(safe-area-inset-bottom)); }
   .workspace-dialog-footer button { flex: 1; }
   .ts-fields > label { display: grid; gap: 8px; margin-bottom: 14px; }
-  .ts-fields select { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--ink); background: white; }
+  .ts-fields select { width: 100%; border: 1px solid var(--line); border-radius: 10px; padding: 10px; color: var(--ink); background: var(--paper); }
   .modal-backdrop { padding: 8px; }
   .modal, .wide-modal { width: 100%; max-width: 100%; max-height: calc(100dvh - 16px); padding: 18px; }
   .rv-targets label { gap: 8px; }
@@ -92,17 +92,17 @@
   .os-body { display: block; }
   .os-stage { display: none; }
   .mobile-sorter { display: block; }
-  .mobile-transaction { width: 100%; text-align: left; border-radius: 23px; padding: 22px; background: linear-gradient(135deg,#fdfef9,#e9f0e1); box-shadow: 0 6px 0 -2px #dce7d4, 0 12px 0 -5px #e8eedf; margin: 6px 0 24px; animation: mobile-card-enter 180ms ease-out; }
+  .mobile-transaction { width: 100%; text-align: left; border-radius: 23px; padding: 22px; background: linear-gradient(135deg,var(--tone-100),var(--tone-90)); box-shadow: 0 6px 0 -2px var(--tone-85), 0 12px 0 -5px var(--tone-90); margin: 6px 0 24px; animation: mobile-card-enter 180ms ease-out; }
   .mobile-transaction > span:first-child { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
   .mobile-transaction h3 { font-size: 21px; margin: 18px 0 10px; overflow-wrap: anywhere; }
   .mobile-transaction > strong { display: block; font-size: 34px; margin-bottom: 14px; font-variant-numeric: tabular-nums; }
   .mobile-transaction > small { display: block; font-size: 12px; }
-  .mobile-card-hint { display: block; font-size: 11px; color: #53734c; margin-top: 20px; }
+  .mobile-card-hint { display: block; font-size: 11px; color: var(--tone-30); margin-top: 20px; }
   .mobile-tag-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin: 12px 0; }
   .mobile-tag-heading button { font-size: 11px; padding: 7px 10px; }
   .mobile-tag-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 9px; }
-  .mobile-tag-grid button { min-height: 64px; padding: 12px; text-align: left; background: color-mix(in srgb,var(--tag-color,#9baa8e) 15%,white); border-color: color-mix(in srgb,var(--tag-color,#9baa8e) 40%,white); overflow-wrap: anywhere; border-radius: 15px; }
-  .mobile-tag-grid button i { display: inline-block; width: 8px; height: 8px; background: var(--tag-color,#9baa8e); border-radius: 50%; margin-right: 7px; }
+  .mobile-tag-grid button { min-height: 64px; padding: 12px; text-align: left; background: color-mix(in srgb,var(--tag-color,var(--tone-60)) 15%,var(--paper)); border-color: color-mix(in srgb,var(--tag-color,var(--tone-60)) 40%,var(--paper)); overflow-wrap: anywhere; border-radius: 15px; }
+  .mobile-tag-grid button i { display: inline-block; width: 8px; height: 8px; background: var(--tag-color,var(--tone-60)); border-radius: 50%; margin-right: 7px; }
   .mobile-tag-grid button small { display: block; padding-left: 15px; margin-top: 5px; font-size: 10px; }
   .mobile-tag-grid button[aria-pressed=true] { border: 2px solid var(--green); }
   .os-controls { padding: 18px 0; border: 0; background: none; }
@@ -128,7 +128,7 @@
   .dr-section-line { flex-wrap: wrap; }
   .dr-calendar { overflow-x: auto; padding-bottom: 8px; }
   .dr-calendar table { min-width: 650px; }
-  .dr-calendar th:first-child { width: 130px; min-width: 130px; position: sticky; left: 0; background: white; z-index: 1; }
+  .dr-calendar th:first-child { width: 130px; min-width: 130px; position: sticky; left: 0; background: var(--paper); z-index: 1; }
   .dr-calendar::after { content: 'Swipe to see all months →'; display: block; color: var(--muted); font-size: 11px; padding-top: 10px; }
   .dr-cell { width: 36px; height: 44px; }
   .dr-dropbox, .dr-archive-card { padding: 18px; }

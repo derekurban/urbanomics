@@ -14,7 +14,7 @@ export function transactionState(row, records) {
     0,
   );
   const transfer = r.kind === "transfer" && !!r.transferId;
-  const income = r.kind === "income" && !!r.incomeType;
+  const income = r.kind === "income";
   const unassigned =
     row.amountCents > 0 && !transfer && !income
       ? row.amountCents - allocated
@@ -38,9 +38,10 @@ export function transactionState(row, records) {
 }
 export function transactionLabels(row, facts) {
   return [
-    !facts.transfer && (facts.categorized ? "Categorized" : "Uncategorized"),
-    facts.transfer && "Transfer linked",
-    facts.income && `Income · ${row.review.incomeType}`,
+    !facts.transfer && (row.tagsAutomatic ? "Default tag" : facts.categorized ? "Tagged" : "Untagged"),
+    ...(row.systemTags || []).map(t => t.name),
+    facts.transfer && !row.systemTags?.length && "Transfer linked",
+    facts.income && "Income",
     facts.allocated && "Allocated to expenses",
     facts.deducted && "Has deductions",
     facts.shared && "Shared expense",

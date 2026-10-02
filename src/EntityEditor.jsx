@@ -4,7 +4,7 @@ import { WorkspaceModal } from "./WorkspaceModal.jsx";
 const api = window.urbanomics;
 export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
   const label =
-    entity.kind === "palette"
+    entity.systemRole ? "system tag" : entity.kind === "palette"
       ? "palette"
       : entity.kind === "group"
         ? "event"
@@ -69,7 +69,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
             />
           </label>
         )}
-        {isPalette ? (
+        {entity.systemRole ? <p className="rv-help">{entity.description} Its role, gray color and placement are locked; you can rename it.</p> : isPalette ? (
           <fieldset className="gradient-editor">
             <legend>Gradient colors</legend>
             <div className="gradient-inputs">
@@ -121,7 +121,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
             />
           </label>
         )}
-        {entity.kind === "category" && (
+        {entity.kind === "category" && !entity.systemRole && (
           <div className="entity-type">
             <span>Tag type</span>
             <div className="rv-toggle" role="group" aria-label="Tag type">
@@ -182,7 +182,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [] }) {
           </p>
         )}
         <footer>
-          {entity.id && entity.kind !== "palette" && (
+          {entity.id && !entity.systemRole && entity.kind !== "palette" && (
             <button
               type="button"
               className="account-delete-link"

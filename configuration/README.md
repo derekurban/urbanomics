@@ -15,3 +15,5 @@ Schema 13 exports tag parent definitions in `review_entities.parentId`. Legacy k
 Schema 14 includes review_entities.flowType in the explicit configuration export. It describes expense/income tag definitions only; no financial assignments or transaction data are exported.
 
 Schema 15 exports category gradientStart/gradientEnd definitions and category_palettes (Income/Ungrouped endpoints). The UI derives the category midpoint and alphabetical tag steps; no transaction or review data is exported.
+
+Schema 18 exports `system_tag_names` overrides. System responsibilities remain code-defined; renames never change financial classification. Existing Other tag IDs are reused. Automatic default assignments and Transfer/Deduction badges are derived from private records and links, never exported as financial data.

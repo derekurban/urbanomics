@@ -1,0 +1,52 @@
+const {chromium}=require('playwright'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path');
+const {startWebServer}=require('../electron/web-server.cjs');
+const root=path.resolve('private/validation/system-tags-'+Date.now());
+(async()=>{
+ const server=await startWebServer({root:path.join(root,'data'),port:0});
+ const browser=await chromium.launch({channel:'chrome',headless:true});
+ const page=await browser.newPage({viewport:{width:1346,height:960}});page.setDefaultTimeout(12000);
+ const errors=[];page.on('pageerror',e=>errors.push(e.message));
+ const account=server.store.transferLab.accounts()[0].id;
+ const fixture=path.join(root,'defaults.csv');fs.writeFileSync(fixture,require('../electron/imports/parsers.cjs').csv([['Description','Type','Card Holder Name','Date','Time','Amount'],['Sample incoming','SAMPLE','SAMPLE','09/18/2026','12:00 AM',123.45],['Sample expense','SAMPLE','SAMPLE','09/18/2026','12:00 AM',-42.67]]));server.store.resolveAccount(server.store.enqueue([fixture]).ids[0],account,false);
+ // Existing definitions must be adopted, not duplicated.
+ for(const lens of ['income','expense'])server.store.db.prepare("INSERT INTO review_entities (id,kind,name,color,tags,flowType) VALUES (?,'category','Other','#aabbcc','[]',?)").run('old-other-'+lens,lens);
+ server.store.review.entity('category',{name:'Gift',flowType:'income',color:'#aabbcc'});
+ server.store.review.entity('category',{name:'Sale',flowType:'income',color:'#aabbcc'});
+ const before=JSON.stringify(server.store.review.records());
+ const shot=async name=>{await page.waitForTimeout(300);await page.screenshot({path:path.join(root,name+'.png'),fullPage:true});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);};
+ try{
+  await page.goto(server.origin);await page.locator('.nav-item').filter({hasText:'Organize'}).click();await page.getByRole('button',{name:'Categories & tags',exact:true}).click();
+  await page.getByRole('button',{name:'System tags Automatic classification',exact:true}).click();
+  assert.equal(await page.locator('.th-system-tags article').count(),4);await shot('system-tags');
+  await page.getByRole('button',{name:'Rename other-income',exact:true}).click();
+  assert.equal(await page.getByRole('button',{name:/Delete/}).count(),0);assert.equal(await page.locator('input[type=color]').count(),0);
+  await page.getByRole('textbox',{name:'Name',exact:true}).fill('Unsorted income');await shot('rename-system-tag');
+  await page.getByRole('button',{name:'Save system tag',exact:true}).click();await page.getByRole('heading',{name:'Edit system tag'}).waitFor({state:'hidden'});
+  const state=server.store.review.state();assert.equal(state.entities.find(t=>t.systemRole==='other-income').name,'Unsorted income');
+  await page.reload();await page.locator('.nav-item').filter({hasText:'Experimental'}).click();
+  await page.getByRole('navigation',{name:'Experimental queues'}).getByRole('button',{name:/Income/}).click();
+  const active=()=>page.locator('.money-card[aria-hidden="false"]:not([inert])');
+  await page.waitForFunction(()=>document.querySelector('.scene')?.dataset.moving==='false'&&document.querySelector('.money-card[aria-hidden="false"]:not([inert])'));
+  if(await active().getByRole('button',{name:'Choose income',exact:true}).count())await active().getByRole('button',{name:'Choose income',exact:true}).click();
+  const add=async name=>{await active().getByRole('button',{name:'Add '+name,exact:true}).click();await page.waitForTimeout(350);};
+  const remove=async name=>{await active().getByRole('button',{name:'Remove '+name,exact:true}).click();await page.waitForTimeout(350);};
+  const value=name=>active().getByRole('textbox',{name:'Amount for '+name,exact:true});
+  assert.equal(await page.locator('.ex-income-types').count(),0);
+  assert.equal(await value('Unsorted income').count(),1);assert.equal(await active().getByRole('button',{name:'Save income'}).isEnabled(),true);await shot('income-default');
+  await add('Paycheck');assert.equal(await value('Unsorted income').count(),0);await remove('Paycheck');assert.equal(await value('Unsorted income').count(),1);
+  await add('Paycheck');await add('Gift');
+  assert.equal(await active().getByRole('slider').count(),2,'Adjacent divider and remainder handle');
+  await value('Paycheck').fill('80.01');await value('Paycheck').press('Enter');await shot('income-mini-grid');
+  await add('Sale');assert.equal(await active().getByRole('slider').count(),3);await remove('Sale');await remove('Gift');
+  assert.equal(await value('Paycheck').inputValue(),'40.01');assert.equal(await value('Unsorted income').inputValue(),'83.44');
+  await page.getByRole('navigation',{name:'Experimental queues'}).getByRole('button',{name:/Expenses/}).click();
+  await page.waitForFunction(()=>document.querySelector('.scene')?.dataset.moving==='false'&&document.querySelector('.ct-receipt'));
+  await shot('expense-default');await add('Groceries');await add('Restaurants');
+  await value('Groceries').fill('20.01');await value('Groceries').press('Enter');await shot('expense-mini-grid');
+  assert.equal(await value('Other').inputValue(),'1.33');
+  await page.emulateMedia({reducedMotion:'reduce'});await remove('Restaurants');await add('Restaurants');
+  assert.equal(await page.locator('.ct-tag-flight').count(),0,'Reduced motion skips flight');
+assert.equal(JSON.stringify(server.store.review.records()),before,'Navigation and configuration do not write finances');
+  assert.deepEqual(errors,[]);console.log(JSON.stringify({ok:true,root}));
+ }catch(e){await shot('failure');throw e;}finally{await browser.close();await server.close();}
+})().catch(e=>{console.error(e);process.exitCode=1});

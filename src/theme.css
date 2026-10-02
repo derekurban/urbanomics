@@ -1,0 +1,55 @@
+/* High-level defaults: theme-config.json. Device overrides: Organize > Appearance.
+   Account/category data colors are deliberately independent of the UI palette. */
+:root {
+  --green:var(--theme-accent);
+  --ink:var(--theme-ink);
+  --muted:var(--theme-muted);
+  --line:var(--theme-line);
+  --paper:var(--theme-paper);
+  --soft:var(--tone-95);
+  --sand:var(--tone-90);
+  --card-income-paper:linear-gradient(130deg,var(--paper),var(--tone-95));
+  --card-expense-paper:linear-gradient(130deg,var(--paper),var(--tone-95));
+  --card-income-edge:var(--line);
+  --card-expense-edge:var(--line);
+  --card-elevation:0 12px 28px rgb(from var(--ink) r g b / .07),inset 0 1px var(--paper);
+  color:var(--ink);
+  background:var(--theme-canvas);
+  --tone-0:color-mix(in srgb,var(--theme-paper) 0%,var(--theme-ink));
+  --tone-5:color-mix(in srgb,var(--theme-paper) 5%,var(--theme-ink));
+  --tone-10:color-mix(in srgb,var(--theme-paper) 10%,var(--theme-ink));
+  --tone-15:color-mix(in srgb,var(--theme-paper) 15%,var(--theme-ink));
+  --tone-20:color-mix(in srgb,var(--theme-paper) 20%,var(--theme-ink));
+  --tone-25:color-mix(in srgb,var(--theme-paper) 25%,var(--theme-ink));
+  --tone-30:color-mix(in srgb,var(--theme-paper) 30%,var(--theme-ink));
+  --tone-35:color-mix(in srgb,var(--theme-paper) 35%,var(--theme-ink));
+  --tone-40:color-mix(in srgb,var(--theme-paper) 40%,var(--theme-ink));
+  --tone-45:color-mix(in srgb,var(--theme-paper) 45%,var(--theme-ink));
+  --tone-50:color-mix(in srgb,var(--theme-paper) 50%,var(--theme-ink));
+  --tone-55:color-mix(in srgb,var(--theme-paper) 55%,var(--theme-ink));
+  --tone-60:color-mix(in srgb,var(--theme-paper) 60%,var(--theme-ink));
+  --tone-65:color-mix(in srgb,var(--theme-paper) 65%,var(--theme-ink));
+  --tone-70:color-mix(in srgb,var(--theme-paper) 70%,var(--theme-ink));
+  --tone-75:color-mix(in srgb,var(--theme-paper) 75%,var(--theme-ink));
+  --tone-80:color-mix(in srgb,var(--theme-paper) 80%,var(--theme-ink));
+  --tone-85:color-mix(in srgb,var(--theme-paper) 85%,var(--theme-ink));
+  --tone-90:color-mix(in srgb,var(--theme-paper) 90%,var(--theme-ink));
+  --tone-95:color-mix(in srgb,var(--theme-paper) 95%,var(--theme-ink));
+  --tone-100:color-mix(in srgb,var(--theme-paper) 100%,var(--theme-ink));
+}
+body,.app,.workspace { background:var(--theme-canvas); }
+button.primary { background:var(--theme-accent); border-color:var(--theme-accent); color:var(--paper); }
+button.primary:hover:not(:disabled) { background:color-mix(in srgb,var(--theme-accent) 85%,var(--ink)); }
+input:focus,select:focus,textarea:focus { outline-color:var(--theme-accent); }
+.dr-error-text,.ex-message.error,.rv-error,[role=alert].error { color:var(--theme-negative); }
+.appearance-workspace { max-width:800px; }.appearance-workspace>p { color:var(--muted); line-height:1.7; }
+.appearance-colors { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:14px; margin:24px 0; }
+.appearance-colors label { display:grid; grid-template-columns:1fr auto; align-items:center; gap:10px; background:var(--paper); border:1px solid var(--line); border-radius:14px; padding:14px; }
+.appearance-colors input { width:44px; height:35px; padding:3px; }.appearance-colors code { grid-column:1/-1; color:var(--muted); font-size:11px; }
+.appearance-actions { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }.appearance-actions span { color:var(--muted); font-size:12px; }
+@media(max-width:720px) { .appearance-colors { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+
+.positive { color:var(--theme-positive); }
+button.danger,.status-pill.error,.dr-status.error,.og-pending.is-error { color:var(--theme-negative); background:color-mix(in srgb,var(--theme-negative) 8%,var(--paper)); }
+button.danger:hover { background:color-mix(in srgb,var(--theme-negative) 15%,var(--paper)); }
+.alias-warning,.og-badge.is-warn,.og-attention-row.is-warn .og-count { color:var(--theme-warning); background:color-mix(in srgb,var(--theme-warning) 9%,var(--paper)); }

@@ -35,7 +35,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
         body: JSON.stringify({ method, args }),
       }),
     );
-  const drop = async (files) => {
+  const drop = async (files, stage = false) => {
     if (files.length > 250)
       throw new Error("Choose up to 250 CSV files at a time.");
     const received = { ids: [], skipped: 0 };
@@ -54,6 +54,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
           headers: {
             "Content-Type": "application/octet-stream",
             "X-File-Name": encodeURIComponent(file.name),
+            "X-Stage-Only": stage ? "true" : "false",
             "X-Urbanomics-Token": (await getSession()).token,
           },
           body: file,
@@ -86,6 +87,12 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
     }
     return received;
   };
+  const choose = (folder = false, stage = false) =>
+      new Promise((resolve, reject) => {
+        const input = document.createElement("input"); input.type="file"; input.accept=".csv"; input.multiple=true; if(folder)input.webkitdirectory=true; input.hidden=true;document.body.append(input);
+        input.addEventListener("cancel",()=>{input.remove();resolve({ids:[],skipped:0});},{once:true});
+        input.addEventListener("change",async()=>{try{resolve(await drop([...input.files],stage));}catch(e){reject(e);}finally{input.remove();}},{once:true});input.click();
+      });
   window.urbanomics = {
     ...Object.fromEntries(
       Object.keys(channels).map((method) => [
@@ -114,38 +121,8 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
       return () => listeners.changed.delete(callback);
     },
     drop,
-    choose: (folder = false) =>
-      new Promise((resolve, reject) => {
-        const input = document.createElement("input");
-        input.type = "file";
-        input.accept = ".csv";
-        input.multiple = true;
-        if (folder) input.webkitdirectory = true;
-        input.hidden = true;
-        document.body.append(input);
-        const cleanup = () => input.remove();
-        input.addEventListener(
-          "cancel",
-          () => {
-            cleanup();
-            resolve({ ids: [], skipped: 0 });
-          },
-          { once: true },
-        );
-        input.addEventListener(
-          "change",
-          async () => {
-            try {
-              resolve(await drop([...input.files]));
-            } catch (error) {
-              reject(error);
-            } finally {
-              cleanup();
-            }
-          },
-          { once: true },
-        );
-        input.click();
-      }),
+    choose: (folder=false)=>choose(folder),
+    stageChoose: (folder=false)=>choose(folder,true),
+    stageDrop: (files)=>drop(files,true),
   };
 }

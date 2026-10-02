@@ -20,8 +20,8 @@
 }
 .tl-experiment {
   display: inline-block;
-  background: #eee7f3;
-  color: #73547e;
+  background: var(--tone-90);
+  color: var(--tone-25);
   border-radius: 6px;
   padding: 4px 8px;
   font-size: 11px;
@@ -29,7 +29,7 @@
 .tl-setup {
   border: 1px solid var(--line);
   border-radius: 14px;
-  background: white;
+  background: var(--paper);
   padding: 16px;
 }
 .tl-setup summary {
@@ -88,17 +88,17 @@
   display: flex;
   flex-wrap: wrap;
   gap: 12px 24px;
-  background: #e3eee3;
+  background: var(--tone-90);
   border-radius: 12px;
   padding: 16px;
   font-size: 13px;
 }
 .tl-summary small {
   flex-basis: 100%;
-  color: #48614b;
+  color: var(--tone-25);
 }
 .tl-history {
-  background: #eaf0f7;
+  background: var(--tone-95);
   border-radius: 12px;
   padding: 16px;
   font-size: 13px;
@@ -107,7 +107,7 @@
   margin: 8px 0;
 }
 .tl-history small {
-  color: #526881;
+  color: var(--tone-30);
   line-height: 1.5;
 }
 .tl-results-tools {
@@ -123,7 +123,7 @@
   border: 1px solid var(--line);
   border-radius: 12px;
   overflow: hidden;
-  background: white;
+  background: var(--paper);
 }
 .tl-pair {
   display: grid;
@@ -137,7 +137,7 @@
 }
 .tl-pair > input {
   align-self: center;
-  accent-color: #286248;
+  accent-color: var(--tone-20);
   width: 16px;
   height: 16px;
 }
@@ -154,7 +154,7 @@
   min-width: 0;
 }
 .tl-transaction span {
-  color: #587264;
+  color: var(--tone-30);
   font-size: 11px;
 }
 .tl-transaction strong {
@@ -167,18 +167,18 @@
 }
 .tl-arrow {
   align-self: center;
-  color: #728575;
+  color: var(--tone-40);
 }
 .tl-pair-reason {
   grid-column: 1/-1;
   display: flex;
   justify-content: space-between;
   gap: 8px;
-  color: #5d7463;
+  color: var(--tone-35);
   font-size: 11px;
 }
 .is-ambiguous .tl-pair-reason {
-  color: #986230;
+  color: var(--tone-30);
 }
 .tl-unmatched {
   padding: 12px;
@@ -205,12 +205,12 @@
   justify-content: space-between;
   gap: 12px;
   padding: 15px;
-  border: 1px solid #c7d9c8;
+  border: 1px solid var(--tone-80);
   border-radius: 12px;
-  background: #f2f6ee;
+  background: var(--tone-95);
   position: sticky;
   bottom: 12px;
-  box-shadow: 0 4px 18px #243d2e14;
+  box-shadow: 0 4px 18px rgb(from var(--tone-10) r g b / 0.0784);
 }
 .tl-apply span {
   font-size: 12px;
@@ -254,8 +254,8 @@
 }
 
 .tl-mode {
-  background: #eeeaf6;
-  border: 1px solid #ded5ee;
+  background: var(--tone-90);
+  border: 1px solid var(--tone-80);
   border-radius: 12px;
   padding: 12px;
   display: flex;
@@ -265,7 +265,7 @@
 }
 .tl-mode p {
   font-size: 12px;
-  color: #665677;
+  color: var(--tone-25);
   flex: 1;
   min-width: 220px;
   margin: 0;

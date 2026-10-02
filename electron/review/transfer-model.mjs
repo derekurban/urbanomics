@@ -67,3 +67,26 @@ export function transferParts(row, counterpart) {
     transferExcessCents: row.amountCents > 0 ? Math.max(0, received - sent) : 0,
   };
 }
+
+// Manual incoming-card filters use the selected receipt as their reference amount.
+export function incomingTransferCandidates(incoming, records, days, basisPoints) {
+  if (!incoming || incoming.amountCents <= 0 || incoming.manual ||
+      !Number.isInteger(days) || days < 0 || days > 7 ||
+      !Number.isInteger(basisPoints) || basisPoints < 0 || basisPoints > 1000) return [];
+  const day = value => /^\d{4}-\d{2}-\d{2}$/.test(value || '') ? Date.parse(value + 'T00:00:00Z') / 86400000 : NaN;
+  const referenceDay = day(incoming.date), received = BigInt(incoming.amountCents);
+  return pendingTransfers(records).filter(t => {
+    if (t.amountCents >= 0 || t.accountId === incoming.accountId || t.currency !== incoming.currency) return false;
+    const delta = BigInt(Math.abs(t.amountCents)) - received;
+    return Math.abs(day(t.date) - referenceDay) <= days &&
+      (delta < 0n ? -delta : delta) * 10000n <= received * BigInt(basisPoints);
+  }).sort((a,b) => Math.abs(a.amountCents + incoming.amountCents) - Math.abs(b.amountCents + incoming.amountCents) ||
+    Math.abs(day(a.date) - referenceDay) - Math.abs(day(b.date) - referenceDay) || a.id.localeCompare(b.id));
+}
+// Existing persistence expresses tolerance relative to the sent amount. Convert
+// this explicitly chosen pair without changing the global matching configuration.
+export function transferPairBand(outgoing, incoming) {
+  const sent = BigInt(Math.abs(outgoing.amountCents)), received = BigInt(incoming.amountCents);
+  const delta = received > sent ? received - sent : sent - received;
+  return Number((delta * 10000n + sent - 1n) / sent);
+}

@@ -14,9 +14,9 @@ function createWorkspaceService({
   };
   const readOnly = new Set([
     "workspace:state", "review:state", "transfer-lab:state", "transfer-lab:preview", "transfer-lab:validate",
-    "aliases:state", "aliases:preview", "transaction-rules:state", "transaction-rules:preview",
-    "admin:untag-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
-    "workspace:reveal", "workspace:prefix-test",
+    "aliases:state", "aliases:preview", "transaction-rules:coverage", "transaction-rules:state", "transaction-rules:preview",
+    "admin:reset-preview", "admin:untag-preview", "admin:unlink-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
+    "workspace:reveal", "workspace:prefix-test", "imports:inspect", "imports:detect-dates", "imports:preview-layout", "imports:layouts",
   ]);
   const handlers = new Map();
   const handle = (channel, fn) => handlers.set(channel, fn);
@@ -33,6 +33,7 @@ function createWorkspaceService({
     }
   }
   const configurationChanges = new Set([
+    "admin:reset", "imports:save-layout", "imports:remove-layout", "imports:assign",
     "transfer-lab:save",
     "transaction-rules:save",
     "transaction-rules:remove",
@@ -68,6 +69,7 @@ function createWorkspaceService({
   );
   handle("review:state", () => store.review.state());
   handle("aliases:state", () => store.aliases.state());
+  handle("transaction-rules:coverage", (id) => store.transactionRules.coverage(id));
   handle("transaction-rules:state", () => store.transactionRules.state());
   handle("transaction-rules:preview", (values) =>
     store.transactionRules.preview(values),
@@ -87,8 +89,12 @@ function createWorkspaceService({
   handle("aliases:preview", (values) => store.aliases.preview(values));
   handle("aliases:save", (values) => store.aliases.save(values));
   handle("aliases:remove", (id, version) => store.aliases.remove(id, version));
+  handle("admin:reset-preview", () => store.admin.previewReset());
+  handle("admin:reset", (token,confirmation) => store.admin.resetWorkspace(token,confirmation));
   handle("admin:untag-preview", () => store.admin.preview());
   handle("admin:untag-all", (token) => store.admin.untagAll(token));
+  handle("admin:unlink-preview", () => store.admin.previewUnlink());
+  handle("admin:unlink-all", (token) => store.admin.unlinkAll(token));
   handle("review:entity", (kind, values) => store.review.entity(kind, values));
   handle("review:tag-order", (ids, expected) => store.review.reorderTags(ids, expected));
   handle("review:hierarchy-starter", () => store.review.starterHierarchy());
@@ -101,8 +107,9 @@ function createWorkspaceService({
   handle("review:financial", (id, version, values) =>
     store.review.financial(id, version, values),
   );
-  handle("review:transfer-link", (outId, outVersion, inId, inVersion, band) =>
-    store.review.linkTransfer(outId, outVersion, inId, inVersion, band),
+  handle("review:allocation", (id, version, values) => store.review.allocation(id, version, values));
+  handle("review:transfer-link", (outId, outVersion, inId, inVersion, band, groups) =>
+    store.review.linkTransfer(outId, outVersion, inId, inVersion, band, groups),
   );
   handle("review:transfer-unlink", (id, version, counterpartVersion) =>
     store.review.unlinkTransfer(id, version, counterpartVersion),
@@ -129,9 +136,25 @@ function createWorkspaceService({
     };
   };
   handle("workspace:ingest", importFiles);
-  handle("workspace:scan", () => {
+  handle("imports:stage", (files) => store.enqueue(files,{stage:true,process:false,manualLayouts:true}));
+  handle("imports:choose", async (folder) => {const files=await platform.choose(folder);return files.length?store.enqueue(files,{stage:true,process:false,manualLayouts:true}):{ids:[],skipped:0};});
+  handle("imports:inspect", (id)=>store.layouts.inspect(id));
+  handle("imports:detect-dates", (id,column,delimiter)=>store.layouts.detectDates(id,column,delimiter));
+  handle("imports:layouts", ()=>store.layouts.list());
+  handle("imports:preview-layout", (id,values)=>store.layouts.preview(id,values));
+  handle("imports:save-layout", (id,values)=>store.layouts.save(id,values));
+  handle("imports:apply-layout", (id,templateId)=>store.review.atomic(()=>store.layouts.apply(id,templateId)));
+  handle("imports:remove-layout", "imports:assign", (id,version)=>store.layouts.remove(id,version));
+  handle("imports:assign", (id,accountId)=>store.review.atomic(()=>store.resolveAccount(id,accountId,false,{process:false,allowLayout:true})));
+  handle("imports:process", async (ids)=>{
+    if(!Array.isArray(ids)||!ids.length||ids.length>250||new Set(ids).size!==ids.length)throw Error('Choose a batch of up to 250 unique uploads.');
+    // Validate every file before starting any of the batch; per-file durable commits retain recovery semantics.
+    for(const id of ids){const job=store.job(id);if(job.status!=='queued'||!job.account_id)throw Error('Choose a valid layout and account for every file before importing.');const account=store.db.prepare('SELECT * FROM accounts WHERE id=? AND deletedAt IS NULL').get(job.account_id);const plan=store.plan(job);if(!account||(account.schema!==plan.parsed.schema&&!store.db.prepare("SELECT 1 FROM account_import_layouts WHERE account_id=? AND schema=?").get(account.id,plan.parsed.schema)))throw Error('An upload account or layout has changed. Review the batch again.');}
+    return processFiles(ids);
+  });
+  handle("workspace:scan", (manualLayouts = false) => {
     store.recover();
-    return store.scanDropbox();
+    return store.scanDropbox(manualLayouts === true);
   });
   handle("workspace:process", () => processFiles());
   handle("workspace:clear", () => store.clearDropbox());
@@ -195,7 +218,7 @@ function createWorkspaceService({
             "transfer-lab:validate",
             "aliases:state",
             "aliases:preview",
-            "transaction-rules:state",
+            "transaction-rules:coverage", "transaction-rules:state",
             "transaction-rules:preview",
             "workspace:transactions",
             "workspace:detail",

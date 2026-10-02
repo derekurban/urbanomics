@@ -22,7 +22,7 @@ The remote API refuses native file-picker/folder operations and arbitrary path i
 
 ## First mobile iteration
 
-- Five bottom navigation destinations with safe-area spacing; desktop navigation remains unchanged.
+- Six bottom navigation destinations with safe-area spacing, including the live Experimental attention workspace.
 - Dashboard opens first on phone-sized windows. Charts and the account/month library scroll within their own panels when needed.
 - Review keeps Transfers → Events → Income → Expenses → Overview. Transfer pairs can be selected by tapping each side and explicitly linking. Events, incoming allocations and expense share editors use stacked panels and touch targets.
 - Expense review uses a card followed by broad category buttons and the selected category's tags. Tap a tag to save, or tap the transaction for split-tag settings. First assignment advances; changing a saved card stays in place. Desktop continues to use the radial.

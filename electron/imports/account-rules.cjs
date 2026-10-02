@@ -39,3 +39,14 @@ function appearance(name, prefixRegex, color) {
 }
 
 module.exports = { colors, prefixPattern, appearance };
+// Highlight only a provable literal prefix. Arbitrary regex syntax remains pattern-colored.
+function prefixPreview(pattern,filename){
+ const re=prefixPattern(pattern),match=re?.exec(filename);let literal='';const p=pattern.trim().replace(/^\^/,'');
+ for(let i=0;i<p.length;i++){const c=p[i];if(c==='\\'){if(i+1<p.length&&/[.\\^$*+?()[\]{}|\-/]/.test(p[i+1]))literal+=p[++i];else break;}else if(/[.^$*+?()[\]{}|]/.test(c))break;else literal+=c;}
+ // A later alternation or quantifier can invalidate a plain prefix interpretation.
+ if(/(^|[^\\])\|/.test(p))literal='';
+ const end=match?match[0].length:0,literalEnd=match&&filename.toLowerCase().startsWith(literal.toLowerCase())?Math.min(literal.length,end):0;
+ const segments=[{text:filename.slice(0,literalEnd),kind:'literal'},{text:filename.slice(literalEnd,end),kind:'pattern'},{text:filename.slice(end),kind:'unmatched'}].filter(s=>s.text);
+ return {matches:!!match,matchStart:match?0:null,matchEnd:end,literalEnd,segments};
+}
+module.exports.prefixPreview=prefixPreview;

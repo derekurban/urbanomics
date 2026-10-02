@@ -170,7 +170,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
   db.exec("DROP TABLE review_entity_history; PRAGMA user_version=5");
   c.store.deleteAccount(c.account);
   const records = c.store.review.records();
-  const entities = c.store.review.entities();
+  const entities = c.store.review.entities().filter(e=>!e.systemRole);
   const originalTables = [
     "transactions",
     "review_items",
@@ -185,7 +185,7 @@ test("version 5 tags become direct categories without rewriting reviews or archi
   assert.deepEqual(c.store.review.records(), records);
   assert.equal(
     c.store.db.prepare("PRAGMA user_version").get().user_version,
-    17,
+    21,
   );
   assert.equal(
     c.store.review.entities().filter((e) => e.kind === "tag").length,
@@ -477,4 +477,20 @@ test("divider precision, retagging, capped distribution and overlapping category
     ).totals.transferOut,
     14000,
   );
+});
+
+
+test("income purpose and tag portions save atomically with one version increment", (t) => {
+  const c=setup(t),before=c.row("Salary");
+  const incomeTag=c.store.review.entity("category",{name:"Pay",color:"#888888",flowType:"income"});
+  const expenseTag=c.entity("category","Food");
+  assert.throws(()=>c.store.review.financial(before.id,before.version,{kind:"income",incomeType:"paycheck",tags:[{id:expenseTag,cents:before.amountCents}]}),/lens/);
+  assert.equal(c.row("Salary").version,before.version);
+  assert.equal(c.row("Salary").review.kind,"unreviewed");
+  assert.throws(()=>c.store.review.financial(before.id,before.version,{kind:"income",incomeType:"paycheck",tags:[{id:incomeTag,cents:1}]}),/total/);
+  c.store.review.financial(before.id,before.version,{kind:"income",incomeType:"paycheck",tags:[{id:incomeTag,cents:before.amountCents}]});
+  const saved=c.row("Salary");assert.equal(saved.version,before.version+1);assert.equal(saved.review.kind,"income");assert.equal(saved.review.tags[0].id,incomeTag);
+  assert.throws(()=>c.store.review.financial(before.id,before.version,{kind:"income",incomeType:"gift",tags:[]}),/changed/);
+  c.store.review.financial(saved.id,saved.version,before.review);
+  assert.deepEqual(c.row("Salary").review,before.review);
 });

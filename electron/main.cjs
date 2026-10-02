@@ -53,6 +53,7 @@ else {
       );
       store = new ImportStore(privateRoot);
       const emptyWorkspace = [
+        "import_layouts",
         "accounts",
         "rules",
         "review_entities",
@@ -67,7 +68,7 @@ else {
         (table) =>
           store.db.prepare(`SELECT COUNT(*) n FROM "${table}"`).get().n === 0,
       );
-      if ((freshWorkspace || emptyWorkspace) && configurationDir) {
+      if ((freshWorkspace || emptyWorkspace) && configurationDir && !store.db.prepare("SELECT 1 FROM settings WHERE key='workspaceReset'").get()) {
         const localSeed = path.join(configurationDir, "workspace.sql"),
           bundledSeed = path.join(
             __dirname,
@@ -203,7 +204,7 @@ else {
         height: 900,
         minWidth: 900,
         minHeight: 640,
-        backgroundColor: "#f7f8f4",
+        backgroundColor: require("./theme-config.json").canvas,
         show: false,
         webPreferences: {
           preload: path.join(__dirname, "preload.cjs"),
@@ -214,6 +215,20 @@ else {
           devTools: !app.isPackaged,
         },
       });
+      // Keep renderer diagnostics locally so a failed view can be traced after restart.
+      const logRenderer = (type, details) => {
+        try {
+          const dir=path.join(privateRoot,'logs');fs.mkdirSync(dir,{recursive:true});
+          const file=path.join(dir,'renderer.log');
+          if(fs.existsSync(file)&&fs.statSync(file).size>1024*1024)fs.renameSync(file,file+'.previous');
+          fs.appendFileSync(file,JSON.stringify({time:new Date().toISOString(),type,details})+'\n');
+        } catch {}
+      };
+      window.webContents.on('console-message', (details) => {
+        if(details.level==='error')logRenderer('console',details.message);
+      });
+      window.webContents.on('render-process-gone',(_event,details)=>logRenderer('render-process-gone',details));
+      window.webContents.on('did-fail-load',(_event,code,description)=>logRenderer('load-failed',{code,description}));
       window.setMenu(null);
       window.on("focus", () => {
         if (service?.processing) return;

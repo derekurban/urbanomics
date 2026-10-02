@@ -215,10 +215,10 @@ async function create(kind, name, selected = []) {
     await d.getByRole("button", { name: "Cancel", exact: true }).click();
     await section("Admin");
     await page
-      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .getByRole("button", { name: "Reset transaction tags", exact: true })
       .click();
     let adminDialog = page.getByRole("dialog", {
-      name: "Untag all transactions?",
+      name: "Reset transaction tags?",
       exact: true,
     });
     await adminDialog.waitFor({ state: "visible" });
@@ -227,7 +227,7 @@ async function create(kind, name, selected = []) {
     await page.keyboard.press("Escape");
     assert.deepEqual(await state(), beforeAdmin);
     await page
-      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .getByRole("button", { name: "Reset transaction tags", exact: true })
       .click();
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
     assert.deepEqual(await state(), beforeAdmin);
@@ -240,10 +240,10 @@ async function create(kind, name, selected = []) {
       "utf8",
     );
     await page
-      .getByRole("button", { name: "Untag all transactions", exact: true })
+      .getByRole("button", { name: "Reset transaction tags", exact: true })
       .click();
     await page
-      .getByRole("button", { name: "Confirm untag all", exact: true })
+      .getByRole("button", { name: "Confirm reset tags", exact: true })
       .click();
     await adminDialog.waitFor({ state: "hidden" });
     await page
@@ -252,7 +252,7 @@ async function create(kind, name, selected = []) {
       .waitFor();
     assert.equal(
       await page
-        .getByRole("button", { name: "Untag all transactions", exact: true })
+        .getByRole("button", { name: "Reset transaction tags", exact: true })
         .isDisabled(),
       true,
     );

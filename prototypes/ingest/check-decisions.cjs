@@ -1,0 +1,41 @@
+const {chromium}=require('playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+  fs.mkdirSync('private/validation/decision-flows',{recursive:true});
+  const b=await chromium.launch({channel:'chrome',headless:true});
+  for(const [width,height] of [[390,844],[360,640],[1280,900],[844,390]]){
+    const c=await b.newContext({viewport:{width,height}}),p=await c.newPage(),errors=[],requests=[];
+    p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>requests.push(r.url()));
+    await p.goto('http://127.0.0.1:4176/lab/');
+    const idle=()=>p.locator('.scene[data-transition=idle]').waitFor();
+    const sent=async()=>{await p.locator('.send-envelope').waitFor({state:'detached'});await p.waitForTimeout(100);};
+    assert.ok(await p.getByRole('button',{name:'Link transfer',exact:false}).isDisabled());
+    await p.locator('.candidate').first().click();await p.getByRole('button',{name:'Link transfer',exact:false}).click();await sent();
+    assert.ok(await p.getByRole('button',{name:/^Transfers 2/}).isVisible());
+    await p.locator('.candidate').click();assert.ok(await p.getByRole('button',{name:'Link transfer',exact:false}).isDisabled());
+    await p.getByRole('checkbox',{name:'Confirm this difference is a fee'}).check();
+    await p.screenshot({path:`private/validation/decision-flows/fee-${width}.png`,fullPage:true});
+    await p.getByRole('button',{name:'Link transfer',exact:false}).click();await sent();
+    assert.equal(await p.locator('.candidate').count(),2);
+    await p.getByRole('button',{name:'Not a transfer',exact:true}).click();await sent();
+    assert.ok(await p.getByRole('button',{name:/^Income 29/}).isVisible());assert.ok(await p.getByRole('button',{name:/^Expenses 34/}).isVisible());
+    await p.getByRole('button',{name:'Undo',exact:true}).click();await idle();assert.equal(await p.locator('.candidate').count(),2);
+    await p.getByRole('button',{name:/^Income 28/}).click();await idle();
+    await p.getByRole('button',{name:'Paycheck +',exact:true}).click();
+    await p.screenshot({path:`private/validation/decision-flows/income-${width}.png`,fullPage:true});
+    await p.getByRole('button',{name:'Save tag & next',exact:false}).click();await sent();assert.ok(await p.getByRole('button',{name:/^Income 27/}).isVisible());
+    await p.getByRole('button',{name:/^Expenses /}).click();await idle();
+    await p.getByRole('button',{name:'Restaurants +',exact:true}).click();await p.getByRole('button',{name:'Groceries +',exact:true}).click();
+    await p.getByRole('textbox',{name:'Amount for Groceries',exact:true}).fill('10.00');assert.ok(await p.getByRole('button',{name:'Save split & next',exact:false}).isDisabled());
+    await p.getByRole('button',{name:'Split evenly',exact:true}).click();
+    await p.screenshot({path:`private/validation/decision-flows/split-${width}.png`,fullPage:true});
+    await p.getByRole('button',{name:'Save split & next',exact:false}).click();await sent();assert.ok(await p.getByRole('button',{name:/^Expenses 31/}).isVisible());
+    await p.getByRole('button',{name:'Undo',exact:true}).click();await idle();assert.ok(await p.getByRole('button',{name:/^Expenses 32/}).isVisible());
+    await p.getByRole('button',{name:'Later ↓',exact:true}).click();await p.waitForTimeout(600);assert.ok(await p.getByRole('button',{name:/^Expenses 32/}).isVisible());
+    assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);assert.equal(requests.some(r=>r.includes('/api/')),false);
+    await c.close();
+  }
+  const p=await b.newPage({reducedMotion:'reduce'});await p.goto('http://127.0.0.1:4176/lab/');await p.getByRole('button',{name:/^Income /}).click();await p.getByRole('button',{name:'Interest +',exact:true}).click();await p.getByRole('button',{name:'Save tag & next',exact:false}).click();await p.locator('.send-envelope').waitFor({state:'detached'});assert.ok(await p.getByRole('button',{name:/^Income 27/}).isVisible());await p.getByRole('button',{name:'Reset',exact:true}).click();assert.ok(await p.getByRole('button',{name:/^Income 28/}).isVisible());
+  await b.close();console.log('Passed: transfer confirmation, fee acknowledgement, ambiguity/dismissal, queue routing, income tags, exact split validation, undo, later, reset, reduced motion and four viewports.');
+})().catch(e=>{console.error(e);process.exit(1);});

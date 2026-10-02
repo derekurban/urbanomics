@@ -1,3 +1,4 @@
+import {TransactionTemplateEditor} from './TransactionTemplateEditor.jsx';
 import { alphabetical, orderedTags, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
@@ -28,7 +29,7 @@ function plural(n, word, words = `${word}s`) {
   return `${n} ${n === 1 ? word : words}`;
 }
 
-function Mapping({ categoryId, personId, byId, missing = true }) {
+function Mapping({ categoryId, personId, byId, missing = true, template = null }) {
   const category = categoryId ? byId.get(categoryId) : null,
     person = personId ? byId.get(personId) : null;
   return (
@@ -52,7 +53,7 @@ function Mapping({ categoryId, personId, byId, missing = true }) {
         ) : (
           missing && <span className="rl-map is-missing">Missing person</span>
         ))}
-      {!categoryId && !personId && (
+      {!categoryId && !personId && !template && (
         <span className="rl-map is-none">No mapping</span>
       )}
     </div>
@@ -490,7 +491,7 @@ function RuleEditor({
                   ))}
                 {!aliases.length ? (
                   <p className="rl-muted">
-                    Create vendors in Organize → Aliases first, or use Regex.
+                    Create vendors in Settings → Aliases first, or use Regex.
                   </p>
                 ) : (
                   !aliases.some((a) =>
@@ -945,7 +946,9 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
                           ) : (
                             <code title={r.pattern}>{r.pattern}</code>
                           )}
+                          {r.template&&<div className="rl-maps">Template · {r.template.tags.map(p=>`${byId.get(p.id)?.name||'Missing tag'} ${p.weight/100}%`).join(', ')} · {r.template.autoReview?'Auto-review':'Manual verification'}</div>}
                           <Mapping
+                            template={r.template}
                             categoryId={r.categoryId}
                             personId={r.personId}
                             byId={byId}
@@ -1012,7 +1015,7 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
           )}
         </>
       )}
-      {editing && (
+      {editing?.template ? <TransactionTemplateEditor rule={editing} entities={entities} onClose={()=>setEditing(null)} onSaved={async()=>{await act(async()=>true);}}/> : editing && (
         <RuleEditor
           key={editing.id || "new"}
           rule={editing}

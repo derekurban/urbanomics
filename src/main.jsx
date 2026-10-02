@@ -1,15 +1,23 @@
 import "./browser-api.js";
+import "./theme.js";
 import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./styles.css";
-import { DataWorkspace } from "./DataWorkspace.jsx";
-import { AccountSettings } from "./AccountSettings.jsx";
-import { ReviewWorkspace } from "./ReviewWorkspace.jsx";
+import { SnapshotsWorkspace } from "./SnapshotsWorkspace.jsx";
+import { AccountsWorkspace } from "./AccountsWorkspace.jsx";
+import { TransactionsWorkspace } from "./TransactionsWorkspace.jsx";
+import { EventsWorkspace } from "./EventsWorkspace.jsx";
+import { OrganizeHub } from "./OrganizeHub.jsx";
+import {RenderRecovery} from './RenderRecovery.jsx';
+
+
 import { OrganizeWorkspace } from "./OrganizeWorkspace.jsx";
 import { ProcessingResults } from "./ProcessingResults.jsx";
 import "./data-workspace.css";
 import "./mobile.css";
+import "./theme.css";
+import "./workspace-refresh.css";
 
 const api = window.urbanomics;
 const banks = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
@@ -35,10 +43,11 @@ const initials = (name) =>
     .join("");
 
 function App() {
-  const [organizeSection, setOrganizeSection] = useState("overview");
-  const [reviewStart, setReviewStart] = useState(null);
+  const [organizeSection, setOrganizeSection] = useState("category");
+  const [organizeTarget,setOrganizeTarget]=useState(null);
+  const openOrganize=(id=null,mode="transactions")=>{setOrganizeTarget({id,mode,key:Date.now()});setPage("organize");};
   const [data, setData] = useState(null),
-    [page, setPage] = useState(() => matchMedia("(max-width: 720px)").matches ? "dashboard" : "data"),
+    [page, setPage] = useState(() => {const hash=location.hash.slice(1);return ({allocations:"organize",experimental:"organize",review:"organize",months:"transactions"})[hash]||(["dashboard","snapshots","accounts","events","transactions","organize","settings"].includes(hash)?hash:"snapshots");}),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
   const [connected, setConnected] = useState(true);
@@ -65,10 +74,7 @@ function App() {
     const timer = setTimeout(() => setNotice(""), 5000);
     return () => clearTimeout(timer);
   }, [notice]);
-  const [month, setMonth] = useState(""),
-    [rows, setRows] = useState([]),
-    [search, setSearch] = useState(""),
-    [accountFilter, setAccountFilter] = useState("");
+  const [month,setMonth]=useState(""),[accountFilter,setAccountFilter]=useState("");
   const [detail, setDetail] = useState(null),
     [selectedJob, setSelectedJob] = useState(null),
     [choices, setChoices] = useState({}),
@@ -76,27 +82,11 @@ function App() {
   async function refresh() {
     const next = await api.state();
     setData(next);
-    const selected = month || next.months[0]?.month || next.lastCompleteMonth;
-    setMonth(selected);
-    setRows(await api.transactions(selected));
+
   }
   useEffect(() => {
     if (api) refresh().catch((e) => setError(e.message));
   }, []);
-  useEffect(() => {
-    let current = true;
-    if (api && month) {
-      api
-        .transactions(month)
-        .then((rows) => {
-          if (current) setRows(rows);
-        })
-        .catch((e) => setError(e.message));
-    }
-    return () => {
-      current = false;
-    };
-  }, [month]);
   useEffect(() => {
     if (!selectedJob && !detail) return;
     const previous = document.activeElement;
@@ -163,7 +153,7 @@ function App() {
     }
   }
   async function intake(method) {
-    setPage("data");
+    setPage("snapshots");
     await run(method, (result) =>
       result.ids.length
         ? `${result.ids.length} CSV${result.ids.length === 1 ? "" : "s"} received${result.skipped ? `. ${result.skipped} non-CSV, subfolder, or oversized item(s) skipped` : ""}. Originals stay where they are.`
@@ -175,8 +165,9 @@ function App() {
   function onDrop(event) {
     event.preventDefault();
     setDragging(false);
+    if(page === 'snapshots'){window.dispatchEvent(new CustomEvent('snapshots-drop',{detail:Array.from(event.dataTransfer.files)}));return;}
     if (!busy && event.dataTransfer.files.length)
-      intake(() => api.drop(Array.from(event.dataTransfer.files)));
+      intake(() => api.stageDrop(Array.from(event.dataTransfer.files)));
   }
   if (!api)
     return (
@@ -197,31 +188,21 @@ function App() {
       </div>
     );
   const activeJob = data.jobs.find((j) => j.id === selectedJob);
-  const shown = (revision?.transactions || rows).filter(
-    (r) =>
-      (!accountFilter || r.accountId === accountFilter) &&
-      `${r.description} ${r.originalDescription || ""} ${r.type}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
-  const imports = data.history;
-  const openJob = (job) => {
-    setSelectedJob(job.id);
-    setChoices({});
-  };
   const tabs = [
-    ["dashboard", "◉", "Dashboard"],
-    ["data", "▤", "Snapshots"],
-    ["review", "✓", "Review"],
-    ["months", "▦", "Transactions"],
-    ["organize", "◎", "Organize"],
+    ["dashboard", "◉", "Dashboard", "Overview"],
+    ["snapshots", "▤", "Snapshots", "Workspace"],
+    ["organize", "▥", "Organize"],
+    ["transactions", "≡", "Transactions"],
+    ["events", "▦", "Events"],
+    ["accounts", "◫", "Accounts"],
+    ["settings", "⚙", "Settings", "Preferences"],
   ];
   return (
     <div
       className="app-shell"
       onDragOver={(e) => {
         e.preventDefault();
-        if (e.dataTransfer.types.includes("Files")) setDragging(true);
+        if (page !== "snapshots" && e.dataTransfer.types.includes("Files")) setDragging(true);
       }}
       onDragLeave={(e) => {
         if (!e.relatedTarget) setDragging(false);
@@ -240,53 +221,27 @@ function App() {
             <small>{api.workspaceMode === "desktop" ? "Your files and changes stay there" : "Separate local workspace · starts with sample data"}</small>
           </p>
         )}
-        <nav>
-          {tabs.map(([id, icon, label]) => (
+        <nav aria-label="Main navigation">
+          {tabs.map(([id, icon, label, group]) => (
+            <React.Fragment key={id}>{group&&<div className="navigation-group">{group}</div>}
             <button
               key={id}
               className={page === id ? "nav-item active" : "nav-item"}
               aria-current={page === id ? "page" : undefined}
               onClick={() => {
                 setPage(id);
-                if (id === "months") setRevision(null);
+                if (id === "transactions") {setRevision(null);setAccountFilter("");setMonth("");}
                 setSelectedJob(null);
               }}
             >
               <span aria-hidden="true">{icon}</span>
               {label}
-              {id === "data" && data.jobs.length > 0 && (
+              {id === "snapshots" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
               )}
-            </button>
+            </button></React.Fragment>
           ))}
         </nav>
-        <div className="side-divider" />
-        <div className="side-label">YOUR MONTHS</div>
-        <div className="month-list">
-          {data.months.length ? (
-            data.months.map((m) => (
-              <button
-                className={
-                  page === "months" && month === m.month
-                    ? "month-button active"
-                    : "month-button"
-                }
-                key={m.month}
-                onClick={() => {
-                  setRevision(null);
-                  setAccountFilter("");
-                  setMonth(m.month);
-                  setPage("months");
-                }}
-              >
-                <span>{monthName(m.month, true)}</span>
-                <small>{m.count}</small>
-              </button>
-            ))
-          ) : (
-            <p className="sidebar-empty">Your first import starts the story.</p>
-          )}
-        </div>
         <div className="local-note">
           <span className="local-dot" /> Stored on this computer
           <small>Your files stay in your workspace.</small>
@@ -340,262 +295,12 @@ function App() {
               }
             />
           )}
-          {page === "data" && (
-            <DataWorkspace
-              data={data}
-              busy={busy}
-              progress={progress}
-              onResults={() =>
-                setProcessResult({
-                  result: data.lastProcessResult,
-                  celebrate: false,
-                })
-              }
-              onUpload={() => intake(() => api.choose(false))}
-              onChooseFolder={() => intake(() => api.choose(true))}
-              onScan={() =>
-                run(
-                  () => api.scan(),
-                  (r) =>
-                    r.skipped
-                      ? "Dropbox refreshed. Non-CSV, oversized items and subfolders were left in place."
-                      : "Snapshots refreshed.",
-                )
-              }
-              onProcess={async () => {
-                const result = await run(async () => {
-                  setProgress({
-                    done: 0,
-                    total: data.jobs.filter((j) => j.status === "queued")
-                      .length,
-                    filename: null,
-                  });
-                  try {
-                    return await api.process();
-                  } finally {
-                    setProgress(null);
-                  }
-                });
-                if (result !== false)
-                  setProcessResult({ result, celebrate: true });
-              }}
-              onClear={() =>
-                run(
-                  () => api.clear(),
-                  (r) =>
-                    r.cleared +
-                    " intake copies cleared. Originals remain archived; other folder contents stay in place.",
-                )
-              }
-              onReview={openJob}
-              onOrganize={() => setPage("review")}
-              onDismiss={(id) =>
-                run(
-                  () => api.dismiss(id),
-                  "Intake copy removed. Original remains archived.",
-                )
-              }
-              onReveal={(kind, id) => run(() => api.reveal(kind, id))}
-              onOpenSnapshot={async (target) => {
-                try {
-                  const saved = await api.snapshot(target.id);
-                  setMonth(target.month);
-                  setAccountFilter(target.accountId);
-                  setRevision(saved);
-                  setPage("months");
-                } catch (e) {
-                  setError(e.message);
-                }
-              }}
-              onRange={() => {
-                setOrganizeSection("accounts");
-                setPage("organize");
-              }}
-            />
-          )}
-          {page === "review" && (
-            <ReviewWorkspace
-              data={data}
-              run={run}
-              busy={busy}
-              initialMonth={month}
-              initialStage={reviewStart}
-              onSource={(id) =>
-                api
-                  .detail(id)
-                  .then(setDetail)
-                  .catch((e) => setError(e.message))
-              }
-            />
-          )}
-          {page === "months" && !revision && (
-            <ReviewWorkspace
-              key={month}
-              transactionList
-              data={data}
-              run={run}
-              busy={busy}
-              initialMonth={month}
-              onSource={(id) =>
-                api
-                  .detail(id)
-                  .then(setDetail)
-                  .catch((e) => setError(e.message))
-              }
-            />
-          )}
-          {page === "months" && revision && (
-            <>
-              <div className="page-heading split-heading">
-                <div>
-                  <div className="eyebrow">ONE MONTH AT A TIME</div>
-                  <h1>{monthName(month)}</h1>
-                  <p>Your imported transactions, together in one place.</p>
-                </div>
-                <button className="primary" onClick={() => setPage("review")}>
-                  Organize this month
-                </button>
-                <span className="pill">
-                  {revision ? "Saved snapshot" : "Current snapshot"}
-                </span>
-              </div>
-              <div className="month-toolbar">
-                <div className="segmented">
-                  <button
-                    className={!accountFilter ? "selected" : ""}
-                    onClick={() => setAccountFilter("")}
-                  >
-                    All accounts
-                  </button>
-                  {data.accounts.map((a) => (
-                    <button
-                      key={a.id}
-                      className={accountFilter === a.id ? "selected" : ""}
-                      onClick={() => setAccountFilter(a.id)}
-                    >
-                      {a.name}
-                    </button>
-                  ))}
-                </div>
-                <input
-                  aria-label="Search transactions"
-                  placeholder="Search this month…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
-              </div>
-              <div className="table-caption">
-                <span>{shown.length} transactions</span>
-                <span>Bank-export dates · CAD · original cash movements</span>
-              </div>
-              <section className="transaction-table">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Date</th>
-                      <th>Transaction</th>
-                      <th>Account</th>
-                      <th className="amount">Cash movement</th>
-                      <th />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {shown.map((row) => (
-                      <tr key={row.id}>
-                        <td className="date-cell">{dateName(row.date)}</td>
-                        <td>
-                          <button
-                            className="transaction-name"
-                            title={row.originalDescription || row.description}
-                            onClick={() =>
-                              api
-                                .detail(row.id)
-                                .then(setDetail)
-                                .catch((e) => setError(e.message))
-                            }
-                          >
-                            {row.description}
-                          </button>
-                          {row.aliasConflicts?.length > 0 && (
-                            <span className="alias-warning">
-                              Alias conflict · resolve in Organize
-                            </span>
-                          )}
-                          <small className="bank-type">
-                            {row.type || "Bank transaction"}
-                          </small>
-                        </td>
-                        <td>
-                          <span className="account-dot" />
-                          {row.account}
-                        </td>
-                        <td
-                          className={
-                            "amount " + (row.amountCents > 0 ? "positive" : "")
-                          }
-                        >
-                          {row.amountCents > 0 ? "+" : ""}
-                          {currency(row.amountCents)}
-                        </td>
-                        <td>
-                          <button
-                            className="row-open"
-                            aria-label={`View source for ${row.description}`}
-                            onClick={() =>
-                              api
-                                .detail(row.id)
-                                .then(setDetail)
-                                .catch((e) => setError(e.message))
-                            }
-                          >
-                            ↗
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-                {!shown.length && (
-                  <p className="empty-text">
-                    No imported rows match this view.
-                  </p>
-                )}
-              </section>
-              <p className="footnote">
-                These are cash movements, before categories, repayments, and
-                transfer review. Bank exports may show different dates from your
-                local banking screen.
-              </p>
-              {revision && (
-                <button onClick={() => setRevision(null)}>
-                  Back to current transactions
-                </button>
-              )}
-            </>
-          )}
-          {page === "organize" && (
-            <OrganizeWorkspace
-              data={data}
-              run={run}
-              busy={busy}
-              section={organizeSection}
-              onSection={setOrganizeSection}
-              onNavigate={(target) => {
-                if (target === "transactions") setPage("months");
-                else {
-                  setReviewStart(
-                    target.startsWith("transfers")
-                      ? target
-                      : target === "money-in"
-                        ? "moneyin"
-                        : "organize",
-                  );
-                  setPage("review");
-                }
-              }}
-              accounts={<Accounts data={data} run={run} busy={busy} />}
-            />
-          )}
+          {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={()=>openOrganize()} onOpenSnapshot={async(target)=>{try{const saved=await api.snapshot(target.id);setMonth(target.month);setAccountFilter(target.accountId);setRevision(saved);setPage("transactions");}catch(e){setError(e.message);}}}/>}
+          {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={()=>setPage("snapshots")} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
+          {page === "organize" && <OrganizeHub data={data} run={run} busy={busy} target={organizeTarget} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
+          {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
+          {page === "transactions" && <TransactionsWorkspace data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={()=>setRevision(null)} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
+          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
         </main>
         <footer>
           <span>URBANOMICS / LOCAL WORKSPACE</span>
@@ -876,47 +581,4 @@ function Route({ job, data, run, done }) {
     </>
   );
 }
-function Accounts({ data, run, busy }) {
-  return (
-    <>
-      <AccountSettings data={data} busy={busy} run={run} />
-      <section className="section">
-        <h2>Remembered filenames</h2>
-        <p className="muted">
-          Bank layout + filename pattern. Unfamiliar or ambiguous names ask for
-          an account.
-        </p>
-        {data.rules.map((r) => (
-          <div className="rule-row" key={r.key + r.account_id}>
-            <code>{r.key}</code>
-            <span>→ {r.account}</span>
-            <button
-              onClick={() =>
-                run(
-                  () => api.removeRule(r.key, r.schema, r.account_id),
-                  "Filename rule removed.",
-                )
-              }
-            >
-              Forget
-            </button>
-          </div>
-        ))}
-      </section>
-      <div className="privacy-card">
-        <span className="local-dot" />
-        <div>
-          <h3>Local by design</h3>
-          <p>
-            Your database, originals, snapshots, and browser cache stay in the
-            private workspace. No bank connections or cloud uploads.
-          </p>
-          <button onClick={() => run(() => api.reveal("private"))}>
-            Open private workspace ↗
-          </button>
-        </div>
-      </div>
-    </>
-  );
-}
-createRoot(document.getElementById("root")).render(<App />);
+createRoot(document.getElementById("root")).render(<RenderRecovery><App /></RenderRecovery>);

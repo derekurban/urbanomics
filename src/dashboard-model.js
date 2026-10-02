@@ -5,6 +5,7 @@ export const UNCATEGORIZED = "dashboard:uncategorized";
 export const UNGROUPED = "dashboard:ungrouped";
 export const TRANSFER_FEES = "dashboard:transfer-fees";
 export const TRANSFER_EXCESS = "dashboard:transfer-excess";
+export const CONNECTED_REPAYMENTS = "dashboard:connected-repayments";
 const sum = (rows, fn) => rows.reduce((n, r) => n + fn(r), 0);
 
 function isLinked(row, byId) {
@@ -18,7 +19,7 @@ function isLinked(row, byId) {
   );
 }
 // Only the unmatched fee/excess crosses the boundary of the user's accounts.
-function boundaryEntry(row, byId) {
+export function boundaryEntry(row, byId) {
   const transfer = isLinked(row, byId);
   const fee = transfer && row.amountCents < 0;
   const excess = transfer && row.amountCents > 0;
@@ -225,6 +226,14 @@ export function apportion(cents, parts) {
 }
 
 function categoryParts(row) {
+  if(row.review.allocationMode==='layers'){
+    const parts=row.review.tags.map(p=>({...p}));
+    const repayment=row.amountCents>0&&row.review.kind==='repayment'?sum(row.review.allocations,p=>p.cents):0;
+    if(repayment)parts.push({id:CONNECTED_REPAYMENTS,cents:repayment});
+    const left=Math.abs(row.amountCents)-sum(parts,p=>p.cents);
+    if(left>0)parts.push({id:UNCATEGORIZED,cents:left});
+    return parts;
+  }
   return row.review.tags.length
     ? row.review.tags.map((p) => ({ ...p }))
     : [{ id: UNCATEGORIZED, cents: Math.abs(row.amountCents) }];
@@ -374,6 +383,15 @@ export function dashboard(
     .filter((t) => t.cents > 0);
   const inflow = bank.filter((t) => t.row.amountCents > 0),
     outflow = bank.filter((t) => t.row.amountCents < 0);
+  const flowRows = type => inflow.flatMap(entry=>{
+    if(entry.row.review.allocationMode!=='layers'||entry.transfer){
+      const k=entry.row.review.kind;
+      return (type==='income'?k==='income':type==='repayment'?k==='repayment':!entry.transfer&&!['income','repayment'].includes(k))?[entry]:[];
+    }
+    const parts=entry.parts.filter(p=>(!incomingSelection.size||incomingSelection.has(p.id))&&(type==='income'?![CONNECTED_REPAYMENTS,UNCATEGORIZED].includes(p.id):type==='repayment'?p.id===CONNECTED_REPAYMENTS:p.id===UNCATEGORIZED));
+    const cents=sum(parts,p=>p.cents);return cents?[{...entry,parts,cents}]:[];
+  });
+  const incomeRows=flowRows('income'),repaymentRows=flowRows('repayment'),unassignedRows=flowRows('unassigned');
   const categoryMap = new Map();
   const categoryNames = new Map(
     entities
@@ -382,9 +400,10 @@ export function dashboard(
   );
   categoryNames.set(UNCATEGORIZED, {
     id: UNCATEGORIZED,
-    name: "Untagged",
+    name: "Unallocated",
     color: "#b9b2c7",
   });
+  categoryNames.set(CONNECTED_REPAYMENTS,{id:CONNECTED_REPAYMENTS,name:'Connected repayments',color:'#b6cbd0'});
   categoryNames.set(TRANSFER_FEES, {
     id: TRANSFER_FEES,
     name: "Transfer fees (linked)",
@@ -502,20 +521,9 @@ export function dashboard(
       ].map((id) => definition(id, "income")),
     ),
     incomeBreakdown: alphabetical([...incomeMap.values()]),
-    incomeReceived: sum(
-      inflow.filter((t) => t.row.review.kind === "income"),
-      (t) => t.cents,
-    ),
-    repaymentReceived: sum(
-      inflow.filter((t) => t.row.review.kind === "repayment"),
-      (t) => t.cents,
-    ),
-    otherReceived: sum(
-      inflow.filter(
-        (t) => !["income", "repayment"].includes(t.row.review.kind),
-      ),
-      (t) => t.cents,
-    ),
+    incomeReceived: sum(incomeRows,t=>t.cents),
+    repaymentReceived: sum(repaymentRows,t=>t.cents),
+    otherReceived: sum(unassignedRows,t=>t.cents)+sum(inflow.filter(t=>t.excess),t=>t.cents),
     events,
     ...summarize(expenses),
     bank,
@@ -530,13 +538,13 @@ export function dashboard(
     cashGroups: [
       {
         id: "income",
-        label: "Income & interest",
-        rows: inflow.filter((t) => t.row.review.kind === "income"),
+        label: "Income",
+        rows: incomeRows,
       },
       {
         id: "repayment",
         label: "Repayments received",
-        rows: inflow.filter((t) => t.row.review.kind === "repayment"),
+        rows: repaymentRows,
       },
       {
         id: "transfer-extra",
@@ -546,10 +554,7 @@ export function dashboard(
       {
         id: "unassigned",
         label: "Other / unassigned inflow",
-        rows: inflow.filter(
-          (t) =>
-            !t.transfer && !["income", "repayment"].includes(t.row.review.kind),
-        ),
+        rows: unassignedRows,
       },
       {
         id: "expenses",

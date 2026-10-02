@@ -1,6 +1,8 @@
+import {AdminResetWorkspace} from './AdminResetWorkspace.jsx';
 import React, { useEffect, useState, useRef } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import "./admin-workspace.css";
+import { AdminUnlinkTransfers } from "./AdminUnlinkTransfers.jsx";
 const api = window.urbanomics;
 export function AdminWorkspace({ data, act, busy }) {
   const [preview, setPreview] = useState(null),
@@ -77,7 +79,7 @@ export function AdminWorkspace({ data, act, busy }) {
       <article className="admin-action">
         <div>
           <span className="admin-action-label">Transaction organization</span>
-          <h3>Untag all transactions</h3>
+          <h3>Reset transaction tags</h3><p>Restores automatic Other tags. Transfer and Deduction tags continue to follow their links.</p>
           <p>
             Clear every expense and income tag assignment across all months and
             accounts, including archived accounts and cash receipts.
@@ -93,9 +95,11 @@ export function AdminWorkspace({ data, act, busy }) {
           disabled={busy || working || !preview?.count}
           onClick={open}
         >
-          Untag all transactions
+          Reset transaction tags
         </button>
       </article>
+      <AdminResetWorkspace act={act} busy={busy || working} />
+      <AdminUnlinkTransfers data={data} act={act} busy={busy || working} />
       {error && !confirmation && (
         <p role="alert" className="dr-error-text">
           {error}
@@ -104,7 +108,7 @@ export function AdminWorkspace({ data, act, busy }) {
       {result && (
         <div className="admin-result" role="status">
           <strong>
-            {result.count} transaction{result.count === 1 ? "" : "s"} untagged.
+            {result.count} transaction{result.count === 1 ? "" : "s"} reset to automatic defaults.
           </strong>
           <p>
             {result.backup
@@ -115,7 +119,7 @@ export function AdminWorkspace({ data, act, busy }) {
       )}
       {confirmation && (
         <WorkspaceModal
-          title="Untag all transactions?"
+          title="Reset transaction tags?"
           onClose={close}
           footer={
             <div className="admin-confirm-buttons">
@@ -127,7 +131,7 @@ export function AdminWorkspace({ data, act, busy }) {
                 disabled={working || busy || !confirmation.count}
                 onClick={confirm}
               >
-                {working ? "Removing tags…" : "Confirm untag all"}
+                {working ? "Resetting tags…" : "Confirm reset tags"}
               </button>
             </div>
           }

@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f7f5ef">
+  <title>Urbanomics · Experience map</title>
+  <style>
+    :root { color-scheme:light; --ink:#263b35; --muted:#57685e; --paper:#f7f5ef; --line:#dfE3da; --green:#e3eee3; --amber:#fbecd1; --purple:#eee5f5; }
+    * { box-sizing:border-box; }
+    html { scroll-padding-top:80px; }
+    body { margin:0; background:var(--paper); color:var(--ink); font:16px/1.6 system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+    a { color:inherit; text-underline-offset:4px; }
+    a:focus-visible, summary:focus-visible { outline:3px solid #5c8070; outline-offset:4px; }
+    header { border-bottom:1px solid var(--line); padding:18px max(20px,env(safe-area-inset-left)); }
+    .top { max-width:960px; margin:auto; display:flex; align-items:center; justify-content:space-between; gap:12px; }
+    .brand { display:flex; align-items:center; gap:9px; font-weight:750; letter-spacing:-.5px; }
+    .mark { display:grid; place-items:center; background:#36594a; color:white; height:30px; width:30px; border-radius:10px; font-size:18px; }
+    .small { font-size:13px; color:var(--muted); }
+    main { max-width:960px; margin:auto; padding:38px 20px 90px; }
+    .eyebrow { font-size:11px; font-weight:750; text-transform:uppercase; letter-spacing:1.8px; color:#647e65; }
+    h1 { font-size:clamp(34px,7vw,55px); line-height:1.08; letter-spacing:-1.9px; max-width:620px; margin:15px 0 20px; }
+    h2 { font-size:26px; letter-spacing:-.8px; line-height:1.2; margin:0 0 12px; }
+    h3 { font-size:17px; margin:0 0 5px; }
+    p { margin:0 0 16px; }
+    .intro { color:var(--muted); max-width:650px; font-size:17px; }
+    nav { position:sticky; top:0; z-index:5; display:flex; gap:6px; background:var(--paper); padding:12px 0; border-bottom:1px solid var(--line); margin:25px 0 36px; }
+    nav a { flex:1; text-decoration:none; text-align:center; padding:10px 3px; border-radius:12px; font-size:13px; font-weight:650; background:#ebece4; min-height:44px; }
+    section { margin:0 0 44px; }
+    .legend { display:flex; flex-wrap:wrap; gap:8px; margin:18px 0; }
+    .pill { display:inline-flex; align-items:center; gap:6px; padding:5px 10px; border:1px solid #0000000b; border-radius:30px; font-size:12px; font-weight:600; }
+    .built { background:var(--green); } .refine { background:var(--amber); } .trial { background:var(--purple); }
+    .map { border:1px solid var(--line); border-radius:24px; padding:20px; background:#fffdf9; }
+    .node { display:block; padding:14px 17px; border-radius:15px; text-decoration:none; border:1px solid #0000000e; }
+    .node strong { display:block; font-size:16px; }
+    .node span { display:block; font-size:13px; color:var(--muted); }
+    .node:hover { outline:2px solid #839581; outline-offset:2px; }
+    .connector { text-align:center; line-height:1; font-size:22px; color:#8c9c8b; padding:7px 0; }
+    .review { border:1px dashed #c8cdbd; padding:15px; border-radius:20px; margin:0 -5px; }
+    .review-label { font-size:11px; letter-spacing:1.5px; text-transform:uppercase; margin:0 0 12px; color:var(--muted); }
+    .row { display:flex; align-items:center; gap:12px; }
+    .step { flex-shrink:0; width:27px; height:27px; display:grid; place-items:center; background:#ffffff90; border-radius:50%; font-size:12px; font-weight:700; }
+    .support { margin-top:18px; padding-top:18px; border-top:1px solid var(--line); display:grid; gap:10px; }
+    .support > p { margin:0; }
+    .detail-grid { display:grid; gap:10px; }
+    details { border:1px solid var(--line); border-radius:17px; background:#fffdf9; overflow:hidden; }
+    summary { padding:16px 18px; cursor:pointer; font-weight:650; min-height:54px; }
+    details[open] summary { border-bottom:1px solid var(--line); background:#f0f1e9; }
+    .detail-body { padding:18px; }
+    .detail-label { font-size:11px; letter-spacing:1.2px; text-transform:uppercase; font-weight:750; color:#57745e; margin:0 0 6px; }
+    .detail-label.open { color:#856534; }
+    .detail-body p:last-child { margin-bottom:0; }
+    .callout { padding:22px; border-radius:20px; background:var(--green); margin:20px 0; }
+    .journey { padding:0; list-style:none; counter-reset:journey; }
+    .journey li { position:relative; padding:0 0 21px 45px; min-height:55px; counter-increment:journey; }
+    .journey li:before { content:counter(journey); position:absolute; left:0; top:1px; width:29px; height:29px; background:#dce8dc; border:1px solid #c5d4c4; border-radius:50%; display:grid; place-items:center; font-size:12px; font-weight:700; }
+    .journey li:not(:last-child):after { content:""; position:absolute; left:14px; top:34px; bottom:5px; width:1px; background:#c5d4c4; }
+    .journey strong { display:block; } .journey span { color:var(--muted); font-size:14px; }
+    .branches { display:grid; gap:10px; margin:5px 0 20px; }
+    .branch { padding:14px 16px; border-radius:14px; font-size:14px; background:#f0eee6; }
+    .branch strong { display:block; }
+    ul { padding-left:21px; } li { margin-bottom:10px; }
+    .order { display:grid; gap:8px; padding:0; list-style:none; counter-reset:priority; }
+    .order li { margin:0; padding:12px 14px; border-radius:12px; background:#eeeee5; counter-increment:priority; }
+    .order li:before { content:counter(priority) " / "; font-size:12px; color:#65836a; font-weight:750; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; margin:0; font-size:12px; line-height:1.7; padding:18px; }
+    footer { border-top:1px solid var(--line); padding-top:20px; color:var(--muted); font-size:13px; }
+    .footer-links { display:flex; gap:12px; flex-wrap:wrap; margin-top:15px; }
+    .footer-links a { display:inline-block; padding:11px 14px; background:#e8ebdf; border-radius:12px; font-weight:650; text-decoration:none; }
+    @media(min-width:700px) { .map { max-width:600px; margin:auto; padding:28px; } .detail-grid { grid-template-columns:1fr 1fr; align-items:start; } .branches { grid-template-columns:1fr 1fr; } nav { max-width:500px; } }
+    @media(prefers-reduced-motion:no-preference) { html { scroll-behavior:smooth; } }
+  </style>
+</head>
+<body>
+  <header><div class="top"><div class="brand"><span class="mark" aria-hidden="true">u</span> urbanomics</div><span class="small">Design notebook</span></div></header>
+  <main>
+    <div class="eyebrow">Attention checkpoint · 15 Sep 2026</div>
+    <h1>What deserves<br>your attention?</h1>
+    <p class="intro">The Rolodex gives a list tactility. Now we’re deciding which questions belong on its cards, and what makes each question resolved.</p>
+    <nav aria-label="On this page"><a href="#attention">Attention</a><a href="#map">App map</a><a href="#sections">Capabilities</a><a href="#gaps">Boundaries</a></nav>
+    <div class="callout"><h3>Now in the application</h3><p>Experimental brings the Rolodex to your real transactions: validate transfers, tag income and tag expenses. Open Experimental in Urbanomics on your desktop or phone. Saves update your private ledger.</p><a href="/lab/">Historical sample study →</a></div>
+
+    <section id="attention">
+      <div class="eyebrow">Current focus · 15 Sep 2026</div>
+      <h2>A queue of questions worth answering</h2>
+      <p>The card gives one decision a clear focus. Its controls should fit that decision: a quick tag, a transfer comparison, or a searchable repayment allocation. A card can represent a transaction, a pair, or a whole set affected by one problem.</p>
+      <div class="legend"><span class="pill built">Existing finance capabilities</span><span class="pill trial">Proposed attention experience</span></div>
+      <div class="map" aria-label="Proposed attention flow">
+        <div class="node built"><strong>Imports + saved rules</strong><span>Recognize accounts, dedupe records, fill known tags and people.</span></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node trial"><strong>What still needs a decision?</strong><span>Explain why it matters; collect related questions without duplicating money.</span></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node refine"><strong>Choose a focused queue</strong><span>Tag expenses · Explain money in · Match transfers</span></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node trial"><strong>Decide → save → clear this question</strong><span>Use the card for focus. Expand into a larger workspace when needed.</span></div>
+      </div>
+      <h3 style="margin-top:25px">The input inventory</h3>
+      <p class="small">Based on code and documentation. These are potential tasks, not counts from your private accounts.</p>
+      <div class="detail-grid"><details><summary>Import exceptions</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>Account routing is unknown/ambiguous; an export failed; duplicate-looking rows need interpretation.</p><p class="detail-label">The question and surface</p><p>Which account? Is this an additional payment? A file summary or side-by-side comparison, linking to Snapshots for technical failures.</p><p class="detail-label">Resolved when</p><p>A valid account/duplicate decision is saved, or the source problem is corrected and processing succeeds. One file problem should not create hundreds of transaction cards.</p></div></details>
+<details><summary>Transfers</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>A plausible own-account pair needs confirmation, several candidates compete, or a linked pair has an unexplained difference.</p><p class="detail-label">The question and surface</p><p>Are these the same movement? Show both accounts, dates, amounts and difference together, with candidate choices.</p><p class="detail-label">Resolved when</p><p>Explicit Link; or an explicit decision that a suggestion is not a transfer. Rejection memory is a proposed capability, not established behavior.</p></div></details>
+<details><summary>Expense tagging</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>A non-transfer expense has no tag or the user has opened it for correction.</p><p class="detail-label">The question and surface</p><p>What did I buy? This is the strongest fit for quick card sorting. Offer a split editor for mixed purchases.</p><p class="detail-label">Resolved when</p><p>Valid tag portions are saved. The broad category follows the tag&#x27;s parent; it is not a second classification chore.</p></div></details>
+<details><summary>Incoming purpose</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>Money received is neither a linked transfer nor fully explained as income/repayment.</p><p class="detail-label">The question and surface</p><p>What is this money for? Visible choices for income type or expense reimbursement, with transfer inspection when relevant.</p><p class="detail-label">Resolved when</p><p>Purpose is saved; any remaining amount stays explicit rather than being silently treated as allocated. An income tag alone does not set purpose today.</p></div></details>
+<details><summary>Repayment allocation</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>A receipt is meant to reimburse spending, but target expenses or amounts need selection.</p><p class="detail-label">The question and surface</p><p>Which costs does this cover? Keep the receipt as an anchor and open a searchable multi-selection workspace with an allocation summary. Events select unique expense leaves.</p><p class="detail-label">Resolved when</p><p>The person and allocation are saved within receipt/expense capacities. A remainder remains unresolved or is explicitly handled under a future agreed policy.</p></div></details>
+<details><summary>Shared-cost agreement</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>The user knows an expense was shared and needs to record who owes what, or amend an existing agreement.</p><p class="detail-label">The question and surface</p><p>Who is responsible for this cost? People and exact split controls, with existing repayments visible.</p><p class="detail-label">Resolved when</p><p>Agreed shares are saved. Tagging or recognizing a person cannot establish these shares. Ordinary personal purchases need no extra confirmation.</p></div></details>
+<details><summary>Event organization</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>The user is organizing a trip/event, or choosing to inspect a relevant date suggestion.</p><p class="detail-label">The question and surface</p><p>Which transactions belong here? An event-centered calendar/list with bulk selection is better than a compulsory card for every transaction.</p><p class="detail-label">Resolved when</p><p>Selected memberships are saved. Being outside all events is valid. Event membership by itself never allocates a repayment.</p></div></details>
+<details><summary>Automation and naming conflicts</summary><div class="detail-body"><p class="detail-label">When your input helps</p><p>Aliases overlap, rules propose competing mappings, or an existing-data preview is ready to apply.</p><p class="detail-label">The question and surface</p><p>Which definition should apply? A grouped exception card can open Organize&#x27;s existing preview/change/apply tools.</p><p class="detail-label">Resolved when</p><p>The conflicting definition is corrected and the affected set is rechecked, or the approved preview is applied. Avoid one identical card per affected row.</p></div></details></div>
+      <div class="callout"><h3>Unassigned does not always mean unfinished</h3><p>No event, no alias or no shared split is often perfectly valid. Already-recorded money owed can be waiting rather than actionable. A linked transfer should never become an untagged expense or income chore.</p><p style="margin:0">Ordinary transactions already handled by a rule should reduce your work, not generate another confirmation ritual.</p></div>
+      <h3>What clearing a card should mean</h3>
+      <ul><li><strong>A specific decision was saved.</strong> Tagging does not settle a debt. Event membership does not allocate a repayment.</li><li><strong>Failures and cancellations stay put.</strong> The envelope celebrates a successful save, not an attempted one.</li><li><strong>Later is not resolved.</strong> Postponing, dismissing suggestions and undoing decisions need explicit behavior; a universal “reviewed” flag would conceal remaining questions.</li></ul>
+      <details><summary>Example: $120 dinner, $60 share, $70 repayment</summary><div class="detail-body"><p>Illustrative only. The dinner is tagged Restaurants and Alex's agreed share is $60. Neither decision needs asking again.</p><p>When Alex sends $70, the useful question is which costs it covers. Allocate $60 to the dinner; the remaining $10 stays visible.</p><p>The current app can retain an unassigned remainder. Exactly how to explain that $10 as extra income or another purpose remains a product decision. The dinner does not need an event to be properly recorded.</p></div></details>
+      <h3 style="margin-top:25px">Two accounting interactions still need a decision</h3>
+      <div class="branches"><div class="branch"><strong>Mixed receipts</strong>How should a payment reimburse expenses and also contain explicitly explained extra money?</div><div class="branch"><strong>Merchant refunds</strong>How should a refund relate to its original purchase, separately from a friend's reimbursement?</div></div>
+      <h3>The next useful trial</h3><p>Keep the current card shell and try three actual decisions: tag a purchase, compare a transfer pair, and allocate a repayment. Include ambiguity, a split purchase, excess money and a failed save. Test whether the work is clear and satisfying, before more animation tuning.</p>
+      <p class="small">This is a design proposal. The live app and Rolodex are unchanged. Source inspection: transaction-state, ReviewWorkspace, TransferWorkspace, OrganizeWorkspace and current import/rule/hierarchy docs. No private ledger was inspected.</p>
+    </section>
+
+    <section id="map">
+      <h2>The underlying app</h2>
+      <p class="small">Implementation map from 13 September. Tap a section to explore it. Review steps remain freely navigable; the attention model above is a new proposal.</p>
+      <div class="legend"><span class="pill built">Built foundation</span><span class="pill refine">Built · refine the feel</span><span class="pill trial">Trial / feedback pending</span></div>
+      <div class="map" aria-label="Urbanomics product flow">
+        <a class="node built" href="#area-snapshots"><strong>Snapshots</strong><span>Import → dedupe → monthly archive</span></a>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="node built"><strong>Local ledger</strong><span>Source records + saved relationships</span></div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <div class="review"><p class="review-label">Review · five connected tools</p>
+          <a class="node refine row" href="#area-transfers"><b class="step">1</b><div><strong>Transfers</strong><span>Pair movements between your accounts</span></div></a>
+          <div class="connector" aria-hidden="true">↓</div>
+          <a class="node refine row" href="#area-events"><b class="step">2</b><div><strong>Events</strong><span>Optional calendar grouping</span></div></a>
+          <div class="connector" aria-hidden="true">↓</div>
+          <a class="node refine row" href="#area-income"><b class="step">3</b><div><strong>Income</strong><span>Sources, tags and repayments</span></div></a>
+          <div class="connector" aria-hidden="true">↓</div>
+          <a class="node refine row" href="#area-expenses"><b class="step">4</b><div><strong>Expenses</strong><span>Sort cards, split costs, assign people</span></div></a>
+          <div class="connector" aria-hidden="true">↓</div>
+          <a class="node refine row" href="#area-overview-dashboard"><b class="step">5</b><div><strong>Overview</strong><span>Costs, claims and repayments</span></div></a>
+        </div>
+        <div class="connector" aria-hidden="true">↓</div>
+        <a class="node refine" href="#area-overview-dashboard"><strong>Dashboard</strong><span>Trends, vendors and account movements</span></a>
+        <div class="support"><p class="review-label">Supporting the journey</p>
+          <a class="node refine" href="#area-organize"><strong>Organize ↔ review</strong><span>Categories / tags, accounts, people, events, aliases and rules</span></a>
+          <a class="node refine" href="#area-transactions"><strong>Transactions ↔ ledger</strong><span>Find, inspect and correct individual records</span></a>
+          <a class="node trial" href="#gaps"><strong>Auto-link lab → transfers</strong><span>Test directed routes and matching candidates</span></a>
+          <a class="node trial" href="#area-mobile"><strong>Phone ↔ desktop</strong><span>Shared data; first touch experience</span></a>
+        </div>
+      </div>
+      <p class="small" style="margin-top:14px">“Built” describes functionality. It doesn’t mean the experience is finished.</p>
+    </section>
+
+    <section id="sections"><h2>One section at a time</h2><p class="small">Expand a section for the established behavior and the questions worth exploring next.</p><div class="detail-grid">__SECTIONS__</div></section>
+
+    <section id="sorting">
+      <div class="eyebrow">Earlier sorting checkpoint</div><h2 style="margin-top:12px">Make sorting feel continuous</h2>
+      <p>You like the card-sorting idea. The open question is how to make the whole gesture flow without careful steering or surprise jumps.</p>
+      <ol class="journey">
+        <li><strong>Pick up the card</strong><span>A clear distinction between tapping to edit and dragging to sort.</span></li>
+        <li><strong>Enter a category</strong><span>Reveal its tags while keeping the gesture understandable.</span></li>
+        <li><strong>Move onto a tag</strong><span>A stable, readable target and an unmistakable drop preview.</span></li>
+        <li><strong>Release and save</strong><span>Show what is being saved and keep the current context until it succeeds.</span></li>
+        <li><strong>Continue predictably</strong><span>Advance after the first assignment. Stay put when editing an already tagged card.</span></li>
+      </ol>
+      <div class="branches"><div class="branch"><strong>Cancel or miss the target → stay</strong>No assignment and no queue jump.</div><div class="branch"><strong>Save fails → retain context</strong>Keep the correction or retry easy to understand.</div><div class="branch"><strong>Leave the tag circle → close it</strong>Preserve the agreed behavior; inspect the boundary transitions.</div><div class="branch"><strong>Tap the card → edit a split</strong>Save / Cancel remain deliberate alternatives to the quick gesture.</div></div>
+      <div class="callout"><h3>A small, realistic trial</h3><p>Use synthetic cards: a simple tag, a crowded category, an existing assignment, a two-tag split, a cancelled drag and a delayed or failed save. Try the phone equivalents too.</p><p style="margin:0">Look for accidental choices, collapsing targets, backtracking, unclear saves and unexpected navigation. Then refine the transition that actually causes friction.</p></div>
+      <details><summary>What we observed—and what is still a hypothesis</summary><div class="detail-body"><p>Source inspection found immediate hover expansion, closing at the circle boundary, and a card-position reset before the asynchronous save finishes. These are places to observe, not confirmed causes of the jankiness.</p><p>The phone layout hides the sorter's local status area, creating another feedback difference to evaluate. Functional tests cover saving and navigation, but do not establish fluidity. No new live interaction test was run for this checkpoint.</p></div></details>
+    </section>
+
+    <section id="gaps"><h2>Still outside the finished loop</h2><p class="small">Known boundaries, not a list of new features to chase right now.</p><ul><li>Bank export automation and a supported Wealthsimple importer.</li><li>Full month-coverage and balance reconciliation; snapshot presence alone does not prove completeness.</li><li>Automatic transfer linking during import. Today it remains an explicit testing/apply workflow.</li><li>A general backup/restore interface; private recovery copies already exist.</li><li>Confirmed hands-on phone comfort. Offline editing and home-screen installation are outside the first mobile pass.</li></ul></section>
+
+    <section id="next"><h2>Earlier proposed focus order</h2><ol class="order"><li><strong>Expenses</strong> · gesture, feedback and correction</li><li><strong>Income & shared costs</strong> · allocations, shares and repayments</li><li><strong>Transfers & Events</strong> · pairing and optional grouping</li><li><strong>Overview & Dashboard</strong> · useful answers and drilldowns</li><li><strong>Organize & Snapshots</strong> · repeated cleanup and exceptions</li></ol><p class="small">Test mobile alongside each area. This is a recommendation for discussion, not a locked roadmap.</p></section>
+
+    <details><summary>Original Mermaid diagram</summary><pre>__MERMAID__</pre></details>
+    <footer style="margin-top:30px"><p>A design checkpoint, not a live completion tracker. Based on the current project notes, source inspection and your feedback. This reading page contains no transaction data.</p><div class="footer-links"><a href="/app">Open Urbanomics ↗</a><a href="/experience-map.md" download>Download full notes</a><a href="#map">Back to map ↑</a></div></footer>
+  </main>
+</body>
+</html>

@@ -53,7 +53,7 @@
   background: var(--event-color);
 }
 .event-choices button[aria-pressed="true"] {
-  background: #eaf0e6;
+  background: var(--tone-90);
   border-color: var(--event-color);
 }
 .event-context {
@@ -102,7 +102,7 @@
   padding: 20px;
   border: 1px solid var(--line);
   border-radius: 18px;
-  background: #fffefa;
+  background: var(--tone-100);
 }
 .event-month-nav {
   margin-bottom: 18px;
@@ -141,9 +141,9 @@
   min-height: 76px;
   padding: 8px 6px;
   text-align: left;
-  border: 1px solid #ebeee5;
+  border: 1px solid var(--tone-90);
   border-radius: 10px;
-  background: white;
+  background: var(--paper);
   transition:
     background 0.15s,
     transform 0.15s;
@@ -152,11 +152,11 @@
   transform: translateY(-2px);
 }
 .event-calendar-grid > button.near-event {
-  background: #f0f4e8;
-  border-color: #b9c9a9;
+  background: var(--tone-95);
+  border-color: var(--tone-70);
 }
 .event-calendar-grid > button[aria-pressed="true"] {
-  box-shadow: inset 0 0 0 2px #527b55;
+  box-shadow: inset 0 0 0 2px var(--tone-35);
 }
 .event-calendar-grid button > span {
   font-size: 12px;
@@ -186,7 +186,7 @@
 .event-day-dots b {
   font-size: 10px;
   margin-left: auto;
-  color: #527b55;
+  color: var(--tone-35);
 }
 .event-day-panel .rv-section-title {
   margin-top: 0;
@@ -218,8 +218,8 @@
   grid-column: 1/-1;
 }
 .event-day-panel article.is-linked .event-row-actions button:last-child {
-  color: #426748;
-  background: #edf3e8;
+  color: var(--tone-25);
+  background: var(--tone-95);
 }
 .event-date-inputs {
   display: grid;
@@ -238,7 +238,7 @@
   gap: 10px;
 }
 .cost-metrics > div {
-  background: #eef3e9;
+  background: var(--tone-95);
   border-radius: 12px;
   padding: 16px;
 }
@@ -286,7 +286,7 @@
 }
 .cost-payment {
   padding: 10px;
-  background: #f4f5f0;
+  background: var(--tone-95);
   border-radius: 8px;
   margin-top: 8px;
   font-size: 12px;
@@ -401,7 +401,7 @@
   gap: 12px;
   padding: 14px;
   margin-bottom: 16px;
-  background: #edf3e8;
+  background: var(--tone-95);
   border-radius: 12px;
   font-size: 13px;
 }

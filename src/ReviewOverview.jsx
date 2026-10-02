@@ -4,7 +4,7 @@ import { currencyMoney } from "./CostBreakdown.jsx";
 export function ReviewOverview({records, visible, entities, onStage, onSource}) {
   const summaries = reviewOverview(records, visible, entities);
   return <section className="rv-overview" aria-label="Review overview">
-    <div className="rv-section-title"><div><h2>Everything finds its place.</h2><p>Your selected transactions, including those still needing tags or a purpose.</p></div></div>
+    <div className="rv-section-title"><div><h2>Everything finds its place.</h2><p>Your selected transactions, including those using default tags or awaiting a purpose.</p></div></div>
     {!summaries.length && <p className="rv-empty-panel">No transactions in this view.</p>}
     {summaries.map(({currency, model, income, allocated, unassigned, claims, notClaimed, noAgreement, untagged, transfers, events}) => {
       const money = n => currencyMoney(n,currency);
@@ -33,7 +33,7 @@ export function ReviewOverview({records, visible, entities, onStage, onSource}) 
             <div className="rv-overview-transfers">{transfers.map(t => <button key={t.id} onClick={() => onSource(t.id)}><span>{t.account}<small>{t.date} · {t.description}</small></span><strong>{money(t.amountCents)}</strong></button>)}</div>
           </article>
         </div>
-        <p className="rv-help">{untagged} income / expense transactions still need tags. This describes imported activity, not proof of complete account coverage.</p>
+        <p className="rv-help">{untagged} income / expense transactions use default tags. This describes imported activity, not proof of complete account coverage.</p>
       </div>;
     })}
   </section>;

@@ -26,6 +26,8 @@ test('local browser host persists isolated changes and deduplicates CSV uploads'
     assert.equal(state.ok, true);
     assert.equal(state.value.records.length, 15);
     const record = state.value.records.find(t => t.amountCents < 0);
+    assert.equal((await call('transactionRulesState')).ok,true);
+    const coverage=await call('transactionRuleCoverage',[record.id]);assert.equal(coverage.ok,true);assert.equal(coverage.value.transactionId,record.id);
     const saved = await call('saveEntity', ['category', { name: 'Web test tag', color: '#8fa68b' }]);
     assert.equal(saved.ok, true);
     assert.equal((await call('organize', [[{ id: record.id, version: record.version,
@@ -49,6 +51,8 @@ test('local browser host persists isolated changes and deduplicates CSV uploads'
     assert.equal((await fetch(origin+'/api/files/source/..%2F..%2Fprivate')).status,404);
     assert.equal((await call('drop', [['C:/arbitrary/private.csv']])).ok, false);
     assert.equal((await call('choose')).ok, false);
+    assert.equal((await call('stageDrop', [['C:/arbitrary/private.csv']])).ok,false);
+    assert.equal((await call('stageChoose')).ok,false);
     assert.equal((await call('__proto__')).ok, false);
     assert.match((await call('reveal', ['dropbox'])).error, /Electron/);
     assert.equal((await fetch(origin + '/private/browser/workspace.sqlite')).status, 404);
@@ -63,3 +67,5 @@ test('local browser host persists isolated changes and deduplicates CSV uploads'
     assert.ok(reopened.store.review.entities().some(e => e.name === 'Web test tag'));
   } finally { await reopened.close(); }
 });
+
+test('V2 web uploads stay staged even for recognized accounts and reject path-based staging',async()=>{const root=path.resolve(__dirname,'../../private/validation/web-v2-'+randomUUID()),app=await startWebServer({root,port:0,seed:false});try{const account=app.store.addAccount('Synthetic bank','eq','',{prefixRegex:'^bank.*'}),{token}=await(await fetch(app.origin+'/api/session')).json(),headers={Origin:app.origin,'X-Urbanomics-Token':token};const res=await(await fetch(app.origin+'/api/upload',{method:'POST',headers:{...headers,'Content-Type':'application/octet-stream','X-File-Name':'bank.csv','X-Stage-Only':'true'},body:'Transfer date,Description,Amount,Balance\n2026-08-01,Synthetic,12,12\n'})).json();assert.equal(res.ok,true);assert.equal(app.store.job(res.value.ids[0]).account_id,null);const layout=app.store.layouts.save(res.value.ids[0],{name:"Bank layout",prefixRegex:"^bank.*",headers:["Transfer date","Description","Amount","Balance"],mapping:{date:0,description:1,amount:2,balance:3,dateFormat:"ymd",amountMode:"signed",sign:1,currency:"CAD",delimiter:","}});app.store.resolveAccount(res.value.ids[0],account,false,{process:false,allowLayout:true});assert.equal(app.store.review.records().length,0);for(const method of ['stageDrop','stageChoose']){const bad=await(await fetch(app.origin+'/api/call',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({method,args:[['C:/private.csv']]})})).json();assert.equal(bad.ok,false);}const done=await(await fetch(app.origin+'/api/call',{method:'POST',headers:{...headers,'Content-Type':'application/json'},body:JSON.stringify({method:'processImportBatch',args:[res.value.ids]})})).json();assert.equal(done.ok,true,done.error);assert.equal(done.value.added,1);}finally{await app.close();}});

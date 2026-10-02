@@ -1,5 +1,7 @@
 # Browser verification
 
+User preference, September 18: perform UI testing and visual inspection in the browser, including animation and performance verification. Use synthetic isolated workspaces and the shared application service. Perform verification in the browser rather than controlling the desktop UI. Once validation passes, package and restart the desktop app for the user to explore the changes; the user explicitly requested this automatic delivery workflow. Keep unit/service checks; explicitly report any Electron-only behavior that browser testing cannot cover.
+
 This page describes the isolated sample host. Phone access to the live desktop workspace uses the embedded host described in [mobile and remote access](mobile-remote.md). Never point the sample host at the live ledger.
 
 Run `npm run web` from the repository, then open `http://127.0.0.1:4173`. This builds the same React interface used by Electron and serves it through a local Node host. `PORT` changes the listening port. Stop the server with Ctrl+C and rerun after source changes; reload the browser after rebuilding.

@@ -2,7 +2,19 @@
 
 A fresh start on a personal finance app that makes money movements understandable and monthly upkeep manageable.
 
-The desktop app combines real CSV imports, a local SQLite ledger, immutable source/monthly archives, and persistent transaction organization and review. The accepted prototypes now connect to imported transactions through a Review workspace.
+The desktop app combines local CSV imports, immutable source/monthly archives, and persistent transaction organization.
+
+## Workspace navigation
+
+- **Dashboard** — spending, income, cash flow and account insights.
+- **Snapshots** — upload CSVs, configure layouts/accounts, import and inspect archives.
+- **Organize** — allocate transaction amounts, tag income and expenses, connect repayments, and link transfers. Transfer matching and account-route controls live in its Transfers tool.
+- **Transactions** — search and filter the full ledger, sort and page through records, inspect originals, assign people, manage financial settings and record cash receipts.
+- **Events** — create dated events, link transactions through a calendar, and inspect costs and repayments.
+- **Accounts** — account settings, reported balances and account movement.
+- **Settings** — categories/tags, people, aliases, rules, appearance and confirmed admin actions.
+
+Review and Experimental have been retired from navigation; Allocations is now Organize. The sidebar month shortcuts have moved into the Transactions month filter. Snapshot inspection opens a read-only ledger view. The interface follows the Snapshots design language, with compact controls, restrained animation and reduced-motion support. See [workspace navigation](docs/workspace-navigation.md) for behavior and verification.
 
 ## Dashboard
 
@@ -17,6 +29,16 @@ Run `npm run web` and open [Urbanomics locally](http://127.0.0.1:4173). This use
 Expense categories include tags in your chosen order and an inherited-color breakdown. Hover or keyboard-focus a category or tag to see its total and top three vendors after repayments; click for vendor and transaction details.
 
 Review now follows **Transfers → Events → Income → Expenses → Overview**. Pair transfers first to remove them from income/expense tagging. Organize optional events, classify and allocate incoming money, then tag expenses and manage people's shares. Overview brings together external cash flow, allocations, claims and repayments. Organize → Categories & tags offers Expenses, Income and Transfers; reorder tags by dragging or using the arrow buttons. See [review workflow](docs/review-workflow.md).
+
+## Accounts
+
+**Accounts** pairs editable account cards with monthly money-in/out charts, linked transfer routes and inspectable activity. Select a month, year or currency to explore. Matched transfer principal stays separate from external cash flow. Balances show the latest exported observation and its date, with missing or conflicting balances identified explicitly. Edit names, optional types, colors and filename rules; add accounts from saved CSV layouts; delete and restore accounts without erasing archives. The same workspace is available from Organize → Accounts.
+
+## Snapshots
+
+Snapshots starts with manual column mapping. Named layouts have independent filename regex rules, with live matching feedback. Imported originals keep their saved interpretation.
+
+The **Snapshots** tab is the single import workspace, replacing the former legacy page. Start with its animated empty state, upload CSVs, confirm reusable column layouts, create or choose every account, then import the batch. Account type is optional and freeform. Filename regexes have a live highlighted match preview. Results combine the uploads, followed by a compact account/month calendar, history and archives. See [Snapshots](docs/snapshots-v2.md).
 
 ## Run the desktop app
 

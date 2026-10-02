@@ -375,7 +375,7 @@ export function EventCalendar({
             {!incoming.length && (
               <p className="rv-help">
                 Link incoming transactions from the calendar, or choose
-                Repayment from the review inbox. Payments may arrive after the
+                an incoming transaction in Organize. Payments may arrive after the
                 event.
               </p>
             )}

@@ -44,7 +44,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 17) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 21) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -269,6 +269,33 @@ class ImportStore {
         this.db.exec("PRAGMA user_version=17; COMMIT");
       } catch (error) { this.db.exec("ROLLBACK"); throw error; }
     }
+    if (this.db.prepare("PRAGMA user_version").get().user_version < 18) {
+      this.db.exec("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS system_tag_names (id TEXT PRIMARY KEY, name TEXT NOT NULL); PRAGMA user_version=18; COMMIT;");
+    }
+    if(this.db.prepare('PRAGMA user_version').get().user_version<19){
+      this.db.exec('BEGIN IMMEDIATE');try{
+        if(!this.db.prepare('PRAGMA table_info(transaction_rules)').all().some(c=>c.name==='template'))this.db.exec('ALTER TABLE transaction_rules ADD COLUMN template TEXT DEFAULT NULL');
+        this.db.exec('PRAGMA user_version=19; COMMIT');
+      }catch(error){this.db.exec('ROLLBACK');throw error;}
+    }
+    if(this.db.prepare("PRAGMA user_version").get().user_version<20){
+      this.db.exec(`BEGIN IMMEDIATE;
+        CREATE TABLE IF NOT EXISTS import_layouts(id TEXT PRIMARY KEY,name TEXT NOT NULL,headers TEXT NOT NULL,mapping TEXT NOT NULL,version INTEGER NOT NULL);
+        CREATE TABLE IF NOT EXISTS account_import_layouts(account_id TEXT NOT NULL REFERENCES accounts(id),schema TEXT NOT NULL,PRIMARY KEY(account_id,schema));
+        CREATE TABLE IF NOT EXISTS source_layouts(source_hash TEXT PRIMARY KEY REFERENCES sources(hash),template_id TEXT NOT NULL REFERENCES import_layouts(id),definition TEXT NOT NULL);
+        PRAGMA user_version=20; COMMIT;`);
+    }
+    if(this.db.prepare('PRAGMA user_version').get().user_version<21){
+      this.db.exec(`BEGIN IMMEDIATE;
+        ${this.db.prepare('PRAGMA table_info(import_layouts)').all().some(c=>c.name==='prefixRegex')?'':"ALTER TABLE import_layouts ADD COLUMN prefixRegex TEXT NOT NULL DEFAULT '';"}
+        UPDATE jobs SET account_id=NULL,status='error',error='Choose a saved layout or map this file.'
+          WHERE status IN ('queued','routing','error','overlap') AND source_hash IN
+            (SELECT hash FROM sources WHERE schema IN ('eq','pc','simplii') AND NOT EXISTS(SELECT 1 FROM imports WHERE source_hash=sources.hash));
+        UPDATE sources SET schema=NULL,canonical=NULL WHERE schema IN ('eq','pc','simplii')
+          AND NOT EXISTS(SELECT 1 FROM imports WHERE source_hash=sources.hash);
+        PRAGMA user_version=21; COMMIT;`);
+    }
+    this.layouts = new (require('./layouts.cjs').ImportLayouts)(this);
     this.transferLab = new TransferLabStore(this);
     this.transactionRules = new TransactionRuleStore(this);
     this.recover();
@@ -276,15 +303,15 @@ class ImportStore {
   close() {
     this.db.close();
   }
-  addAccount(name, schema, kind, options = {}) {
+  addAccount(name, schema, kind = "", options = {}) {
     name = String(name || "").trim();
     if (
       !name ||
       name.length > 80 ||
-      !["pc", "eq", "simplii"].includes(schema) ||
-      !["credit", "chequing", "savings"].includes(kind)
+      (!["pc", "eq", "simplii"].includes(schema) && !this.layouts.list().some(t=>schema==="custom:"+t.id)) ||
+      typeof kind !== "string" || kind.trim().length>80
     )
-      throw new Error("Enter a name, supported bank, and account type.");
+      throw new Error("Enter a name and choose a recognized CSV layout. Account type is optional.");
     const id = randomUUID();
     const count = this.db.prepare("SELECT COUNT(*) AS n FROM accounts").get().n;
     const style = appearance(
@@ -296,7 +323,7 @@ class ImportStore {
       .prepare(
         "INSERT INTO accounts (id,name,schema,kind,prefixRegex,color) VALUES (?,?,?,?,?,?)",
       )
-      .run(id, style.name, schema, kind, style.prefixRegex, style.color);
+      .run(id, style.name, schema, kind.trim(), style.prefixRegex, style.color);
     this.rerouteWaiting();
     return id;
   }
@@ -308,9 +335,11 @@ class ImportStore {
     )
       throw new Error("Account not found.");
     const style = appearance(values?.name, values?.prefixRegex, values?.color);
+    if(values.kind !== undefined && (typeof values.kind !== 'string'||values.kind.trim().length>80))throw Error('Account type must be up to 80 characters.');
     this.db
       .prepare("UPDATE accounts SET name=?,prefixRegex=?,color=? WHERE id=?")
       .run(style.name, style.prefixRegex, style.color, id);
+    if(values.kind !== undefined)this.db.prepare('UPDATE accounts SET kind=? WHERE id=?').run(values.kind.trim(),id);
     this.rerouteWaiting();
   }
   testPrefix(pattern, filename) {
@@ -322,7 +351,7 @@ class ImportStore {
       throw new Error(
         "Enter a filename, without a folder path (up to 255 characters).",
       );
-    return { matches: prefixPattern(pattern)?.test(filename) ?? false };
+    return require("./account-rules.cjs").prefixPreview(pattern, filename);
   }
   deleteAccount(id) {
     if (
@@ -382,9 +411,9 @@ class ImportStore {
       .all(routingKey(filename), schema);
     const patterns = this.db
       .prepare(
-        "SELECT id,prefixRegex FROM accounts WHERE schema=? AND prefixRegex<>'' AND deletedAt IS NULL",
+        "SELECT id,prefixRegex FROM accounts a WHERE (schema=? OR EXISTS(SELECT 1 FROM account_import_layouts al WHERE al.account_id=a.id AND al.schema=?)) AND prefixRegex<>'' AND deletedAt IS NULL",
       )
-      .all(schema)
+      .all(schema,schema)
       .filter((a) => prefixPattern(a.prefixRegex).test(filename));
     return [...new Set([...remembered, ...patterns].map((a) => a.id))].map(
       (id) => ({ id }),
@@ -407,7 +436,7 @@ class ImportStore {
           .run(choices[0].id, job.id);
     }
   }
-  resolveAccount(jobId, accountId, remember = true, { process = true } = {}) {
+  resolveAccount(jobId, accountId, remember = true, { process = true, allowLayout = false } = {}) {
     const job = this.job(jobId);
     if (!["routing", "overlap", "error", "queued"].includes(job.status))
       throw new Error("This import is already complete.");
@@ -417,8 +446,9 @@ class ImportStore {
     const account = this.db
       .prepare("SELECT * FROM accounts WHERE id=?")
       .get(accountId);
-    if (!account || account.deletedAt || account.schema !== source.schema)
+    if (!account || account.deletedAt || !source.schema || (!allowLayout && account.schema !== source.schema && !this.db.prepare("SELECT 1 FROM account_import_layouts WHERE account_id=? AND schema=?").get(accountId,source.schema)))
       throw new Error("Choose an account at the same bank as this CSV.");
+    if(allowLayout)this.db.prepare("INSERT OR IGNORE INTO account_import_layouts VALUES (?,?)").run(accountId,source.schema);
     this.db
       .prepare("UPDATE jobs SET account_id=?,status=?,error=NULL WHERE id=?")
       .run(accountId, "queued", jobId);
@@ -433,7 +463,7 @@ class ImportStore {
     if (!job) throw new Error("Import not found.");
     return job;
   }
-  enqueue(paths, { stage = false, process = true } = {}) {
+  enqueue(paths, { stage = false, process = true, manualLayouts = false } = {}) {
     if (!Array.isArray(paths) || paths.length > 250)
       throw new Error("Drop up to 250 files at a time.");
     const files = [];
@@ -509,7 +539,7 @@ class ImportStore {
       immutable(path.join(this.root, "inbox", `${id}.csv`), bytes);
       let parsed, error;
       try {
-        parsed = parseExport(bytes);
+        parsed = this.layouts.parse(bytes, filename, {allowBuiltin: !manualLayouts});
       } catch (e) {
         error = e.message;
       }
@@ -522,6 +552,8 @@ class ImportStore {
           parsed?.canonicalHash || null,
           bytes.length,
         );
+      if(parsed)this.db.prepare("UPDATE sources SET schema=?,canonical=? WHERE hash=? AND schema IS NULL").run(parsed.schema,parsed.canonicalHash,sourceHash);
+      if(parsed?.template)this.layouts.bind(sourceHash,parsed.template);
       let accountId = null;
       if (parsed) {
         const choices = this.routingChoices(
@@ -556,10 +588,11 @@ class ImportStore {
       )
       .run(filename, sourceHash, jobId);
   }
-  scanDropbox() {
+  scanDropbox(manualLayouts = false) {
     return this.enqueue([path.join(this.root, "dropbox")], {
       stage: true,
       process: false,
+      manualLayouts,
     });
   }
   processReady() {
@@ -677,7 +710,7 @@ class ImportStore {
     );
     if (hash(bytes) !== job.source_hash)
       throw new Error("Original archive file failed its integrity check.");
-    const parsed = parseExport(bytes);
+    const parsed = this.layouts.parse(bytes, job.filename);
     const scope = { mode: "transaction-dates" };
     const included = parsed.rows;
     const excluded = [];
@@ -978,10 +1011,10 @@ class ImportStore {
           if (j.account_id && j.status !== "error") plan = this.plan(j);
           const parsed =
             plan?.parsed ??
-            parseExport(
+            this.layouts.parse(
               fs.readFileSync(
                 path.join(this.root, "archive/sources", `${j.source_hash}.csv`),
-              ),
+              ), j.filename,
             );
           rowCount = parsed.rows.length;
           includedCount = parsed.rows.length;
@@ -1099,3 +1132,4 @@ class ImportStore {
   }
 }
 module.exports = { ImportStore, lastCompleteMonth };
+

@@ -1,5 +1,16 @@
 # Categories and tags
 
+## System tags and tags-only income — September 18, 2026
+
+Income no longer requires a fixed paycheck/interest/sale/gift/other source selection. Financial purpose (income, transfer, repayment) still controls accounting; income tags describe the source. Legacy source fields remain private historical metadata and are not used for completion or calculations.
+
+Expense Other and Income Other are locked gray system defaults. Existing exact-name Other definitions are adopted with their original IDs, preserving assignments and rules; otherwise stable system IDs supply them. Defaults are projected for records without saved portions, not bulk-written into financial payloads. Their automatic status keeps them in attention queues; explicitly saving Other files the decision. Choosing a specific tag replaces a sole Other, removing the final tag restores Other, and multi-tag exact-cent splits remain available. Rules replace automatic defaults but preserve deliberate assignments. Reset transaction tags restores the automatic fallback.
+
+Transfer and Deduction are derived system tags, not user-selectable monetary portions. Transfer appears on linked entries; Deduction appears on receipts with positive allocations and their target expenses. Original expense tags and saved transfer tags remain preserved, and removing links removes the corresponding system tag. Their roles cannot be changed by renaming. Organize → Categories & tags → System tags permits names only; deletion, reparenting, color/type changes and ordering are locked. Gray defaults are excluded from gradient interpolation and manual reorder groups.
+
+Schema 18 adds only system_tag_names configuration, exported with configuration SQL. Import identities, reviews, snapshots and archives are not migrated or rewritten. Review state exposes effective defaults and automatic link badges; internal raw records remain available to finance validation and undo. Verified with unit checks, isolated browser checks of rename/default/split/link behavior, and 500/1,000-card rendering checks. Personal transaction data must never be changed for verification.
+
+
 Manual tag ordering now supersedes alphabetical-only lists. Organize has Expenses, Income and Transfers lenses. Drag onto another tag or use its earlier/later arrows to order the full sibling group; saved order controls radial choices and gradient steps. Initially unordered groups fall back to alphabetical order. Transfers derive from links and require no tags. See [review workflow](review-workflow.md) for schema 17 and ordering rules.
 
 Transactions carry tags with exact-cent portions. Expense tags have zero or one broad expense category parent; income tags form a separate flat list. Categories aggregate these portions; they never own another copy of the amount. Ungrouped tags let tagging happen before organizing the hierarchy. Moving a tag changes its current category rollup, including historical reporting, while preserving source records, saved portions, rules, events, transfers and repayments.

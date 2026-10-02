@@ -18,7 +18,7 @@ export function categoryColors(entities) {
     const tags = alphabetical(
       entities.filter(
         (e) =>
-          e.kind === "category" &&
+          e.kind === "category" && !e.systemRole &&
           (palette.id === "income"
             ? tagType(e) === "income"
             : tagType(e) === "expense" &&
