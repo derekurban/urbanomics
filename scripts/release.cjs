@@ -78,6 +78,7 @@ async function main() {
     run("git", ["commit", "-m", `Release ${tag}`]);
     run("git", ["tag", "-a", tag, "-m", `Urbanomics ${tag}`]);
   }
+  run("node", ["scripts/check-public.cjs", "--all"]);
   run("npm", ["run", "build"]);
   if (!dryRun) await ensureRelease(target, tag, token);
   run("npx", ["electron-builder", "--win", "nsis", "--publish", "always", "--config", "electron-builder.release.yml"], { env: { ...process.env, GH_TOKEN: token } });
