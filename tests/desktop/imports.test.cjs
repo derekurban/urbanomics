@@ -40,7 +40,7 @@ test("account settings validate safe prefix expressions, preserve identity and r
   assert.equal(store.job(waiting).status, "queued");
   assert.equal(store.state().months.length, 0);
   assert.equal(
-    store.testPrefix(values.prefixRegex, "PC_Mastercard_2026-08.csv").matches,
+    store.testPrefix(values.prefixRegex, "PC_Card_2026-08.csv").matches,
     true,
   );
   assert.equal(

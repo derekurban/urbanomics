@@ -5,28 +5,28 @@ import {people, events, tags} from './scenarios.mjs';
 export {people, events, tags};
 
 export const accounts = [
-  {id: 'mc', name: 'Mastercard', color: '#c8a06d'},
+  {id: 'mc', name: 'Credit card', color: '#c8a06d'},
   {id: 'chq', name: 'Chequing', color: '#658e83'},
   {id: 'sav', name: 'Savings', color: '#8fa6cb'},
-  {id: 'ws', name: 'Wealthsimple', color: '#9fb4d6', untracked: true},
+  {id: 'brk', name: 'Brokerage', color: '#9fb4d6', untracked: true},
 ];
 const r = (id, date, account, name, original, amount, extra = {}) => ({id, date, account, name, original, amount, parts: [], shares: null, event: null, nature: null, payee: null, rule: {state: 'none', pattern: '^' + original.split(' ').slice(0, 2).join(' '), matches: 3}, ...extra});
 
 export function initialRows() {
   return [
     r('coffee', '2026-09-30', 'mc', 'Ritual coffee', 'RITUAL COFFEE ROASTERS', -575, {parts: [{kind: 'tag', id: 'restaurants', cents: 575}], nature: 'spend', suggested: true, rule: {state: 'suggested', name: 'Auto tag → Restaurants', pattern: '^RITUAL COFFEE', matches: 22}}),
-    r('pay-mc', '2026-09-29', 'chq', 'Payment to Mastercard', 'PAYMENT TO MASTERCARD ****4821', -124000),
+    r('pay-card', '2026-09-29', 'chq', 'Payment to credit card', 'PAYMENT TO CREDIT CARD ****0000', -124000),
     r('pay-thanks', '2026-09-28', 'mc', 'Payment, thank you', 'PAYMENT - THANK YOU', 124000),
-    r('ws', '2026-09-26', 'chq', 'Wealthsimple', 'WEALTHSIMPLE INVESTMENTS', -30000),
-    r('gift', '2026-09-23', 'chq', 'Birthday gift', 'INTERAC E-TRANSFER FROM MOM', 15000),
+    r('brk', '2026-09-26', 'chq', 'Brokerage', 'BROKERAGE CONTRIBUTION', -30000),
+    r('gift', '2026-09-23', 'chq', 'Birthday gift', 'INTERAC E-TRANSFER FROM MOM', 12000),
     r('from-sam', '2026-09-22', 'chq', 'e-Transfer from Sam', 'INTERAC E-TRANSFER FROM SAM T', 7500, {rule: {state: 'exists', name: 'Auto person → Sam', pattern: '^INTERAC E-TRANSFER FROM SAM', matches: 14}}),
     r('from-jo', '2026-09-22', 'chq', 'e-Transfer from Jo', 'INTERAC E-TRANSFER FROM JO K', 13750),
     r('sav-in', '2026-09-21', 'sav', 'Transfer from chequing', 'TRANSFER IN', 49800),
     r('sav-out', '2026-09-20', 'chq', 'Transfer to savings', 'TRANSFER TO SAVINGS', -50000),
-    r('petro', '2026-09-19', 'mc', 'Petro station', 'PETRO-CANADA 4471', -5520),
+    r('fuel-stop', '2026-09-19', 'mc', 'Trail Fuel', 'TRAIL FUEL', -5520),
     r('cabin', '2026-09-18', 'mc', 'Mountain cabin', 'MTN CABIN RENTALS LTD', -41250, {parts: [{kind: 'tag', id: 'lodging', cents: 20725}, {kind: 'tag', id: 'fuel', cents: 5420}], nature: 'spend', event: 'cabin', shares: {source: 'event', me: 13750, people: [{id: 'sam', cents: 13750}, {id: 'pal', cents: 13750}]}}),
     r('trail', '2026-09-18', 'mc', 'Trailhead grocery', 'TRAILHEAD GROCERY', -6430, {parts: [{kind: 'tag', id: 'groceries', cents: 6430}], nature: 'spend', event: 'cabin', shares: {source: 'event', me: 2144, people: [{id: 'sam', cents: 2143}, {id: 'pal', cents: 2143}]}}),
-    r('utility', '2026-08-18', 'mc', 'City Utilities', 'CITY UTILITIES', -18450, {history: 'utilities'}),
+    r('power', '2026-08-13', 'mc', 'City Power', 'CITY POWER', -24816, {history: 'utilities'}),
   ];
 }
 export const money = n => new Intl.NumberFormat('en-CA', {style: 'currency', currency: 'CAD'}).format(Math.abs(n) / 100);

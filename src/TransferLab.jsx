@@ -282,9 +282,8 @@ export function TransferLab({ records, act, busy, onSource }) {
         </small>
         {state.config.version === 0 && (
           <p className="tl-hint">
-            Suggested starting routes: Savings → Chequing → Mastercard;
-            Simplii → Savings or Chequing. No reverse routes are assumed.
-            Save setup to remember your choices.
+            Draw the routes money takes between your accounts. No reverse
+            routes are assumed. Save setup to remember your choices.
           </p>
         )}
       </details>

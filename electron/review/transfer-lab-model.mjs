@@ -7,25 +7,10 @@ function day(date) {
     : NaN;
 }
 export const pairKey = (outId, inId) => JSON.stringify([outId, inId]);
-export function suggestedRoutes(accounts) {
-  const one = (schema, kind) => {
-    const found = accounts.filter(
-      (a) => !a.deletedAt && a.schema === schema && a.kind === kind,
-    );
-    return found.length === 1 ? found[0].id : null;
-  };
-  const eq = one("eq", "savings"),
-    pc = one("pc", "chequing"),
-    card = one("pc", "credit"),
-    simplii = one("simplii", "chequing");
-  return [
-    [eq, pc],
-    [pc, card],
-    [simplii, eq],
-    [simplii, pc],
-  ]
-    .filter(([a, b]) => a && b)
-    .map(([from, to]) => ({ from, to }));
+// The product ships no transfer routes. Which accounts feed which is personal; the user draws
+// their own under Settings → Transfers and the saved setup is what the matcher uses.
+export function suggestedRoutes() {
+  return [];
 }
 export function pairReason(outgoing, incoming, settings) {
   if (

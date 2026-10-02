@@ -1,7 +1,7 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
-const base='http://127.0.0.1:4176/lab/';
+const base=process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   fs.mkdirSync('private/validation/rolodex-filters',{recursive:true});
   const browser=await chromium.launch({channel:'chrome',headless:true});

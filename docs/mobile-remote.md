@@ -8,7 +8,7 @@ Urbanomics can serve the live desktop workspace to a phone on your personal Tail
 2. Run `npm run remote:setup` in the repository. It reads local Tailscale status and writes ignored `private/desktop/remote-access.json`, without changing finances. A custom `URBANOMICS_DATA_DIR` selects a different existing workspace. `TAILSCALE_EXE` can override the Windows CLI location.
 3. Launch Urbanomics through its existing desktop launcher. Open the address printed by setup on the phone. The address is `http://<desktop-tailscale-ip>:4174`.
 
-Keep the desktop awake, Urbanomics open and Tailscale connected. Closing the desktop app stops phone access; reopening restores the same address and data. A disconnected browser shows a reconnecting message. It does not queue financial edits offline. The HTTP application traffic travels over the Tailscale connection. This first setup uses the direct Tailscale address because Serve had not been activated on the user's tailnet.
+Keep the desktop awake, Urbanomics open and Tailscale connected. Closing the desktop app stops phone access; reopening restores the same address and data. A disconnected browser shows a reconnecting message. It does not queue financial edits offline. The HTTP application traffic travels over the Tailscale connection. Remote access is opt-in over your own Tailscale network; setup uses the direct Tailscale address, and HTTPS Serve mode is optional.
 
 To disable remote access, set `enabled` to false in `private/desktop/remote-access.json` and restart Urbanomics. Settings and runtime status never enter Git. The status file is `private/desktop/remote-status.json`. No public listener, port forwarding or Funnel is configured.
 

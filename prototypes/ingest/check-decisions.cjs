@@ -1,13 +1,14 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const LAB_URL = process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   fs.mkdirSync('private/validation/decision-flows',{recursive:true});
   const b=await chromium.launch({channel:'chrome',headless:true});
   for(const [width,height] of [[390,844],[360,640],[1280,900],[844,390]]){
     const c=await b.newContext({viewport:{width,height}}),p=await c.newPage(),errors=[],requests=[];
     p.on('pageerror',e=>errors.push(e.message));p.on('request',r=>requests.push(r.url()));
-    await p.goto('http://127.0.0.1:4176/lab/');
+    await p.goto(LAB_URL);
     const idle=()=>p.locator('.scene[data-transition=idle]').waitFor();
     const sent=async()=>{await p.locator('.send-envelope').waitFor({state:'detached'});await p.waitForTimeout(100);};
     assert.ok(await p.getByRole('button',{name:'Link transfer',exact:false}).isDisabled());
@@ -36,6 +37,6 @@ const fs=require('node:fs');
     assert.equal(await p.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);assert.deepEqual(errors,[]);assert.equal(requests.some(r=>r.includes('/api/')),false);
     await c.close();
   }
-  const p=await b.newPage({reducedMotion:'reduce'});await p.goto('http://127.0.0.1:4176/lab/');await p.getByRole('button',{name:/^Income /}).click();await p.getByRole('button',{name:'Interest +',exact:true}).click();await p.getByRole('button',{name:'Save tag & next',exact:false}).click();await p.locator('.send-envelope').waitFor({state:'detached'});assert.ok(await p.getByRole('button',{name:/^Income 27/}).isVisible());await p.getByRole('button',{name:'Reset',exact:true}).click();assert.ok(await p.getByRole('button',{name:/^Income 28/}).isVisible());
+  const p=await b.newPage({reducedMotion:'reduce'});await p.goto(LAB_URL);await p.getByRole('button',{name:/^Income /}).click();await p.getByRole('button',{name:'Interest +',exact:true}).click();await p.getByRole('button',{name:'Save tag & next',exact:false}).click();await p.locator('.send-envelope').waitFor({state:'detached'});assert.ok(await p.getByRole('button',{name:/^Income 27/}).isVisible());await p.getByRole('button',{name:'Reset',exact:true}).click();assert.ok(await p.getByRole('button',{name:/^Income 28/}).isVisible());
   await b.close();console.log('Passed: transfer confirmation, fee acknowledgement, ambiguity/dismissal, queue routing, income tags, exact split validation, undo, later, reset, reduced motion and four viewports.');
 })().catch(e=>{console.error(e);process.exit(1);});

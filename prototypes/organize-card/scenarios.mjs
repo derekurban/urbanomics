@@ -18,15 +18,15 @@ export const tags = {
   gift: {name: 'Gift', group: 'Income', color: '#6f84b5'},
   paycheck: {name: 'Paycheck', group: 'Income', color: '#4f8f86'},
 };
-const acct = {mc: {name: 'Mastercard', color: '#c8a06d'}, chq: {name: 'Chequing', color: '#658e83'}, sav: {name: 'Savings', color: '#8fa6cb'}};
+const acct = {mc: {name: 'Credit card', color: '#c8a06d'}, chq: {name: 'Chequing', color: '#658e83'}, sav: {name: 'Savings', color: '#8fa6cb'}};
 
 export const scenarios = [
   {
     id: 'untagged', label: 'Untagged expense',
-    name: 'City Utilities', original: 'CITY UTILITIES', account: acct.mc, date: '2026-08-18', amount: -18450, kind: 'expense',
+    name: 'City Power', original: 'CITY POWER', account: acct.mc, date: '2026-08-13', amount: -24816, kind: 'expense',
     parts: [], shares: null, event: null, repaid: [],
     history: ['utilities'],
-    rule: {state: 'none', pattern: '^CITY UTILITIES', direction: 'out', matches: 6},
+    rule: {state: 'none', pattern: '^CITY POWER', direction: 'out', matches: 6},
   },
   {
     id: 'split', label: 'Split expense in an event',

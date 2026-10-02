@@ -1,10 +1,11 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
+const LAB_URL = process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   const browser=await chromium.launch({channel:'chrome',headless:true});
   const context=await browser.newContext({viewport:{width:390,height:844}});
   await context.addInitScript(()=>localStorage.setItem('urbanomics-envelope-speed-v1','.25'));
-  const p=await context.newPage();await p.goto('http://127.0.0.1:4176/lab/');
+  const p=await context.newPage();await p.goto(LAB_URL);
   await p.getByRole('button',{name:'Done',exact:true}).waitFor();
   assert.equal(await p.getByRole('slider').count(),0);
   await p.evaluate(()=>{

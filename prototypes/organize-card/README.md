@@ -6,7 +6,7 @@ Run from the repository: `node node_modules/vite/bin/vite.js --config prototypes
 
 ## Scenarios
 
-Untagged expense (Utility, nothing done yet, a tag used before for this name). Split expense in an event (Mountain cabin: two tags, a gap, a split that follows Cabin weekend, one person settled and one still owing). Money in repayment (e-Transfer from Sam: part repayment, part gift, a rule that already notes Sam). Linked transfer (principal and fee, nothing else editable). Rule-suggested expense (Ritual coffee: tagged by a rule, waiting for confirmation).
+Untagged expense (City Power, nothing done yet, a tag used before for this name). Split expense in an event (Mountain cabin: two tags, a gap, a split that follows Cabin weekend, one person settled and one still owing). Money in repayment (e-Transfer from Sam: part repayment, part gift, a rule that already notes Sam). Linked transfer (principal and fee, nothing else editable). Rule-suggested expense (Ritual coffee: tagged by a rule, waiting for confirmation).
 
 ## What every variation must show
 
@@ -62,4 +62,4 @@ Round four (default, `?round=4`) is one in-memory ledger of thirteen lines with 
 2. Parts first: one box adds typed parts (tag, person, event, account); the nature is read off the parts; split, event and rule stand to the right.
 3. Who first: the first question is who is on the other side (vendor, person, own account); the answer decides the card; a people balance panel sits beside the list.
 
-`check4.cjs` drives all three through the same tasks: tag Utility, settle Sam's e-transfer, pair the Mastercard payment, move Wealthsimple to an untracked account.
+`check4.cjs` drives all three through the same tasks: tag City Power, settle Sam's e-transfer, pair the credit card payment, move the brokerage contribution to an untracked account (investment-account importers are not supported, so the brokerage is not imported).

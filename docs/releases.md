@@ -8,7 +8,7 @@ October 2, 2026. Urbanomics now has two kinds of build. A **development** run is
 | --- | --- | --- |
 | Starts from | the repository (`electron .` or `release/win-unpacked`) | `%LOCALAPPDATA%\Programs\Urbanomics` (per-user, no admin) |
 | Package metadata | no `channel` | `channel: release` (from `electron-builder.release.yml`, which extends the base config) |
-| Workspace by default | `private/desktop` and `configuration/` in the repository | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
+| Workspace by default | `private/desktop` and `configuration/` in the repository, unless the environment or `workspace.json` points elsewhere | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
 | Window title | Urbanomics (development) | Urbanomics |
 | Settings → About | "Development build", no update actions | version, "Installed release", Check for updates / Restart to update |
 | Update checks | never | 15 seconds after start, then every six hours, and on request |
@@ -21,13 +21,13 @@ Environment variables still win (`URBANOMICS_DATA_DIR`, `URBANOMICS_CONFIG_DIR`,
 
 ```json
 {
-  "dataDir": "C:\\path\\to\\urbanomics\\private\\desktop",
-  "configurationDir": "C:\\path\\to\\urbanomics\\configuration",
+  "dataDir": "C:\\path\\to\\private-workspace\\desktop",
+  "configurationDir": "C:\\path\\to\\urbanomics-configuration\\configuration",
   "updateToken": ""
 }
 ```
 
-`dataDir` is the private workspace (SQLite, archives, backups, logs). `configurationDir` is where the configuration SQL is exported after every configuration change; naming the repository's `configuration/` keeps `workspace.sql` under Git exactly as the development build does. A `dataDir` without a `configurationDir` means no export, as before with the environment variables. `updateToken` is optional (see "Who can read the feed"). The file was written on October 2, 2026 pointing at the repository, so the installed release and the development build share the one live ledger; the single-instance lock lives in that workspace, so only one of them runs at a time. See `electron/workspace-location.cjs` and `tests/desktop/updates.test.cjs`.
+`dataDir` is the private workspace (SQLite, archives, backups, logs). `configurationDir` is where the configuration SQL is exported after every configuration change. The export holds personal definitions, so name a private folder, such as a clone of a separate private configuration repository; this repository ignores `configuration/` apart from its README. A `dataDir` without a `configurationDir` means no export, as before with the environment variables. `updateToken` is optional (see "Who can read the feed"). The same pointer file also applies to a development build that has no environment variables, so `workspace.json` can point both builds at one workspace if you want them to share a ledger; the single-instance lock lives in that workspace, so only one of them runs at a time. See `electron/workspace-location.cjs` and `tests/desktop/updates.test.cjs`.
 
 ## How an update arrives
 
@@ -49,7 +49,7 @@ Installers are not code-signed. Windows SmartScreen asks once on a fresh install
 
 ## The releases repository
 
-Artifacts go to `derekurban/urbanomics-releases`, separate from the source repository, so the source can stay private while the feed is reachable. The installer carries code only: `dist/`, `electron/` and `package.json`. The configuration SQL (`configuration/workspace.sql`, with account, people, event and alias names) is **no longer bundled**; an installed release reads it from `configurationDir` instead. A brand-new install with no pointer file therefore starts with the built-in system labels only.
+Artifacts go to `derekurban/urbanomics-releases`, separate from the source repository, so the feed's visibility does not depend on the source's. The installer carries code only: `dist/`, `electron/` and `package.json`. The configuration SQL (`workspace.sql`, with account, people, event and alias names) is **not bundled** and is not in this repository; it lives in the private configuration folder, and an installed release reads it from `configurationDir`. A brand-new install with no pointer file therefore starts with the built-in system labels only.
 
 ### Who can read the feed
 

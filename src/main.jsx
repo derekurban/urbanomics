@@ -562,7 +562,7 @@ function Route({ job, data, run, done }) {
       <h3>Or add an account</h3>
       <input
         aria-label="New account name"
-        placeholder="e.g. Mastercard"
+        placeholder="e.g. Visa card"
         value={name}
         onChange={(e) => setName(e.target.value)}
       />

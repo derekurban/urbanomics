@@ -18,7 +18,7 @@ Version 0.1.0's build script uses `rm -rf`, which fails under npm's default Wind
 npm install --script-shell "C:\Program Files\Git\bin\bash.exe"
 ```
 
-Use the path to your own Git installation's `bash.exe`. An existing `node_modules` is not affected.
+That is Git for Windows' default location; use your own Git installation's path if it differs. An existing `node_modules` is not affected.
 
 ## Reading the rules
 

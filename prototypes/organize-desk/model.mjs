@@ -52,7 +52,7 @@ export function sampleRecords() {
     rec('2026-09-22', 'chq', 'E-transfer from Sam', 60),
     rec('2026-09-21', 'sav', 'Transfer from chequing', 498),
     rec('2026-09-20', 'chq', 'Transfer to savings', -500),
-    rec('2026-09-19', 'mc', 'Petro station', -55.2),
+    rec('2026-09-19', 'mc', 'Trail Fuel', -55.2),
     rec('2026-09-18', 'mc', 'Mountain cabin', -412.5, [], {original: 'MTN CABIN RENTALS LTD'}),
     rec('2026-09-18', 'mc', 'Trailhead grocery', -64.3, [tagPart('groceries', 6430)], {events: ['cabin']}),
     rec('2026-09-17', 'mc', 'Ritual coffee', -5.75, [tagPart('coffee', 575)]),

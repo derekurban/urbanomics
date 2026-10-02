@@ -53,7 +53,7 @@ npm ci
 npm start
 ```
 
-The Snapshots section brings Dropbox intake, upload history and archives together. Drop CSV files or a folder onto it, or use Upload CSVs / Choose folder. Recognized CSVs with a known account import automatically, using each transaction’s date to update the right monthly snapshot. Supported export layouts are PC Financial, EQ Bank, and Simplii; Wealthsimple is not supported yet. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
+The Snapshots section brings Dropbox intake, upload history and archives together. Drop CSV files or a folder onto it, or use Upload CSVs / Choose folder. Recognized CSVs with a known account import automatically, using each transaction’s date to update the right monthly snapshot. Supported export layouts are PC Financial, EQ Bank, and Simplii; investment-account importers are not supported. An unfamiliar filename asks which account it belongs to. A remembered filename pattern routes future imports automatically.
 
 Snapshots is one page with a compact calendar of the last 12 months through the latest imported month (or last completed month, whichever is later). Each account has its own color; filled squares show saved snapshots and hover/focus reveals a short month summary. Select a square to inspect its transactions. Upload history and the full archive, including older months, open in dialogs. Each account has one current snapshot per month; subsequent imports update that entry while older immutable files remain archived. Account rows stay on one line and original files are collapsed. Refresh uses a temporary overlay snackbar without shifting the page. Processing opens a results dialog with brief confetti on success; Latest results reopens the saved summary. All motion respects reduced-motion settings. Original-file counts deduplicate repeated exports; upload history retains every receipt, including errors and removed intake copies. Open folder / Open archive launch the real folders in Explorer. Clear intake copies preserves archived originals, snapshots and Downloads files; non-CSV files and subfolders remain untouched.
 
@@ -67,7 +67,7 @@ Its **Aliases** section turns bank descriptions into readable transaction names 
 
 Inside the alias editor, **Without an alias** shows searchable transactions still needing a readable name. Click one to start a description-prefix rule, then use **Save & create another** to keep working through the list without reopening the editor.
 
-Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `pc[_-]mastercard` matches `PC_Mastercard_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors are included in the tracked configuration SQL.
+Accounts can be added before importing, or while assigning an upload. Edit each account's name, color and optional filename-prefix regex in Organize → Accounts. A live filename tester previews matches; for example, `bank[_-]visa` matches `Bank_Visa_2026-08.csv`. Matching ignores capitalization and requires a compatible bank format. Conflicting rules ask for review, while known originals retain their previously accepted account. Rules and colors are included in the exported configuration SQL.
 
 Upload history uses compact account-first rows with the account color, upload time and status. Expand a row to see the source filename and import counts. Search supports account names, filenames and status.
 
@@ -89,13 +89,13 @@ Events retain their optional calendar membership and required date ranges. Money
 
 **Review → Transfers** starts with pending money in on the left and matching money out on the right. Set an amount tolerance (default ±2% of the outgoing amount), select both entries, and press Link transfer to advance to the next incoming transaction. Candidates use other accounts in the same currency across all imported months. Shortfalls become transfer fees; extra received stays an unexplained difference. Linked pairs leave Pending and appear under Linked, where they can be inspected or unlinked. Existing income, repayment and shared-expense assignments must be cleared before pairing, and repayments cannot lose their target expenses. Transfer principal stays separate from fees and unexplained differences in Overview.
 
-**Review → Transfers → Auto-link lab** is a temporary testing area for directed account routes, date windows and amount tolerance. Draw directed connections between draggable account nodes. Start unlinked tests unique/ambiguous matches as if existing pairs were unlinked, without changing saved records. Switch to Pending only to explicitly link selected candidates. Defaults use exact amounts, ±1 day and the requested EQ/PC/Simplii directions. Save setup remembers routes and tolerances; it never links transactions automatically. See [algorithm and safeguards](docs/transfer-lab.md).
+**Review → Transfers → Auto-link lab** is a temporary testing area for directed account routes, date windows and amount tolerance. Draw directed connections between draggable account nodes. Start unlinked tests unique/ambiguous matches as if existing pairs were unlinked, without changing saved records. Switch to Pending only to explicitly link selected candidates. Defaults use exact amounts and ±1 day; there are no default routes, so draw your own. Matching follows your saved routes. Save setup remembers routes and tolerances; it never links transactions automatically. See [algorithm and safeguards](docs/transfer-lab.md).
 
 Events → **Costs & repayments** shows cash paid, friends’ repayments, cash still fronted, agreed personal shares and outstanding reimbursements. Open an incoming event payment to allocate it to expenses; exact amount inputs and dollar/cent dividers adjust the allocation. Event selection counts each expense once, with excess left as unassigned e-transfer income. Unknown expense splits stay identified, and currencies are shown separately.
 
 Overview shows gross categorized cash flows, with unspecified purposes and own-account transfers separate. Expense review shows cash paid, personal share/cost, repayments and outstanding shares separately. Dashboard adds category costs after received repayments; finalized personal-share reporting and backup/restore UI remain future work. Regex rules now provide explicit person recognition and automatic categorization. See [review behavior and persistence](docs/desktop-review.md).
 
-Development data lives in `private/desktop/`, including Electron cache and logs. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. `URBANOMICS_DATA_DIR` can select another private workspace. Transactions, snapshots, source archives and runtime SQLite are never bundled or committed. These local files are not encrypted by the app.
+Development data lives in `private/desktop/`, including Electron cache and logs, unless `URBANOMICS_DATA_DIR` or `%APPDATA%\Urbanomics\workspace.json` names another folder. The packaged app defaults to `%APPDATA%/Urbanomics/private/`. Transactions, snapshots, source archives and runtime SQLite are never bundled or committed. These local files are not encrypted by the app.
 
 ```sh
 npm test                # Import, deduplication, date, and recovery checks
@@ -116,11 +116,13 @@ npm run package:win     # Windows application in release/win-unpacked/
 
 See [desktop architecture and import behavior](docs/desktop-imports.md) for archive layout, matching rules, limits, and recovery. For live development, run `npm run dev` and `npm run desktop:dev` in separate terminals.
 
-## Configuration in Git
+## Configuration export
 
-Use `Launch Urbanomics.cmd` in the repository to open the packaged app with configuration sync enabled.
+Configuration (accounts and filename rules, global transaction aliases, category/person mapping rules, categories, events and people) is exported as `workspace.sql` to the configuration folder you choose, named by `URBANOMICS_CONFIG_DIR` or by `configurationDir` in `%APPDATA%\Urbanomics\workspace.json`. These definitions are personal: keep that folder in a private location, such as a separate private Git repository. `configuration/` in this repository is git-ignored apart from its README. Financial rows, assignments, reviews, sources and snapshots never leave the private workspace. The app does not commit or push. A fresh workspace loads these definitions without importing financial data. See [configuration setup](configuration/README.md).
 
-`configuration/workspace.sql` contains accounts and filename rules, global transaction aliases, category/person mapping rules, categories, events and people. App edits update this file automatically when connected to the repository configuration directory. These definitions are included in this private GitHub repository at your request; financial rows, assignments, reviews, sources and snapshots remain ignored. The app does not automatically commit or push: SQL changes are ready for the next Git commit. A fresh workspace loads these definitions without importing financial data. See [configuration setup](configuration/README.md).
+`Launch Urbanomics.cmd` opens the unpacked development build without setting any environment variables; the pointer file (or the environment) decides which workspace and configuration folder it uses.
+
+Enable the pre-commit check once per clone with `git config core.hooksPath .githooks`. It runs `scripts/check-public.cjs`, which blocks configuration SQL, bank exports, Tailscale addresses, personal emails, tokens, user-profile paths and any term listed in the git-ignored `private/sensitive-terms.txt`. Run `node scripts/check-public.cjs --all` to check every tracked file.
 
 ## Starting direction
 
@@ -149,7 +151,7 @@ The overall sixth-trial experience is accepted. Detailed accounting defaults rem
 
 Run the current prototype's calculation checks with `node --test tests/insights-prototype.test.cjs`. See [the current trial notes](docs/insights-trial.md) for interaction decisions, evidence, and limits. Earlier trials keep their own tests, such as `node --test tests/board-prototype.test.cjs`.
 
-The explicitly approved configuration definitions and synthetic examples belong in this repository. Personal imports, financial decisions, snapshots, generated reports and agent proposals remain under ignored `private/`.
+Code, documentation and synthetic examples belong in this repository; configuration exports live in a separate private folder. Personal imports, financial decisions, snapshots, generated reports and agent proposals remain under ignored `private/`.
 
 Review radial refinement: each category and tag level uses one growing circle with fixed-size targets, never concentric overflow rings or pages. The expanded tag circle closes when the pointer leaves its circular boundary, including during captured card drags; moving between its tags keeps it open. Keyboard expansion stays until pointer movement leaves, Escape, or Back. Keep the dragged stack below the tags and preserve single-save/cancel behavior.
 
@@ -158,3 +160,7 @@ Dashboard now separates **Expenses** and **Income** alongside Cash flow and Even
 ## Releases
 
 Installed releases come from `npm run release` and update themselves from GitHub Releases; development runs never check. See [docs/releases.md](docs/releases.md) for the two kinds of build, where each keeps its workspace, and how to cut a release.
+
+## Public repository
+
+The source is public; the ledger, the configuration export and local settings never are. [docs/public-repository.md](docs/public-repository.md) lists what lives where, how the app finds the private parts, and the pre-commit guard. npm resolves the design-system dependency over SSH; without a GitHub SSH key, run `git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"` once before `npm install`.

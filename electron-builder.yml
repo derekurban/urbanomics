@@ -2,8 +2,8 @@ appId: dev.urbanomics.desktop
 productName: Urbanomics
 directories:
   output: release
-# The installer carries code only. The configuration SQL (account, people and alias names) stays in
-# the repository; an installed release reads it from the folder Urbanomics/workspace.json names.
+# The installer carries code only. The configuration SQL (account, people and alias names) lives in
+# a private configuration folder named by Urbanomics/workspace.json, never in the repository.
 files:
   - dist/**/*
   - electron/**/*

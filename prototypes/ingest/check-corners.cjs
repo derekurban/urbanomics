@@ -2,12 +2,13 @@ const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const path=require('node:path');
+const LAB_URL = process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   const out=path.resolve('private/validation/rolodex-corners');fs.mkdirSync(out,{recursive:true});
   const browser=await chromium.launch({channel:'chrome',headless:true});
   for(const [width,height] of [[390,844],[360,640],[1280,900]]){
     const context=await browser.newContext({viewport:{width,height}}),p=await context.newPage();
-    await p.goto(process.env.URBANOMICS_LAB_URL||'http://127.0.0.1:4176/lab/');
+    await p.goto(LAB_URL);
     const done=p.getByRole('button',{name:'Done',exact:true});await done.waitFor();
     const box=await p.locator('[data-card-index="4"]').boundingBox();
     const radius=await p.locator('[data-card-index="4"]').evaluate(el=>getComputedStyle(el).borderTopLeftRadius);

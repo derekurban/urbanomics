@@ -10,10 +10,10 @@ const repo = path.resolve(__dirname, ".."),
   dataDir = path.join(root, "workspace");
 fs.mkdirSync(root, { recursive: true });
 const store = new ImportStore(dataDir),
-  spending = store.addAccount("Chequing", "pc", "chequing"),
-  card = store.addAccount("Mastercard", "pc", "credit");
+  spending = store.addAccount("Everyday chequing", "pc", "chequing"),
+  card = store.addAccount("Credit card", "pc", "credit");
 store.addAccount("Savings", "eq", "savings");
-store.addAccount("Simplii", "simplii", "chequing");
+store.addAccount("Second bank", "simplii", "chequing");
 function add(name, account, entries) {
   const file = path.join(root, name + ".csv");
   fs.writeFileSync(
@@ -98,10 +98,11 @@ async function launch() {
         name: `Remove route ${a} to ${b}`,
         exact: true,
       });
-    assert.equal(await route("Chequing", "Mastercard").count(), 1);
-    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    // There are no default routes: a fresh setup starts empty.
+    assert.equal(await route("Everyday chequing", "Credit card").count(), 0);
+    assert.equal(await route("Credit card", "Everyday chequing").count(), 0);
     const body = page.getByRole("button", {
-      name: "Move Chequing",
+      name: "Move Everyday chequing",
       exact: true,
     });
     await body.scrollIntoViewIfNeeded();
@@ -116,14 +117,13 @@ async function launch() {
     await page.keyboard.press("ArrowDown");
     assert.ok((await body.boundingBox()).y > moved.y + 5);
     await click("Arrange nodes");
-    // Remove and redraw a directed route with actual pointer events.
-    await route("Chequing", "Mastercard").click();
+    // Draw a directed route with actual pointer events.
     const output = page.getByRole("button", {
-      name: "Connect from Chequing",
+      name: "Connect from Everyday chequing",
       exact: true,
     });
     const target = page.getByRole("button", {
-      name: "Move Mastercard",
+      name: "Move Credit card",
       exact: true,
     });
     await output.scrollIntoViewIfNeeded();
@@ -136,23 +136,23 @@ async function launch() {
     });
     await shot("drawing-route");
     await page.mouse.up();
-    await route("Chequing", "Mastercard").waitFor();
-    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    await route("Everyday chequing", "Credit card").waitFor();
+    assert.equal(await route("Credit card", "Everyday chequing").count(), 0);
     // Keyboard source/destination, removal and Escape cancellation.
     await page
-      .getByRole("button", { name: "Connect from Mastercard", exact: true })
+      .getByRole("button", { name: "Connect from Credit card", exact: true })
       .focus();
     await page.keyboard.press("Enter");
     await page
-      .getByRole("button", { name: "Connect to Chequing", exact: true })
+      .getByRole("button", { name: "Connect to Everyday chequing", exact: true })
       .focus();
     await page.keyboard.press("Enter");
-    await route("Mastercard", "Chequing").waitFor();
-    await route("Mastercard", "Chequing").click();
-    await click("Connect from Mastercard");
+    await route("Credit card", "Everyday chequing").waitFor();
+    await route("Credit card", "Everyday chequing").click();
+    await click("Connect from Credit card");
     await page.keyboard.press("Escape");
-    await click("Connect to Chequing");
-    assert.equal(await route("Mastercard", "Chequing").count(), 0);
+    await click("Connect to Everyday chequing");
+    assert.equal(await route("Credit card", "Everyday chequing").count(), 0);
     await click("Run preview");
     await page.getByText("2 unique pairs", { exact: true }).waitFor();
     await page
@@ -220,6 +220,10 @@ async function launch() {
       2,
     );
     await click("Reload setup");
+    // The saved setup has no routes yet, so draw the route again before saving.
+    await click("Connect from Everyday chequing");
+    await click("Connect to Credit card");
+    await route("Everyday chequing", "Credit card").waitFor();
     await page.getByLabel("Lab amount tolerance").fill("2");
     await click("Save setup");
     await page
@@ -246,7 +250,7 @@ async function launch() {
       .check();
     await click("Link 1 selected pair");
     await page.getByText(/1 pair linked\./).waitFor();
-    await route("Chequing", "Mastercard").click();
+    await route("Everyday chequing", "Credit card").click();
     await click("Run preview");
     await click("Existing pairs");
     await page
@@ -257,8 +261,8 @@ async function launch() {
       (await records()).filter((r) => r.review.kind === "transfer").length,
       8,
     );
-    await click("Connect from Chequing");
-    await click("Connect to Mastercard");
+    await click("Connect from Everyday chequing");
+    await click("Connect to Credit card");
     await page.getByLabel("Lab date window").fill("5");
     await click("Run preview");
     await click("Unique");
@@ -308,7 +312,7 @@ async function launch() {
         ok: true,
         root,
         checks:
-          "node dragging; pointer and keyboard connections; Escape cancellation; read-only unlinked sandbox; directional defaults; cross-month preview; ambiguity/reuse prevention; historical simulation; stale batch; exact and fee links; existing pair protection; date changes; configuration restart; narrow layout",
+          "node dragging; pointer and keyboard connections; Escape cancellation; read-only unlinked sandbox; no default routes; cross-month preview; ambiguity/reuse prevention; historical simulation; stale batch; exact and fee links; existing pair protection; date changes; configuration restart; narrow layout",
       }),
     );
   } catch (e) {

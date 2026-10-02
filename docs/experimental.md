@@ -70,7 +70,7 @@ Income has its own flat tag orbit. Expense categories open their leaf tags. Save
 
 `TransactionRolodex.jsx` contains motion only, keyed to stable record IDs. It preserves the critically damped roll, 2px neighbour blur, 70% apparent opacity through a solid backing/wash, staggered card/tick filters and 750ms four-flap envelope. Service saves must succeed before departure. Queue removal then reloads the ledger; failed saves do not celebrate. Concurrent edits are version checked. Undo holds exactly the versions created by the decision and cannot overwrite a later client's changes. Reduced-motion operation avoids the 3D folding.
 
-No schema or backend behavior changed. Configuration continues to use the existing tracked SQL policy; all financial assignments and links remain private. No personal transactions were classified during development verification.
+No schema or backend behavior changed. Configuration continues to use the existing configuration SQL export policy; all financial assignments and links remain private. No personal transactions were classified during development verification.
 
 Validation: `npm run test:experimental` runs the new queue/layout tests and a real-service browser scenario in an isolated synthetic workspace. It covers exact/ambiguous/fee transfers, link/undo, preserved income-purpose semantics, exact-cent multi-tag save, stale draft and stale undo rejection, reload persistence, reduced motion and 360/390/844/1280 layouts. Screenshots are ignored under `private/validation/experimental-*`. `npm test` includes the three new model/layout tests alongside the finance/service suite.
 

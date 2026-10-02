@@ -1,12 +1,13 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const LAB_URL = process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   const browser=await chromium.launch({channel:'chrome',headless:true});
   fs.mkdirSync('private/validation/rolodex-finish',{recursive:true});
   for(const [width,height] of [[390,844],[1280,900]]){
     const context=await browser.newContext({viewport:{width,height}}),p=await context.newPage();
-    await p.goto('http://127.0.0.1:4176/lab/');
+    await p.goto(LAB_URL);
     await p.evaluate(()=>{
       const animate=Element.prototype.animate;
       Element.prototype.animate=function(frames,options){return animate.call(this,frames,{...options,duration:options.duration*5,delay:(options.delay||0)*5});};
@@ -27,7 +28,7 @@ const fs=require('node:fs');
     await context.close();
   }
   const c=await browser.newContext({reducedMotion:'reduce'}),p=await c.newPage();
-  await p.goto('http://127.0.0.1:4176/lab/');await p.getByRole('button',{name:'Done',exact:true}).click();
+  await p.goto(LAB_URL);await p.getByRole('button',{name:'Done',exact:true}).click();
   await p.locator('.send-envelope').waitFor({state:'detached'});
   await browser.close();console.log('Passed: centered upright seal, departure cleanup and reduced-motion behavior.');
 })().catch(e=>{console.error(e);process.exit(1);});

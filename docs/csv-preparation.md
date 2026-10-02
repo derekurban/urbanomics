@@ -2,7 +2,7 @@
 
 `scripts/split_bank_exports.py` preserves supplied originals and splits recognized bank CSV layouts into calendar-month files inside a private batch. It is a file preparation utility, not the application's importer or ledger.
 
-The user authorized using downloaded account exports as the starting dataset, organized by month with September excluded. The current scope is January–August 2026. Browser export automation remains unverified after browser-control failures; manual exports are the current intake route.
+Use your own bank exports as input, and choose a start date and an exclusive end date for each batch. Browser export automation remains unverified after browser-control failures; manual exports are the current intake route.
 
 Supported layouts are EQ's Transfer date/Description/Amount/Balance, PC's Description/Type/Card Holder Name/Date/Time/Amount, and Simplii's Date/Transaction Details/Funds Out/Funds In. CSV values and header whitespace are preserved. EQ dates use YYYY-MM-DD; PC and Simplii dates use MM/DD/YYYY. No timezone conversion is inferred from PC's unzoned time field. Export-date buckets need validation before claiming local-time monthly spending totals.
 

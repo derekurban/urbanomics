@@ -12,7 +12,7 @@ const {chromium} = require('playwright'), fs = require('node:fs'), path = requir
   }
   // Toggle a closed row and catch a frame mid-way.
   await page.goto(`${origin}/?round=3&v=1&s=split`); await page.locator('.frame').waitFor(); await page.waitForTimeout(400);
-  await page.locator('.row').filter({hasText: 'City Utilities'}).locator('.as-button').first().click(); await page.waitForTimeout(140);
+  await page.locator('.row').filter({hasText: 'City Power'}).locator('.as-button').first().click(); await page.waitForTimeout(140);
   await page.screenshot({path: path.join(root, 'r3-01-mid-transition.png')});
   await page.waitForTimeout(600); await page.screenshot({path: path.join(root, 'r3-01-after.png'), fullPage: true});
   console.log(JSON.stringify({ok: errors.length === 0, errors, root}));

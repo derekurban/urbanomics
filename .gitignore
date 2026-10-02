@@ -1,5 +1,6 @@
-# Personal finance workspace (all inputs, decisions, outputs, and backups)
-/private/
+# Personal finance workspace: every input, decision, output and backup. Unanchored so a script run
+# from a subfolder cannot create a trackable private/ tree.
+private/
 /data/
 /dropbox/
 /inbox/
@@ -15,6 +16,31 @@
 *.sqlite3
 *.sqlite3-*
 *.log
+*.sql
+
+# Bank exports and statements. Test fixtures are generated inline; none are tracked.
+*.csv
+*.tsv
+*.ofx
+*.qfx
+*.qif
+*.xls
+*.xlsx
+*.pdf
+
+# Validation screenshots and captures.
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.mp4
+*.webm
+
+# Configuration export (accounts, people, events, aliases, rules): personal definitions, kept in the
+# private urbanomics-configuration repository. Only the explanation stays here.
+/configuration/*
+!/configuration/README.md
 
 # Credentials and local settings
 .env
@@ -22,6 +48,12 @@
 !.env.example
 *.pem
 *.key
+*.p12
+*.pfx
+workspace.json
+remote-access.json
+remote-status.json
+.claude/settings.local.json
 
 # Runtime and editor output
 node_modules/
@@ -35,11 +67,7 @@ __pycache__/
 Thumbs.db
 .idea/
 .vscode/
+*.stackdump
 /release/
 /test-results/
 /playwright-report/
-
-# Only the explicitly approved configuration SQL and its documentation are tracked.
-/configuration/*
-!/configuration/workspace.sql
-!/configuration/README.md

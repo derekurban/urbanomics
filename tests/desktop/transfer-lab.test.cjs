@@ -117,26 +117,14 @@ test("existing linked pairs are tested in copies with pending competitors and ne
   );
   assert.equal(JSON.stringify(records), before);
 });
-test("suggested bank routes never reverse and ambiguous account roles are not guessed", () => {
+test("no transfer routes are suggested; the user draws their own", () => {
   const accounts = [
-    { id: "eq", schema: "eq", kind: "savings" },
-    { id: "pc", schema: "pc", kind: "chequing" },
-    { id: "mc", schema: "pc", kind: "credit" },
-    { id: "si", schema: "simplii", kind: "chequing" },
+    { id: "a", schema: "custom:1", kind: "savings" },
+    { id: "b", schema: "custom:2", kind: "chequing" },
+    { id: "c", schema: "custom:2", kind: "credit" },
   ];
-  assert.deepEqual(suggestedRoutes(accounts), [
-    { from: "eq", to: "pc" },
-    { from: "pc", to: "mc" },
-    { from: "si", to: "eq" },
-    { from: "si", to: "pc" },
-  ]);
-  assert.deepEqual(
-    suggestedRoutes([
-      ...accounts,
-      { id: "pc2", schema: "pc", kind: "chequing" },
-    ]),
-    [{ from: "si", to: "eq" }],
-  );
+  assert.deepEqual(suggestedRoutes(accounts), []);
+  assert.deepEqual(suggestedRoutes([]), []);
 });
 function fixture(t) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-lab-")),

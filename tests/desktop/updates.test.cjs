@@ -20,6 +20,10 @@ test("workspace location: environment, then pointer file, then build defaults", 
   assert.equal(pointedDataOnly.configurationDir, null, "an explicit data folder without a configuration folder exports nothing");
   const env = resolveWorkspace({ env: { URBANOMICS_DATA_DIR: "E:\\d", URBANOMICS_CONFIG_DIR: "E:\\c", URBANOMICS_UPDATE_TOKEN: "env" }, isPackaged: true, appData, repoRoot, pointer: { dataDir: "D:\\ledger", updateToken: "file" } });
   assert.deepEqual([env.dataDir, env.configurationDir, env.source, env.updateToken], ["E:\\d", "E:\\c", "environment", "env"]);
+  const envDataOnly = resolveWorkspace({ env: { URBANOMICS_DATA_DIR: "E:\\synthetic" }, isPackaged: true, appData, repoRoot, pointer: { dataDir: "D:\\ledger", configurationDir: "D:\\real\\configuration" } });
+  assert.equal(envDataOnly.configurationDir, null, "a synthetic data folder from the environment never exports into the pointer file's real configuration");
+  const pointedConfigOnly = resolveWorkspace({ env: {}, isPackaged: true, appData, repoRoot, pointer: { configurationDir: "D:\\real\\configuration" } });
+  assert.deepEqual([pointedConfigOnly.dataDir, pointedConfigOnly.configurationDir], [path.join(appData, "Urbanomics", "private"), "D:\\real\\configuration"]);
   assert.equal(resolveWorkspace({ env: {}, isPackaged: false, appData, repoRoot, pointer: null }).pointerFile, path.join(appData, "Urbanomics", "workspace.json"));
 });
 

@@ -64,7 +64,7 @@ The right-hand column contains proposed learning questions, not confirmed defect
 
 ## Explicitly incomplete or outside the current implementation
 
-- Bank export/download automation has not been built. Imports currently start with files; Wealthsimple does not yet have a supported adapter.
+- Bank export/download automation has not been built. Imports currently start with files; investment-account importers are not supported.
 - Snapshot presence does not prove complete month coverage. Observed exported balances are not a full current-balance reconciliation system.
 - Auto-link remains a testing lab with explicit application, not automatic linking during import.
 - Private recovery copies exist, but a general user-facing backup/restore workflow is not established.

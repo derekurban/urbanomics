@@ -161,7 +161,7 @@ The user requested a Wayfind map of implemented areas and unresolved interaction
 
 ## Phone access and responsive review — September 13, 2026
 
-The next priority is a usable mobile experience alongside desktop. The user requested live access through their existing Tailscale connection, with all persistent files on the desktop. Electron now optionally serves its existing workspace service to authenticated personal-tailnet clients. This supersedes the earlier browser-only sample restriction specifically for the embedded remote host; standalone browser verification remains isolated. The first mobile iteration uses bottom navigation, touch controls, stacked panels and category/tag selection below an expense card. The desktop radial remains. See `mobile-remote.md` for connection, limits and verification.
+The next priority is a usable mobile experience alongside desktop. Remote access is opt-in over your own Tailscale network, with all persistent files on the desktop. Electron optionally serves its existing workspace service to authenticated clients on that tailnet. This supersedes the earlier browser-only sample restriction specifically for the embedded remote host; standalone browser verification remains isolated. The first mobile iteration uses bottom navigation, touch controls, stacked panels and category/tag selection below an expense card. The desktop radial remains. See `mobile-remote.md` for connection, limits and verification.
 
 ## Transfers first and user-ordered tags — September 12, 2026
 
@@ -202,7 +202,7 @@ The user wants a visible money-in workflow and deductions from single transactio
 
 The user accepted integrating shared-cost allocation and replaced event cards with a calendar. Optional event start/end dates suggest bank-exported dates within a ±1-day window, with explicit linking by day or transaction. Every transaction needs categories; event membership stays optional. Single-ended dates are implemented as one-day occasions. Review shows event cost breakdowns and lets incoming money allocate to expenses through an event shortcut. Saved allocations target unique expense IDs, preserve excess as unassigned e-transfer income, and do not follow later membership changes. Existing transaction category and financial decisions remain independent.
 
-Aliases now apply globally across accounts. The user explicitly approved committing configuration definitions (aliases, accounts, filename rules, categories, events and people) as SQL in the GitHub repository. Live SQLite, transactions, snapshots, raw CSVs and financial review decisions remain private. The app keeps the SQL export current; Git commits remain an explicit repository workflow. Fresh empty workspaces can seed definitions from the tracked SQL.
+Aliases now apply globally across accounts. Configuration definitions (aliases, accounts, filename rules, categories, events and people) are exported as SQL. The export was first tracked in this repository; since October 2026 it lives outside it, in a private configuration folder named by `workspace.json` or `URBANOMICS_CONFIG_DIR`. Live SQLite, transactions, snapshots, raw CSVs and financial review decisions remain private. The app keeps the SQL export current; Git commits remain an explicit workflow in that private folder. Fresh empty workspaces can seed definitions from it.
 
 Suggested transaction alias regexes now keep the leading `^` and escape bank text, but omit the trailing `$` so suffixes can match. Saved rules are unchanged.
 
@@ -225,15 +225,13 @@ The latest refinement renames Data to Snapshots, compacts the layout and removes
 
 The user requested editable account names, filename-prefix regex rules and account colors. Data now stays on one page: a refresh action, a compact rolling calendar of the last 12 completed months, the Dropbox queue, animated processing feedback and a persistent latest-run summary. Colored rounded squares indicate account-month snapshot presence, with minimal hover/focus details and no revision labels. Upload history and full archive inspection open in modals. Earlier archived months remain available there. Prefix rules are optional, bank-specific and case-insensitive; ambiguous matches require review. These are implemented decisions, not changes to the accounting model.
 
-The user accepted the in-chat Data prototype and requested applying it to the real app, with a Fable UI pass. The repository and live workspace now run from `C:/path/to/urbanomics`. The Data section is the single place for Dropbox intake, upload history, archived originals and account-month snapshot management. Fable 5.1 supplied the React/CSS layout through a restricted Claude Code task with code and synthetic inputs only; the coordinating agent implemented storage, IPC, integration and verification.
+The user accepted the in-chat Data prototype and requested applying it to the real app, with a Fable UI pass. The Data section is the single place for Dropbox intake, upload history, archived originals and account-month snapshot management. Fable 5.1 supplied the React/CSS layout through a restricted Claude Code task with code and synthetic inputs only; the coordinating agent implemented storage, IPC, integration and verification.
 
-Build an operational Electron app in the existing private `urbanomics` repo. Start with the most recent completed month from supplied CSV samples, support drag/drop multi-account intake, deduplicate into monthly snapshots, archive sources and revisions, and keep personal data local and ignored by Git.
+Build an operational Electron app in the `urbanomics` repository. Start with the most recent completed month from supplied CSV samples, support drag/drop multi-account intake, deduplicate into monthly snapshots, archive sources and revisions, and keep personal data local and ignored by Git.
 
 ## Evidence from the earlier conversation
 
-Source: [link to the earlier private conversation removed]
-
-The shared conversation was readable on 2026-09-09. Its attached document and ZIP contents have not been reviewed. No existing code has been inspected or imported.
+An earlier exploratory conversation, not public, informed these preferences. No code from it has been inspected or imported.
 
 The user previously asked for:
 
@@ -377,7 +375,7 @@ The earlier trials recorded the user's agreed share as personal spending and tra
 
 The circular card trial is now accepted for implementation in Tags and Events. Each stage uses explicit Save & next, retained drafts while browsing Review, and saved completion progress. Events reuse existing group identities and support No event. Board remains available for bulk work and inspection. The user subsequently requested and accepted the app-wide Organize area: it replaces Accounts in the sidebar and manages tags, categories, events, accounts and people. Account settings and import controls live in its Accounts subsection. Review and Organize use the same records and editors.
 
-The user has supplied manual CSV exports and asked for monthly copies excluding September. The January–August preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
+The user has supplied manual CSV exports and asked for monthly copies of a chosen date range. The preparation utility is implemented and described in `docs/csv-preparation.md`. Original data and per-file results remain private. PC export date/time interpretation still needs validation against the bank's displayed transaction dates; no timezone correction was inferred. Export automation remains unverified after browser tool failures.
 
 The user has accepted the overall sixth-trial experience and requested the first operational desktop import milestone. Electron + React and a SQLite-backed importer are implemented with three bank adapters, explicit account routing, cautious overlap review, source provenance, and immutable monthly revisions. Native Electron integration and synthetic recovery checks are now separate from prototype tests; see `docs/desktop-imports.md`. The latest completed month is loaded locally as a trial, with source-specific results kept private.
 

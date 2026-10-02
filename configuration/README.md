@@ -1,14 +1,24 @@
-# Versioned configuration
+# Configuration export
 
-`workspace.sql` stores the current accounts (including recoverable deletion), filename routing rules, global aliases, category/person mapping rules, categories, events, people and saved transfer-lab route/tolerance setup. Stable IDs, names, colors and regexes are included intentionally at the user's request. Events use the existing `review_entities` kind `group`, with optional `startDate` and `endDate` fields.
+This folder is git-ignored apart from this README. The app's configuration export, `workspace.sql`, is personal and is never committed to this repository.
 
-There are no transactions, amounts, source descriptions from ledger rows, source hashes, raw CSVs, snapshots, import receipts, review decisions, transaction/category/event assignments, repayment links, balances or runtime settings in this export. Alias and transaction-rule names, patterns and mappings are configuration and may contain personal text by design. The runtime SQLite database, rule-application audit and archive remain ignored under `private/`.
+## Where the export lives
 
-The app atomically updates the SQL after configuration edits and on startup. Identical exports do not rewrite the file. Export failure keeps the old SQL and the live configuration, and shows a retry message; Refresh retries. These changes are ready for normal Git commits; the app never runs Git or pushes in the background.
+The app writes `workspace.sql` to the configuration folder named by `URBANOMICS_CONFIG_DIR`, or by `configurationDir` in `%APPDATA%\Urbanomics\workspace.json` when the environment does not set one. Keep that folder private, for example in a separate private Git repository. A development build falls back to this `configuration/` folder only when neither the environment variables nor `workspace.json` say otherwise; the export it writes here stays ignored. A data folder supplied through `URBANOMICS_DATA_DIR` without `URBANOMICS_CONFIG_DIR` gets no configuration folder at all, so synthetic test workspaces can neither seed from nor export over real definitions. The installer does not bundle any configuration SQL.
 
-Development's standard workspace uses this directory automatically. The installed launcher sets `URBANOMICS_DATA_DIR=C:/path/to/urbanomics/private/desktop` and `URBANOMICS_CONFIG_DIR=C:/path/to/urbanomics/configuration`. Custom data workspaces only synchronize when a configuration directory is explicitly supplied, so synthetic tests cannot overwrite the repository's definitions.
+## What the export contains
 
-A fresh or fully empty workspace seeds from its configuration directory (or the packaged SQL if no local copy exists). Existing workspaces are authoritative and export their current configuration; pulling SQL changes does not overwrite an existing ledger's definitions. SQL is a trusted executable repository artifact, not an upload format. Do not apply it over an existing workspace. The file is a configuration seed, not a complete financial backup; back up the closed private workspace to preserve financial history and reviews.
+`workspace.sql` stores the current accounts (including recoverable deletion), filename routing rules, global aliases, category/person mapping rules, categories, events, people and saved transfer-lab route/tolerance setup. Stable IDs, names, colors and regexes are included. Events use the existing `review_entities` kind `group`, with optional `startDate` and `endDate` fields.
+
+There are no transactions, amounts, source descriptions from ledger rows, source hashes, raw CSVs, snapshots, import receipts, review decisions, transaction/category/event assignments, repayment links, balances or runtime settings in this export. Alias and transaction-rule names, patterns and mappings are configuration and may contain personal text by design, which is why the export stays private. The runtime SQLite database, rule-application audit and archive remain under the private workspace.
+
+The app atomically updates the SQL after configuration edits and on startup. Identical exports do not rewrite the file. Export failure keeps the old SQL and the live configuration, and shows a retry message; Refresh retries. The app never runs Git or pushes; commit the export in its private repository yourself.
+
+## Seeding
+
+A fresh or fully empty workspace seeds from `workspace.sql` in its configuration folder when that file exists. Existing workspaces are authoritative and export their current configuration; pulling SQL changes does not overwrite an existing ledger's definitions. After Start from scratch, a private marker prevents seeding on restart. SQL is a trusted executable artifact, not an upload format. Do not apply it over an existing workspace. The file is a configuration seed, not a complete financial backup; back up the closed private workspace to preserve financial history and reviews.
+
+## Schema notes
 
 Schema 13 exports tag parent definitions in `review_entities.parentId`. Legacy kind `category` denotes assignable tags; kind `bucket` denotes broad categories. Empty parents mean ungrouped tags. Financial portions and raw records remain private. Existing SQL without parentId seeds compatible ungrouped tags; hierarchy edits never rewrite ledger payloads.
 

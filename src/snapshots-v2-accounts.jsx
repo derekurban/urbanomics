@@ -68,7 +68,7 @@ export function PrefixField({ job, pattern, onChange, target = "account", compac
           value={pattern}
           spellCheck={false}
           maxLength={256}
-          placeholder="^Simplii_.*"
+          placeholder="^bank_chequing_.*"
           onChange={(event) => onChange(event.target.value)}
         />
       </label>

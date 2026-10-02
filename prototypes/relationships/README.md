@@ -38,7 +38,7 @@ Try both layouts for 5–10 minutes using The exercise. Start with either layout
 - Alex sends $275: cabin $200, dinner $60, Superstore $10, gift income $5.
 - Maya sends $200: cabin $150, dinner $50. Maya still owes $60; Alex still owes $30.
 - Maya paid $90 for tickets outside your accounts: your payable is $30. Your outgoing $30 settles it; it is not a second expense.
-- EQ outgoing $502 links to PC incoming $500 with an explicitly accepted $2 fee.
+- Savings outgoing $502 links to chequing incoming $500 with an explicitly accepted $2 fee.
 - $2,800 salary and optional 120 routine expenses have inspectable fixture suggestions; exclude individual rows and apply the rest in one operation. Batch undo restores all rows. This is a workload example, not an actual rule engine or a performance benchmark.
 
 After the scenario (before loading routine items): paid-for purchases $900, repayments $470, cash still fronted $430, friends owe $90, your outstanding payable $0, identified income $2,805, separate transfer fee $2. The $30 payable settlement remains separate from bank purchase totals. Until paired, the candidate outgoing transfer is provisionally included in spending, as labelled.

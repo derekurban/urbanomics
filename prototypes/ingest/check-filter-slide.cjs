@@ -1,12 +1,13 @@
 const {chromium}=require('playwright');
 const assert=require('node:assert/strict');
 const fs=require('node:fs');
+const LAB_URL = process.env.URBANOMICS_LAB_URL || 'http://127.0.0.1:4176/lab/';
 (async()=>{
   fs.mkdirSync('private/validation/rolodex-slide',{recursive:true});
   const browser=await chromium.launch({channel:'chrome',headless:true});
   for(const [width,height] of [[390,844],[360,640],[1280,900],[844,390]]){
     const c=await browser.newContext({viewport:{width,height}}),p=await c.newPage();
-    await p.goto('http://127.0.0.1:4176/lab/');
+    await p.goto(LAB_URL);
     await p.evaluate(()=>{
       window.slideFrames=[];
       const capture=()=>{

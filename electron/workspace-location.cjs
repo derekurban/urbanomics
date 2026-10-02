@@ -1,7 +1,9 @@
 // Where the app keeps its workspace. Environment variables win, then the pointer file in the
 // per-user application data folder (Urbanomics/workspace.json), then the defaults: the repository
-// for a development run, the application data folder for an installed release. An explicit data
-// folder without an explicit configuration folder means no configuration SQL export, as before.
+// for a development run, the application data folder for an installed release. A data folder from
+// the environment never borrows the pointer file's configuration folder: without an explicit
+// configuration folder there is no configuration SQL export, so a synthetic workspace can neither
+// seed from nor export over the real configuration.
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -21,8 +23,8 @@ function resolveWorkspace({ env = process.env, isPackaged, appData, repoRoot, po
   const envData = text(env.URBANOMICS_DATA_DIR), envConfig = text(env.URBANOMICS_CONFIG_DIR);
   const pointedData = text(pointed.dataDir), pointedConfig = text(pointed.configurationDir);
   const dataDir = envData || pointedData || (isPackaged ? path.join(appData, "Urbanomics", "private") : path.join(repoRoot, "private", "desktop"));
-  const explicitData = !!(envData || pointedData);
-  const configurationDir = envConfig || pointedConfig || (explicitData ? null : isPackaged ? path.join(appData, "Urbanomics", "configuration") : path.join(repoRoot, "configuration"));
+  const configurationDir = envData ? envConfig || null
+    : envConfig || pointedConfig || (pointedData ? null : isPackaged ? path.join(appData, "Urbanomics", "configuration") : path.join(repoRoot, "configuration"));
   return {
     dataDir,
     configurationDir,
