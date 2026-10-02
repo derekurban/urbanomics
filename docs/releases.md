@@ -64,10 +64,11 @@ Until one of these is done, the installed release reports "The release feed coul
 
 - `node --test tests/desktop/updates.test.cjs`: workspace resolution order; the manager's states against a fake updater (check, download, progress, ready, late error, install, timers, private feed with a token, readable errors).
 - `scripts/smoke-navigation-refresh.cjs`: Settings → About in the browser host shows no update actions.
-- The first release, v0.2.0, was verified end to end on October 2, 2026: a locally built 0.1.9 installer was installed, started with a read token, found v0.2.0 in the private feed, downloaded it, and installed it on quit; the installed version then read 0.2.0.
+- The first release, v0.2.0, was verified end to end on October 2, 2026: a locally built 0.1.9 installer was installed, started with a read token (`URBANOMICS_UPDATE_TOKEN` in the environment of that one launch), found v0.2.0 in the private feed within seconds, downloaded the full installer, reported `ready`, and installed it silently when its window was closed; the installed copy then read 0.2.0 and started on the shared workspace. Without a token the same build logs "The release feed could not be found" and otherwise runs normally.
 
 ## Known limits
 
 - No code signing and no macOS or Linux targets.
+- Against a private feed, electron-updater cannot parse the blockmap it fetches through the API, so it falls back to a full download (about 115 MB) instead of a differential one. A public feed downloads differentially.
 - Builds run locally; there is no CI publishing yet (the design-system dependency's Windows install needs Git's shell until its next release).
 - Release notes are empty unless written on the GitHub release afterwards.
