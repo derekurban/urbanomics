@@ -13,7 +13,9 @@ const fail = (message) => { console.error(message); process.exit(1); };
 const run = (command, argv, options = {}) => {
   console.log(`> ${command} ${argv.join(" ")}`);
   if (dryRun) return "";
-  const result = spawnSync(command, argv, { cwd: root, stdio: "inherit", shell: process.platform === "win32", ...options });
+  // npm and npx are .cmd shims on Windows and need a shell; git takes its arguments directly, so
+  // a commit message with spaces survives.
+  const result = spawnSync(command, argv, { cwd: root, stdio: "inherit", shell: process.platform === "win32" && command !== "git", ...options });
   if (result.status !== 0) fail(`${command} failed.`);
 };
 const git = (...argv) => execFileSync("git", argv, { cwd: root, encoding: "utf8" }).trim();
