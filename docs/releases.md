@@ -6,7 +6,7 @@ October 2, 2026. Urbanomics now has two kinds of build. A **development** run is
 
 | | Development | Installed release |
 | --- | --- | --- |
-| Starts from | the repository (`electron .` or `release/win-unpacked`) | `%LOCALAPPDATA%\Programs\Urbanomics` (per-user, no admin) |
+| Starts from | the repository (`electron .`, or `release/win-unpacked` through `Launch Urbanomics.cmd`, which sets the two environment variables to the repository workspace) | `%LOCALAPPDATA%\Programs\Urbanomics` (per-user, no admin) |
 | Package metadata | no `channel` | `channel: release` (from `electron-builder.release.yml`, which extends the base config) |
 | Workspace | `private/desktop` and `configuration/` in the repository, unless the environment says otherwise; never `workspace.json` | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
 | Window title | Urbanomics (development) | Urbanomics |

@@ -24,7 +24,9 @@ const workspace = resolveWorkspace({
   env: process.env,
   isPackaged: build === "release",
   appData: app.getPath("appData"),
-  repoRoot: path.join(__dirname, ".."),
+  // An unpacked development build lives at <repo>/release/win-unpacked; its app archive is not
+  // the repository.
+  repoRoot: app.isPackaged ? path.resolve(process.resourcesPath, "..", "..", "..") : path.join(__dirname, ".."),
   usePointer: build === "release",
 });
 const privateRoot = workspace.dataDir, configurationDir = workspace.configurationDir;

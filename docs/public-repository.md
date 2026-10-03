@@ -19,7 +19,7 @@ Bank exports, databases, logs, statements and images are ignored by extension ev
 
 ## How the app finds the private parts
 
-`electron/workspace-location.cjs` resolves the workspace in this order: `URBANOMICS_DATA_DIR` and `URBANOMICS_CONFIG_DIR`, then `workspace.json` (installed releases only), then the defaults (the repository's `private/desktop` and `configuration/` for a development run, the application data folder for an installed release). Development builds never read the pointer file, so the installed app and the development build keep separate ledgers. A data folder given through the environment never borrows the pointer file's configuration folder, so a synthetic workspace run by a smoke script can neither seed from nor export over the real configuration. `Launch Urbanomics.cmd` sets nothing.
+`electron/workspace-location.cjs` resolves the workspace in this order: `URBANOMICS_DATA_DIR` and `URBANOMICS_CONFIG_DIR`, then `workspace.json` (installed releases only), then the defaults (the repository's `private/desktop` and `configuration/` for a development run, the application data folder for an installed release). Development builds never read the pointer file, so the installed app and the development build keep separate ledgers. A data folder given through the environment never borrows the pointer file's configuration folder, so a synthetic workspace run by a smoke script can neither seed from nor export over the real configuration. `Launch Urbanomics.cmd` sets the two environment variables to the repository workspace.
 
 The configuration export is written by the app after every configuration change into `configurationDir`. Commit it there, in the private repository, as before. The app never runs Git.
 
