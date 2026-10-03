@@ -56,11 +56,9 @@ export function PrefixField({ job, pattern, onChange, target = "account", compac
           Filename rule
           <InfoDot label="Filename rule">
             <span>
-              A regular expression, not a file glob. <code>^</code> anchors it to
-              the start of the name and <code>.*</code> means “then anything”. A
-              bare <code>*</code> would mean “repeat the previous character”,
-              which is why the default ends in <code>.*</code>. Leave it empty to
-              choose this {target} by hand each time.
+              A pattern matched against future filenames. <code>^</code> means
+              “starts with” and <code>.*</code> means “then anything”. Leave it
+              empty to choose this {target} by hand each time.
             </span>
           </InfoDot>
         </span>
@@ -95,13 +93,13 @@ export function PrefixField({ job, pattern, onChange, target = "account", compac
         </p>
       ) : !pattern.trim() ? (
         <p className="sv2-quiet">
-          No rule. Choose this {target} manually.
+          No rule. You will choose this {target} by hand each time.
         </p>
       ) : (
         <div className="sv2-prefix-result" role="status">
           <PatternSegments result={test} filename={job.filename} />
           <PatternLegend />
-          {test?.matches === false && <p className="sv2-quiet">This pattern does not match the staged file.</p>}
+          {test?.matches === false && <p className="sv2-quiet">This rule does not match this file.</p>}
         </div>
       )}
     </div>
@@ -151,17 +149,15 @@ export function AccountDialog({ mode, job, account, busy, run, onClose, onCreate
             Cancel
           </button>
           <button type="submit" form={formId} className="primary" disabled={busy || !name.trim()}>
-            {editing ? "Save account" : "Create & assign"}
+            {editing ? "Save account" : "Create account"}
           </button>
         </div>}
       onClose={onClose}
     >
       <form id={formId} className="sv2-form" onSubmit={submit}>
-        <p className="sv2-quiet">
-          {editing
-            ? "Names, colors and routing stay with the account; imported months are untouched."
-            : `Created from ${job.filename}${job.schema ? ` · ${bankNames[job.schema] || "custom layout"}` : ""}.`}
-        </p>
+        {editing && (
+          <p className="sv2-quiet">Imported months are not changed.</p>
+        )}
         <label className="sv2-field sv2-field-wide">
           <span>Name</span>
           <input
@@ -174,7 +170,7 @@ export function AccountDialog({ mode, job, account, busy, run, onClose, onCreate
         </label>
         <label className="sv2-field sv2-field-wide">
           <span>
-            Type<em>optional</em><InfoDot label="Account type">Your own label. It does not change how transactions are imported.</InfoDot>
+            Type<em>optional</em><InfoDot label="Account type">A label for you, such as chequing or credit card.</InfoDot>
           </span>
           <input
             maxLength={40}
@@ -222,7 +218,7 @@ export function AccountDialog({ mode, job, account, busy, run, onClose, onCreate
   );
 }
 
-export function AccountsStep({ jobs, accounts, busy, run, layoutName }) {
+export function AccountsStep({ jobs, accounts, busy, run, layoutName, compact = false }) {
   const [dialog, setDialog] = useState(null),
     [matches, setMatches] = useState({});
   const byId = Object.fromEntries(accounts.map((account) => [account.id, account]));
@@ -265,10 +261,12 @@ export function AccountsStep({ jobs, accounts, busy, run, layoutName }) {
             key={job.id}
             style={{ "--i": index, "--sv2-account": account?.color }}
           >
-            <div className="sv2-assign-file">
-              <strong>{job.filename}</strong>
-              <small>{layoutName(job)}</small>
-            </div>
+            {!compact && (
+              <div className="sv2-assign-file">
+                <strong>{job.filename}</strong>
+                <small>{layoutName(job)}</small>
+              </div>
+            )}
             <div
               className="sv2-assign-choices"
               role="group"
@@ -308,7 +306,7 @@ export function AccountsStep({ jobs, accounts, busy, run, layoutName }) {
               <p className="sv2-assign-note">
                 {remembered === false ? (
                   <>
-                    This filename will not route to {account.name} on its own
+                    Files named like this will not go to {account.name} on their own
                     next time.
                     <button
                       type="button"
@@ -319,10 +317,10 @@ export function AccountsStep({ jobs, accounts, busy, run, layoutName }) {
                     </button>
                   </>
                 ) : remembered ? (
-                  <>Future files with this name arrive at {account.name} on their own.</>
+                  <>Files named like this will go to {account.name} on their own.</>
                 ) : (
                   <>
-                    {account.name} has no filename rule.
+                    {account.name} has no filename rule, so its files are chosen by hand.
                     <button
                       type="button"
                       className="sv2-inline"

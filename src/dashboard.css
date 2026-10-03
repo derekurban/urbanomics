@@ -1125,3 +1125,105 @@
 .dash-tooltip-vendor strong {
   flex-shrink: 0;
 }
+
+/* First run: a ghost of the dashboard (three tiles and a year of bars) under one short message and
+   the single way forward. The bars grow in on entry; reduced motion shows them at rest. */
+.dash-first {
+  position: relative;
+  display: grid;
+  gap: var(--space-6);
+  padding: clamp(var(--space-5), 4vh, var(--space-8)) clamp(var(--space-4), 4vw, var(--space-8));
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  overflow: hidden;
+  animation: dash-first-in var(--duration-slow) var(--ease-settle) both;
+}
+.dash-ghost {
+  display: grid;
+  gap: var(--space-4);
+}
+.dash-ghost-tiles {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.dash-ghost-tiles > span {
+  display: grid;
+  align-content: center;
+  gap: var(--space-2);
+  height: clamp(52px, 8vh, 72px);
+  padding: 0 var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+}
+.dash-ghost-tiles > span::before,
+.dash-ghost-tiles > span::after {
+  content: "";
+  display: block;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--line);
+}
+.dash-ghost-tiles > span::before {
+  width: 32%;
+}
+.dash-ghost-tiles > span::after {
+  width: 54%;
+  height: 10px;
+}
+.dash-ghost-chart {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  align-items: end;
+  gap: clamp(6px, 1.2vw, var(--space-4));
+  height: clamp(80px, 16vh, 150px);
+  padding-bottom: var(--space-3);
+  border-bottom: 1px solid var(--line);
+}
+.dash-ghost-chart > i {
+  display: block;
+  height: var(--h);
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  background: var(--line);
+  transform-origin: 50% 100%;
+  animation: dash-ghost-grow var(--duration-slow) var(--ease-settle) both;
+  animation-delay: calc(var(--duration-fast) + var(--i) * 24ms);
+}
+.dash-first-copy {
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: var(--space-2);
+}
+.dash-first-copy h2 {
+  font-size: clamp(20px, 2.2vw, 26px);
+  margin: 0;
+}
+.dash-first-copy p {
+  max-width: 46ch;
+  margin: 0 0 var(--space-3);
+  color: var(--ink-secondary);
+  text-wrap: pretty;
+}
+.dash-first-copy button {
+  min-height: var(--control-lg);
+  padding: 0 var(--space-6);
+}
+@keyframes dash-first-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+@keyframes dash-ghost-grow {
+  from {
+    transform: scaleY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dash-first,
+  .dash-ghost-chart > i {
+    animation: none;
+  }
+}

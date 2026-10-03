@@ -91,13 +91,17 @@ export function Stat({ value, label }) {
    again or Escape to close. Nothing here repeats the copy beside it. */
 export function InfoDot({ label, children, align = "center" }) {
   const [open, setOpen] = useState(false),
-    [pinned, setPinned] = useState(false);
+    [pinned, setPinned] = useState(false),
+    [up, setUp] = useState(false);
   const wrap = useRef(null),
     pop = useRef(null),
     id = useId();
   useLayoutEffect(() => {
     const node = pop.current;
     if (!open || !node) return;
+    // Measure in the default (below) position, then keep the note on screen: shift it sideways
+    // and flip it above the dot when the window is too short for it below.
+    node.classList.remove("sv2-pop-up");
     node.style.setProperty("--sv2-shift", "0px");
     const box = node.getBoundingClientRect(),
       edge = 18;
@@ -106,6 +110,11 @@ export function InfoDot({ label, children, align = "center" }) {
       shift = window.innerWidth - edge - box.right;
     if (box.left + shift < edge) shift = edge - box.left;
     node.style.setProperty("--sv2-shift", `${Math.round(shift)}px`);
+    const dot = wrap.current?.getBoundingClientRect();
+    const flip =
+      box.bottom > window.innerHeight - edge &&
+      !!dot && dot.top - box.height - 11 > edge;
+    setUp(flip);
   }, [open]);
   useEffect(() => {
     if (!open) return;
@@ -154,7 +163,7 @@ export function InfoDot({ label, children, align = "center" }) {
       </button>
       {open && (
         <span
-          className={`sv2-pop sv2-pop-${align}`}
+          className={`sv2-pop sv2-pop-${align}${up ? " sv2-pop-up" : ""}`}
           id={id}
           role="note"
           ref={pop}
@@ -211,66 +220,43 @@ export function PatternLegend() {
 /* Paper exports settling into twelve monthly cells. Decorative; the resting
    frame is the composed one, so reduced motion loses nothing. */
 export function SnapshotScene() {
-  const accents = [2, 5, 9];
+  // A dealt fan of exports. Each card fades in on the left, moves one slot to the right whenever
+  // the oldest card is thrown into the calendar, and that arrival lights one day. Four cards share
+  // one keyframe offset by a quarter period, so the fan always holds three with one in flight.
+  const days = [2, 5, 9, 11];
   return (
-    <svg
-      className="sv2-scene"
-      viewBox="0 0 360 210"
-      aria-hidden="true"
-      focusable="false"
-    >
-      <g className="sv2-scene-stack">
-        {[0, 1, 2].map((sheet) => (
-          <g className="sv2-sheet" style={{ "--i": sheet }} key={sheet}>
-            <rect
-              className="sv2-sheet-body"
-              x="16"
-              y="52"
-              width="86"
-              height="106"
-              rx="9"
-            />
-            {[0, 1, 2, 3, 4].map((row) => (
+    <div className="sv2-scene" aria-hidden="true">
+      <svg className="sv2-scene-board" viewBox="0 0 360 210" focusable="false">
+        <path className="sv2-scene-path" d="M118 58C150 26 196 30 224 68" />
+        <g className="sv2-scene-calendar">
+          <rect className="sv2-cal-ring" x="252" y="34" width="6" height="17" rx="3" />
+          <rect className="sv2-cal-ring" x="302" y="34" width="6" height="17" rx="3" />
+          <rect className="sv2-cal-body" x="214" y="44" width="132" height="124" rx="13" />
+          <rect className="sv2-cal-title" x="230" y="53" width="46" height="8" rx="4" />
+          <line className="sv2-cal-line" x1="214" y1="70" x2="346" y2="70" />
+          {Array.from({ length: 12 }, (_, cell) => {
+            const slot = days.indexOf(cell);
+            return (
               <rect
-                key={row}
-                className="sv2-sheet-rule"
-                x="29"
-                y={70 + row * 17}
-                width={row % 2 ? 44 : 60}
-                height="5"
-                rx="2.5"
+                key={cell}
+                className={`sv2-cal-cell${slot >= 0 ? ` sv2-cal-day-${slot}` : ""}`}
+                x={228 + (cell % 4) * 28}
+                y={84 + Math.floor(cell / 4) * 26}
+                width="20"
+                height="18"
+                rx="5"
               />
-            ))}
-          </g>
+            );
+          })}
+        </g>
+      </svg>
+      <div className="sv2-fan">
+        {[0, 1, 2, 3].map((card) => (
+          <div className="sv2-card" style={{ "--i": card }} key={card}>
+            <i /><i /><i /><i /><i />
+          </div>
         ))}
-      </g>
-      <path className="sv2-scene-path" d="M112 96C152 58 188 54 226 78" />
-      <g className="sv2-scene-calendar">
-        <rect className="sv2-cal-ring" x="252" y="34" width="6" height="17" rx="3" />
-        <rect className="sv2-cal-ring" x="302" y="34" width="6" height="17" rx="3" />
-        <rect
-          className="sv2-cal-body"
-          x="214"
-          y="44"
-          width="132"
-          height="124"
-          rx="13"
-        />
-        <rect className="sv2-cal-title" x="230" y="53" width="46" height="8" rx="4" />
-        <line className="sv2-cal-line" x1="214" y1="70" x2="346" y2="70" />
-        {Array.from({ length: 12 }, (_, cell) => (
-          <rect
-            key={cell}
-            className={`sv2-cal-cell${accents.includes(cell) ? " sv2-cal-accent" : ""}`}
-            style={{ "--i": cell }}
-            x={228 + (cell % 4) * 28}
-            y={84 + Math.floor(cell / 4) * 26}
-            width="20"
-            height="18"
-            rx="5"
-          />
-        ))}
-      </g>
-    </svg>
+      </div>
+    </div>
   );
 }

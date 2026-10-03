@@ -45,7 +45,7 @@ class ImportLayouts{
  inspect(id){const {job,bytes}=this.bytes(id);let parsed,error;try{parsed=this.parse(bytes,job.filename);}catch(e){error=e.message;}
  let t;for(const delimiter of [',',';','\t']){try{const candidate=table(bytes,delimiter);if(!t||candidate.headers.length>t.headers.length)t={...candidate,delimiter};}catch{}}
  if(!t)throw Error('Cannot read this CSV. Use UTF-8 with a header row and consistent columns.');
- return {id,filename:job.filename,schema:parsed?.schema||null,headers:t.headers,delimiter:t.delimiter,sample:t.rows.slice(0,5),rowCount:parsed?.rows.length??t.rows.length,preview:parsed?.rows.slice(0,5)||[],error,templateId:parsed?.schema?.startsWith('custom:')?parsed.schema.slice(7):null,templates:this.list(),accounts:this.db.prepare("SELECT * FROM accounts WHERE deletedAt IS NULL ORDER BY name").all()};
+ return {id,filename:job.filename,schema:parsed?.schema||null,headers:t.headers,delimiter:t.delimiter,sample:t.rows.slice(0,24),rowCount:parsed?.rows.length??t.rows.length,preview:parsed?.rows.slice(0,5)||[],error,templateId:parsed?.schema?.startsWith('custom:')?parsed.schema.slice(7):null,templates:this.list(),accounts:this.db.prepare("SELECT * FROM accounts WHERE deletedAt IS NULL ORDER BY name").all()};
  }
  detectDates(id,column,delimiter=','){
   if(![',',';','\t'].includes(delimiter))throw Error('Choose a valid CSV separator.');

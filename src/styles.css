@@ -2,14 +2,23 @@
 * {
   box-sizing: border-box;
 }
+/* The sidebar is either pinned open or a narrow icon rail. Its contents keep the same left edge in both
+   states (10px sidebar padding + 11px item padding centres the 22px icons in the 64px rail), so opening
+   the rail only reveals labels and never moves an icon. */
 .app-shell {
+  --sidebar-pinned: 236px;
+  --sidebar-rail: 64px;
+  --sidebar-width: var(--sidebar-pinned);
   display: flex;
   min-height: 100vh;
 }
+.app-shell.sidebar-rail {
+  --sidebar-width: var(--sidebar-rail);
+}
 .sidebar {
-  width: 236px;
-  min-width: 236px;
-  padding: 33px 20px 20px;
+  width: var(--sidebar-pinned);
+  min-width: var(--sidebar-pinned);
+  padding: 33px 10px 14px;
   background: var(--bg);
   border-right: 1px solid var(--line);
   position: fixed;
@@ -17,6 +26,7 @@
   display: flex;
   flex-direction: column;
   z-index: 5;
+  overflow: hidden;
 }
 .brand {
   display: flex;
@@ -25,16 +35,87 @@
   font: var(--font-heading);
   letter-spacing: var(--tracking-heading);
 }
+.sidebar .brand {
+  padding-left: var(--space-2);
+  white-space: nowrap;
+}
 .brand-sub {
   font-size: 11px;
   margin: 8px 0 40px;
   color: var(--ink-tertiary);
+}
+.sidebar .brand-sub {
+  padding-left: var(--space-2);
+  white-space: nowrap;
+}
+/* Development builds say so under the brand; the rail keeps a short amber "dev" tag in the same place. */
+.dev-tag {
+  position: relative;
+  height: 20px;
+  margin: var(--space-2) 0 0 var(--space-2);
+}
+.dev-tag > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: inline-flex;
+  align-items: center;
+  height: 20px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--warning-line);
+  border-radius: var(--radius-xs);
+  background: var(--warning-subtle);
+  color: var(--warning);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.dev-tag > .dev-tag-short {
+  padding: 0 var(--space-1);
+  opacity: 0;
+}
+.sidebar-label {
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.sidebar-pin {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  flex: none;
+  min-height: 40px;
+  margin-top: var(--space-2);
+  padding: 0 11px;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--ink-secondary);
+  font-size: 12px;
+  text-align: left;
+}
+.sidebar-pin > span:first-child {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 22px;
+  color: var(--ink-tertiary);
+}
+.sidebar-pin:hover {
+  background: var(--sunk);
+  color: var(--ink);
+}
+.sidebar-pin[aria-pressed="true"] > span:first-child {
+  color: var(--ink-secondary);
+}
+.sidebar-extras {
+  margin-top: auto;
 }
 .sidebar nav {
   display: grid;
   gap: 6px;
 }
 .nav-item {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 11px;
@@ -42,12 +123,13 @@
   border: 0;
   background: transparent;
   font-size: 13px;
-  padding: 12px;
+  padding: 12px 11px;
   color: var(--ink-secondary);
 }
-.nav-item > span {
+.nav-item > span:first-child {
   display: grid;
   place-items: center;
+  flex: none;
   width: 22px;
   color: var(--ink-tertiary);
 }
@@ -58,7 +140,7 @@
   color: var(--text-selected);
   background: var(--surface-selected);
 }
-.nav-item.active > span {
+.nav-item.active > span:first-child {
   color: var(--accent-strong);
 }
 .nav-item b {
@@ -106,7 +188,6 @@
   padding: 0 13px;
 }
 .local-note {
-  margin-top: auto;
   padding: 30px 10px 0;
   font-size: 11px;
 }
@@ -132,35 +213,113 @@
   margin-right: 7px;
 }
 .workspace {
-  margin-left: 236px;
+  margin-left: var(--sidebar-width);
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
+  transition: margin-left var(--duration-slow) var(--ease-out);
 }
-.topbar {
-  height: 70px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 40px;
-  border-bottom: 1px solid var(--line);
-  font-size: 12px;
-  background: var(--surface);
-}
-.breadcrumb {
-  color: var(--ink-tertiary);
-}
-.slash {
-  padding: 0 13px;
-  color: var(--ink-tertiary);
-}
+/* Pages carry their own headings; the padding variables let full-height pages (the empty Snapshots
+   landing) size themselves to the viewport. */
 .workspace main {
+  --main-pad-top: var(--space-8);
+  --main-pad-bottom: var(--space-6);
   max-width: 1330px;
   width: 100%;
-  padding: 38px 40px 45px;
+  padding: var(--main-pad-top) 40px var(--main-pad-bottom);
   margin: 0 auto;
   flex: 1;
+}
+
+/* Desktop only: below 721px mobile.css turns the sidebar into a bottom tab bar and none of this applies. */
+@media (min-width: 721px) {
+  .sidebar {
+    transition:
+      width var(--duration-slow) var(--ease-out),
+      min-width var(--duration-slow) var(--ease-out),
+      box-shadow var(--duration-slow) var(--ease-out);
+  }
+  .sidebar .nav-item,
+  .sidebar-label {
+    white-space: nowrap;
+  }
+  .sidebar-label {
+    overflow: hidden;
+  }
+  .sidebar.is-rail {
+    width: var(--sidebar-rail);
+    min-width: var(--sidebar-rail);
+  }
+  /* Hovered or keyboard-focused, the rail opens over the page; the page itself does not move. */
+  .sidebar.is-rail.is-open {
+    width: var(--sidebar-pinned);
+    min-width: var(--sidebar-pinned);
+    z-index: 35;
+    box-shadow: var(--shadow-float);
+  }
+  .sidebar.is-rail:not(.is-open) :is(.sidebar-label, .brand-word, .brand-sub, .dev-tag-full) {
+    opacity: 0;
+  }
+  .sidebar.is-rail:not(.is-open) .dev-tag-short {
+    opacity: 1;
+  }
+  .sidebar.is-rail:not(.is-open) .sidebar-extras {
+    display: none;
+  }
+  .sidebar.is-rail:not(.is-open) .sidebar-pin {
+    margin-top: auto;
+  }
+  .sidebar.is-rail.is-open .sidebar-extras {
+    animation: sidebar-extras-in var(--duration-base) var(--ease-out) both;
+  }
+  /* Group headings become short hairlines in the rail and keep their height, so nothing shifts on open. */
+  .sidebar .navigation-group {
+    position: relative;
+    white-space: nowrap;
+    transition: color var(--duration-fast) var(--ease-out);
+  }
+  .sidebar .navigation-group::before {
+    content: "";
+    position: absolute;
+    left: 11px;
+    bottom: 50%;
+    width: 22px;
+    border-top: 1px solid var(--line);
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease-out);
+  }
+  .sidebar.is-rail:not(.is-open) .navigation-group {
+    color: transparent;
+  }
+  .sidebar.is-rail:not(.is-open) .navigation-group::before {
+    opacity: 1;
+  }
+  /* The Snapshots count stays visible in the rail as a small bubble on the icon. */
+  .sidebar.is-rail:not(.is-open) .nav-item b {
+    position: absolute;
+    top: 4px;
+    left: 26px;
+    min-width: 16px;
+    margin: 0;
+    padding: 1px 4px;
+    border-radius: var(--radius-full);
+    background: var(--ink);
+    color: var(--surface);
+    font-size: 10px;
+    line-height: 14px;
+    text-align: center;
+  }
+}
+@media (min-width: 721px) and (max-width: 1100px) {
+  .app-shell {
+    --sidebar-pinned: 205px;
+  }
+}
+@keyframes sidebar-extras-in {
+  from {
+    opacity: 0;
+  }
 }
 .eyebrow {
   font-size: 10px;
@@ -681,15 +840,6 @@ tbody tr:hover {
   font-size: 11px;
   background: transparent;
 }
-.workspace footer {
-  display: flex;
-  justify-content: space-between;
-  padding: 20px 40px;
-  border-top: 1px solid var(--line);
-  font-size: 9px;
-  
-  color: var(--ink-tertiary);
-}
 .notice,
 .alert {
   display: flex;
@@ -842,20 +992,66 @@ tbody tr:hover {
 .source-row button {
   font-size: 11px;
 }
+/* Files dragged over any page other than Snapshots. Accent when the drag can be added, warning when
+   nothing in it is a CSV export. */
 .drop-overlay {
   pointer-events: none;
   position: fixed;
   inset: 0;
   z-index: 40;
+  padding: var(--space-4);
   background: var(--bg);
+  animation: drop-overlay-in var(--duration-fast) var(--ease-out) both;
+}
+.drop-overlay > div {
+  height: 100%;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-3);
+  text-align: center;
+  border: 1.5px solid var(--accent-strong);
+  border-radius: var(--radius-xl);
+  background: var(--accent-subtle);
+}
+.drop-overlay h1 {
+  margin: var(--space-2) 0 0;
+  font: var(--font-heading);
+  letter-spacing: var(--tracking-heading);
+  color: var(--ink);
+}
+.drop-overlay p {
+  margin: 0;
+  color: var(--ink-secondary);
+}
+.drop-overlay-icon {
   display: grid;
   place-items: center;
-  text-align: center;
-  border: 8px solid var(--line-strong);
+  width: var(--space-8);
+  height: var(--space-8);
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  color: var(--accent-strong);
+  box-shadow: var(--shadow-rest);
+  animation: drop-overlay-lift var(--duration-slow) var(--ease-settle) both;
 }
-.drop-overlay span {
-  font-size: 80px;
-  color: var(--ink-tertiary);
+.drop-overlay.drop-reject > div {
+  border-color: var(--warning-line);
+  background: var(--warning-subtle);
+}
+.drop-overlay.drop-reject .drop-overlay-icon {
+  color: var(--warning);
+  animation: none;
+}
+@keyframes drop-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes drop-overlay-lift {
+  from {
+    transform: translateY(calc(var(--space-2) * -1));
+  }
 }
 .launch-message {
   padding: 70px;
@@ -864,20 +1060,10 @@ tbody tr:hover {
   font-size: 28px;
 }
 @media (max-width: 1100px) {
-  .sidebar {
-    width: 205px;
-    min-width: 205px;
-    padding-left: 14px;
-    padding-right: 14px;
-  }
-  .workspace {
-    margin-left: 205px;
-  }
   .workspace main {
-    padding: 30px 25px;
-  }
-  .topbar {
-    padding: 0 25px;
+    --main-pad-top: var(--space-7);
+    --main-pad-bottom: var(--space-5);
+    padding: var(--main-pad-top) 25px var(--main-pad-bottom);
   }
   .recent-card {
     padding: 15px;
@@ -920,19 +1106,3 @@ tbody tr:hover {
   color: var(--ink-secondary);
 }
 
-/* Development builds wear a small tag in the top-right corner so they are never mistaken for the
-   installed release. */
-.dev-banner {
-  position: fixed;
-  top: 10px;
-  right: 10px;
-  z-index: 60;
-  padding: 3px 10px;
-  border: 1px solid var(--warning-line);
-  border-radius: var(--radius-sm);
-  background: var(--warning-subtle);
-  color: var(--warning);
-  font-size: 11px;
-  font-weight: 600;
-  pointer-events: none;
-}

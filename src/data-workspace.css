@@ -1074,11 +1074,11 @@
 .notice.snackbar {
   position: fixed;
   top: 18px;
-  left: calc(50% + 118px);
+  left: calc(50% + var(--sidebar-width, 236px) / 2);
   transform: translateX(-50%);
   z-index: 45;
   width: max-content;
-  max-width: calc(100vw - 310px);
+  max-width: calc(100vw - var(--sidebar-width, 236px) - 74px);
   margin: 0;
   padding: 12px 16px;
   border: 1px solid var(--line-strong);
@@ -1223,12 +1223,6 @@
 @keyframes drop-bob {
   50% {
     transform: translateY(3px);
-  }
-}
-@media (max-width: 1100px) {
-  .notice.snackbar {
-    left: calc(50% + 102px);
-    max-width: calc(100vw - 250px);
   }
 }
 @media (max-width: 1000px) {

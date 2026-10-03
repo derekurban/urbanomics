@@ -10,7 +10,7 @@ October 2, 2026. Urbanomics now has two kinds of build. A **development** run is
 | Package metadata | no `channel` | `channel: release` (from `electron-builder.release.yml`, which extends the base config) |
 | Workspace | `private/desktop` and `configuration/` in the repository, unless the environment says otherwise; never `workspace.json` | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
 | Window title | Urbanomics (development) | Urbanomics |
-| Icon and tag | amber icon (`assets/icons/icon-dev.*`), a fixed "Development build" tag top right | dark icon (`assets/icons/icon.*`), no tag |
+| Icon and tag | amber icon (`assets/icons/icon-dev.*`), a "Development build" tag under the sidebar brand ("dev" pill in the icon rail) | dark icon (`assets/icons/icon.*`), no tag |
 | Settings → About | "Development build", no update actions | version, "Installed release", Check for updates / Restart to update |
 | Update checks | never | 15 seconds after start, then every six hours, and on request |
 

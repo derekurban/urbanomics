@@ -31,6 +31,17 @@
       ],
       "port": 4185,
       "url": "http://127.0.0.1:4185"
+    },
+    {
+      "name": "import-flow",
+      "runtimeExecutable": "node",
+      "runtimeArgs": [
+        "node_modules/vite/bin/vite.js",
+        "--config",
+        "prototypes/import-flow/vite.config.mjs"
+      ],
+      "port": 4186,
+      "url": "http://127.0.0.1:4186"
     }
   ]
 }

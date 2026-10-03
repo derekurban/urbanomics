@@ -3,6 +3,8 @@ import "@derekurban/design-system/styles.css";
 import "./icons.js";
 import { Icon, Mark } from "@derekurban/design-system";
 import "./theme.js";
+import { readSidebarPinned, saveSidebarPinned } from "./sidebar.js";
+import { dropKind, skippedNote, splitCsvFiles } from "./drop-kind.js";
 import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
@@ -79,7 +81,26 @@ function App() {
   );
   const [notice, setNotice] = useState(""),
     [error, setError] = useState(""),
-    [dragging, setDragging] = useState(false);
+    [dragging, setDragging] = useState(null);
+  // Unpinned, the sidebar is an icon rail that opens over the page while hovered or keyboard-focused.
+  const [pinned, setPinned] = useState(readSidebarPinned),
+    [railOpen, setRailOpen] = useState(false);
+  const railTimer = useRef(null);
+  useEffect(() => () => clearTimeout(railTimer.current), []);
+  const openRail = () => {
+    clearTimeout(railTimer.current);
+    setRailOpen(true);
+  };
+  const closeRail = (delay = 150) => {
+    clearTimeout(railTimer.current);
+    railTimer.current = setTimeout(() => setRailOpen(false), delay);
+  };
+  const togglePinned = () => {
+    const next = saveSidebarPinned(!pinned);
+    setPinned(next);
+    // Unpinning under the pointer keeps the rail open until the pointer leaves.
+    if (!next) openRail();
+  };
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(""), 5000);
@@ -163,22 +184,30 @@ function App() {
       setBusy(false);
     }
   }
-  async function intake(method) {
+  async function intake(method, clientSkipped = 0) {
     setPage("snapshots");
+    const filtered = clientSkipped ? ` ${skippedNote(clientSkipped)}` : "";
     await run(method, (result) =>
-      result.ids.length
+      (result.ids.length
         ? `${result.ids.length} CSV${result.ids.length === 1 ? "" : "s"} received${result.skipped ? `. ${result.skipped} non-CSV, subfolder, or oversized item(s) skipped` : ""}. Originals stay where they are.`
         : result.skipped
           ? "No supported CSV files in that selection."
-          : "No files selected.",
+          : "No files selected.") + filtered,
     );
   }
   function onDrop(event) {
     event.preventDefault();
-    setDragging(false);
-    if(page === 'snapshots'){window.dispatchEvent(new CustomEvent('snapshots-drop',{detail:Array.from(event.dataTransfer.files)}));return;}
-    if (!busy && event.dataTransfer.files.length)
-      intake(() => api.stageDrop(Array.from(event.dataTransfer.files)));
+    setDragging(null);
+    const files = Array.from(event.dataTransfer.files);
+    if(page === 'snapshots'){window.dispatchEvent(new CustomEvent('snapshots-drop',{detail:files}));return;}
+    if (busy || !files.length) return;
+    // Only CSV exports reach the server; anything else is reported here and left where it is.
+    const { csv, skipped } = splitCsvFiles(files);
+    if (!csv.length) {
+      setNotice(skippedNote(skipped));
+      return;
+    }
+    intake(() => api.stageDrop(csv), skipped);
   }
   if (!api)
     return (
@@ -210,28 +239,42 @@ function App() {
   ];
   return (
     <div
-      className="app-shell"
+      className={pinned ? "app-shell" : "app-shell sidebar-rail"}
       onDragOver={(e) => {
         e.preventDefault();
-        if (page !== "snapshots" && e.dataTransfer.types.includes("Files")) setDragging(true);
+        const kind = dropKind(e.dataTransfer);
+        if (kind === "reject") e.dataTransfer.dropEffect = "none";
+        if (page !== "snapshots" && kind) setDragging(kind);
       }}
       onDragLeave={(e) => {
-        if (!e.relatedTarget) setDragging(false);
+        if (!e.relatedTarget) setDragging(null);
       }}
       onDrop={onDrop}
     >
-      <aside className="sidebar">
+      <aside
+        className={`sidebar ${pinned ? "is-pinned" : railOpen ? "is-rail is-open" : "is-rail"}`}
+        onMouseEnter={() => !pinned && openRail()}
+        onMouseLeave={() => !pinned && closeRail()}
+        onFocus={(e) => {
+          if (!pinned && e.target.matches?.(":focus-visible")) openRail();
+        }}
+        onBlur={(e) => {
+          if (!pinned && !e.currentTarget.contains(e.relatedTarget)) closeRail(0);
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "Escape" && !pinned && railOpen) closeRail(0);
+        }}
+      >
         <div className="brand">
-          <Mark size={28} label="Urbanomics" /><span>urbanomics</span>
+          <Mark size={28} label="Urbanomics" /><span className="brand-word">urbanomics</span>
         </div>
-        <p className="brand-sub">A little order. A clearer picture.</p>
-        {api.host === "browser" && (
-          <p className="browser-workspace-note">
-            {api.workspaceMode === "desktop" ? "Connected to your desktop" : "Browser verification"}
-            <br />
-            <small>{api.workspaceMode === "desktop" ? "Your files and changes stay there" : "Separate local workspace · starts with sample data"}</small>
+        {update?.build === "development" && (
+          <p className="dev-tag" role="note" title="Development build">
+            <span className="dev-tag-full">Development build</span>
+            <span className="dev-tag-short" aria-hidden="true">dev</span>
           </p>
         )}
+        <p className="brand-sub">A little order. A clearer picture.</p>
         <nav aria-label="Main navigation">
           {tabs.map(([id, icon, label, group]) => (
             <React.Fragment key={id}>{group&&<div className="navigation-group">{group}</div>}
@@ -246,37 +289,49 @@ function App() {
               }}
             >
               <span aria-hidden="true"><Icon name={icon} size={18} /></span>
-              {label}
+              <span className="sidebar-label">{label}</span>
               {id === "snapshots" && data.jobs.length > 0 && (
                 <b>{data.jobs.length}</b>
               )}
             </button></React.Fragment>
           ))}
         </nav>
-        {update?.status === "ready" && (
-          <div className="update-note" role="status">
-            <span>Urbanomics {update.latest} is ready.</span>
-            <button className="primary" onClick={() => api.installUpdate().catch((e) => setError(e.message))}>Restart to update</button>
+        <div className="sidebar-extras">
+          {api.host === "browser" && (
+            <p className="browser-workspace-note">
+              {api.workspaceMode === "desktop" ? "Connected to your desktop" : "Browser verification"}
+              <br />
+              <small>{api.workspaceMode === "desktop" ? "Your files and changes stay there" : "Separate local workspace · starts with sample data"}</small>
+            </p>
+          )}
+          {update?.status === "ready" && (
+            <div className="update-note" role="status">
+              <span>Urbanomics {update.latest} is ready.</span>
+              <button className="primary" onClick={() => api.installUpdate().catch((e) => setError(e.message))}>Restart to update</button>
+            </div>
+          )}
+          <div className="local-note">
+            <span className="local-dot" /> Stored on this computer
+            <small>Your files stay in your workspace.</small>
+            <button onClick={() => run(() => api.reveal("private"))}>
+              Open workspace ↗
+            </button>
           </div>
-        )}
-        <div className="local-note">
-          <span className="local-dot" /> Stored on this computer
-          <small>Your files stay in your workspace.</small>
-          <button onClick={() => run(() => api.reveal("private"))}>
-            Open workspace ↗
-          </button>
         </div>
+        <button
+          type="button"
+          className="sidebar-pin"
+          aria-pressed={pinned}
+          aria-label={pinned ? "Unpin sidebar" : "Pin sidebar"}
+          title={pinned ? "Unpin sidebar" : "Pin sidebar"}
+          onClick={togglePinned}
+        >
+          <span aria-hidden="true"><Icon name={pinned ? "pin-off" : "pin"} size={18} /></span>
+          <span className="sidebar-label">{pinned ? "Unpin sidebar" : "Pin sidebar"}</span>
+        </button>
       </aside>
       <div className="workspace">
         <div className="mobile-topbar"><strong><Mark size={24} label="Urbanomics" /><span>urbanomics</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
-        {update?.build === "development" && <div className="dev-banner" role="note">Development build</div>}
-        <header className="topbar">
-          <div>
-            <span className="breadcrumb">Workspace</span>
-            <span className="slash">/</span>
-            {tabs.find((t) => t[0] === page)?.[2]}
-          </div>
-        </header>
         <main>
           {!connected && api.host === "browser" && <div className="alert error" role="status">Connection lost. Keep your desktop awake, Urbanomics open, and Tailscale connected. New changes need a connection to save.</div>}
           {(error || data.archiveError || data.configurationError) && (
@@ -305,6 +360,7 @@ function App() {
           {page === "dashboard" && (
             <Dashboard
               data={data}
+              onSnapshots={() => setPage("snapshots")}
               onSource={(id) =>
                 api
                   .detail(id)
@@ -320,17 +376,21 @@ function App() {
           {page === "transactions" && <TransactionsWorkspace data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={()=>setRevision(null)} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
           {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
         </main>
-        <footer>
-          <span>Urbanomics · local workspace</span>
-          <span>{busy ? "Saving…" : "Your data stays with you."}</span>
-        </footer>
       </div>
       {dragging && (
-        <div className="drop-overlay">
+        <div className={`drop-overlay drop-${dragging}`} aria-hidden="true">
           <div>
-            <span>↓</span>
-            <h1>Let’s put these in order.</h1>
-            <p>Release to add CSVs to Dropbox.</p>
+            <span className="drop-overlay-icon">
+              <Icon name={dragging === "reject" ? "file-x" : "file-down"} size={24} />
+            </span>
+            <h1>{dragging === "reject" ? "Only CSV exports can be added" : "Drop to add to Snapshots"}</h1>
+            <p>
+              {dragging === "reject"
+                ? "These files will stay where they are."
+                : dragging === "mixed"
+                  ? "Only the CSV files will be used. Nothing imports until you review them."
+                  : "Nothing imports until you review them."}
+            </p>
           </div>
         </div>
       )}
@@ -541,7 +601,7 @@ function Route({ job, data, run, done }) {
       (r) =>
         r.result.completed
           ? "Account assigned and import processed."
-          : "Account assigned. Check Dropbox for the import issue.",
+          : "Account assigned. See Snapshots for the import issue.",
     );
     if (result !== false) done();
   }

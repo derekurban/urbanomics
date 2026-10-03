@@ -16,13 +16,11 @@
   .sidebar .nav-item > span { width: auto; }
   .sidebar .nav-item b { position: absolute; top: 0; right: 2px; font-size: 9px; }
   .workspace { margin-left: 0; width: 100%; min-width: 0; }
-  .workspace > .topbar { display: none; }
   .mobile-topbar { display: flex; align-items: center; justify-content: space-between; padding: calc(15px + env(safe-area-inset-top)) 18px 14px; border-bottom: 1px solid var(--line); gap: 8px; }
   .mobile-topbar > strong { display: flex; align-items: center; gap: var(--space-2); font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
   .mobile-connection { font-size: 10px; color: var(--ink-secondary); padding: 6px 9px; border-radius: var(--radius-xl); background: var(--sunk); }
   .mobile-connection.offline { color: var(--ink-secondary); background: var(--sunk); }
   .workspace > main { padding: 23px 16px calc(95px + env(safe-area-inset-bottom)); max-width: 100%; }
-  .workspace > footer { display: none; }
   .page-heading, .rv-heading, .dash-heading, .dw-heading { flex-wrap: wrap; gap: 12px; align-items: flex-start; }
   .page-heading p, .rv-heading p { font-size: 13px; }
   .snackbar { left: 12px; right: 12px; top: 12px; max-width: none; width: auto; z-index: 100; }

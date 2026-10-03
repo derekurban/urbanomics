@@ -48,7 +48,7 @@ function Stacked({ gross, net, max }) {
   );
 }
 
-export function Dashboard({ data, onSource }) {
+export function Dashboard({ data, onSource, onSnapshots }) {
   const [source, setSource] = useState(null),
     [error, setError] = useState("");
   const months = data.months
@@ -317,21 +317,40 @@ export function Dashboard({ data, onSource }) {
           <h1>The bigger picture.</h1>
           <p>Cash movement, shared costs, and the spending behind them.</p>
         </div>
-        <button
-          onClick={() =>
-            setDetail({ type: "methods", title: "How the totals connect" })
-          }
-        >
-          About these numbers
-        </button>
+        {activeCount > 0 && (
+          <button
+            onClick={() =>
+              setDetail({ type: "methods", title: "How the totals connect" })
+            }
+          >
+            About these numbers
+          </button>
+        )}
       </header>
       {!activeCount ? (
-        <section className="dash-empty">
-          <h2>Your first snapshot starts the picture.</h2>
-          <p>
-            Import account activity in Snapshots to see your spending and cash
-            flow here.
-          </p>
+        <section className="dash-first" aria-label="Nothing to show yet">
+          <div className="dash-ghost" aria-hidden="true">
+            <div className="dash-ghost-tiles">
+              <span /><span /><span />
+            </div>
+            <div className="dash-ghost-chart">
+              {[34, 52, 41, 66, 48, 73, 58, 80, 62, 70, 55, 88].map((h, i) => (
+                <i key={i} style={{ "--h": `${h}%`, "--i": i }} />
+              ))}
+            </div>
+          </div>
+          <div className="dash-first-copy">
+            <h2>Nothing to show yet.</h2>
+            <p>
+              Add a bank export in Snapshots. Spending, cash flow and events fill
+              in from the months you bring in.
+            </p>
+            {onSnapshots && (
+              <button type="button" className="primary" onClick={onSnapshots}>
+                Go to Snapshots
+              </button>
+            )}
+          </div>
         </section>
       ) : (
         <>

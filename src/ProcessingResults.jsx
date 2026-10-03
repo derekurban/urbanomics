@@ -80,7 +80,7 @@ export function ProcessingResults({ result, celebrate = false, onClose }) {
           {new Date(result.created).toLocaleString("en-CA")}
         </small>
         <button className="primary" onClick={onClose}>
-          {result.remaining ? "Back to Dropbox" : "Lovely. Done."}
+          {result.remaining ? "Back to Snapshots" : "Done"}
         </button>
       </section>
     </WorkspaceModal>
