@@ -7,10 +7,13 @@ directories:
 files:
   - dist/**/*
   - electron/**/*
+  - assets/icons/*.png
   - package.json
 asar: true
+# Development builds carry the amber icon; electron-builder.release.yml swaps in the release icon.
 win:
   target: nsis
+  icon: assets/icons/icon-dev.ico
   artifactName: Urbanomics-Setup-${version}.${ext}
   signAndEditExecutable: true
 nsis:

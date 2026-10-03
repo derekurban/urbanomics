@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Urbanomics development build">
+  <!-- Development build: the same mark on the design system's warning tone (--warning, light theme)
+       so the taskbar tells the two apart at a glance. Brackets keep their colors; only the closing
+       bracket is accent. -->
+  <rect width="64" height="64" rx="14" fill="#8b590e"/>
+  <g transform="translate(-0.8 -0.8) scale(0.656)" fill="none" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M30 22 L20 22 L20 78 L30 78" stroke="#fcedde" stroke-width="9"/>
+    <path d="M33 58 C37 32 46 70 50 48 C54 30 61 66 67 42" stroke="#fcedde" stroke-width="8"/>
+    <path d="M70 22 L80 22 L80 78 L70 78" stroke="#86ab7a" stroke-width="9"/>
+  </g>
+</svg>

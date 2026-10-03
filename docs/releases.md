@@ -8,8 +8,9 @@ October 2, 2026. Urbanomics now has two kinds of build. A **development** run is
 | --- | --- | --- |
 | Starts from | the repository (`electron .` or `release/win-unpacked`) | `%LOCALAPPDATA%\Programs\Urbanomics` (per-user, no admin) |
 | Package metadata | no `channel` | `channel: release` (from `electron-builder.release.yml`, which extends the base config) |
-| Workspace by default | `private/desktop` and `configuration/` in the repository, unless the environment or `workspace.json` points elsewhere | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
+| Workspace | `private/desktop` and `configuration/` in the repository, unless the environment says otherwise; never `workspace.json` | `%APPDATA%\Urbanomics\private` and `…\configuration`, unless `workspace.json` points elsewhere (below) |
 | Window title | Urbanomics (development) | Urbanomics |
+| Icon and tag | amber icon (`assets/icons/icon-dev.*`), a fixed "Development build" tag top right | dark icon (`assets/icons/icon.*`), no tag |
 | Settings → About | "Development build", no update actions | version, "Installed release", Check for updates / Restart to update |
 | Update checks | never | 15 seconds after start, then every six hours, and on request |
 
@@ -17,7 +18,7 @@ The build kind is decided in `electron/main.cjs`: `app.isPackaged` and `channel 
 
 ## Where an installed release keeps its workspace
 
-Environment variables still win (`URBANOMICS_DATA_DIR`, `URBANOMICS_CONFIG_DIR`, `URBANOMICS_UPDATE_TOKEN`). After them, the app reads `%APPDATA%\Urbanomics\workspace.json`:
+The two builds are isolated. A development build uses the repository workspace unless the environment says otherwise and never reads the pointer file; an installed release reads `%APPDATA%\Urbanomics\workspace.json` after the environment variables (`URBANOMICS_DATA_DIR`, `URBANOMICS_CONFIG_DIR`, `URBANOMICS_UPDATE_TOKEN`):
 
 ```json
 {
@@ -53,12 +54,12 @@ Artifacts go to `derekurban/urbanomics-releases`, separate from the source repos
 
 ### Who can read the feed
 
-The releases repository was created **private** on October 2, 2026 and is still private. electron-updater can read a private GitHub repository only with a token. Two ways to make daily checks work; the user chooses:
+The releases repository is public, so installed copies read the feed without a token. If it is ever made private again, electron-updater needs a token; two ways:
 
 1. Make `urbanomics-releases` public (`gh repo edit derekurban/urbanomics-releases --visibility public --accept-visibility-change-consequences`). Anyone could download the installer and read the bundled app code; no workspace data is in it.
 2. Keep it private and create a fine-grained personal access token with read-only Contents on that one repository, then put it in `workspace.json` as `updateToken` (or set `URBANOMICS_UPDATE_TOKEN`). The app then uses electron-updater's private GitHub provider. The token never leaves the machine and is not in Git.
 
-Until one of these is done, the installed release reports "The release feed could not be found" in Settings → About and keeps working otherwise.
+Without either, a private feed makes the installed release report "The release feed could not be found" in Settings → About; it keeps working otherwise.
 
 ## Verification
 

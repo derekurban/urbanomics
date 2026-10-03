@@ -36,6 +36,8 @@ private/
 *.gif
 *.mp4
 *.webm
+!/assets/icons/*.png
+!/assets/icons/*.ico
 
 # Configuration export (accounts, people, events, aliases, rules): personal definitions, kept in the
 # private urbanomics-configuration repository. Only the explanation stays here.

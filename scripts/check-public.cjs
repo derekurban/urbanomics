@@ -20,7 +20,7 @@ const denylist = fs.existsSync(denylistFile) ? fs.readFileSync(denylistFile, "ut
 const blockedPaths = [
   { test: (f) => /\.sql$/i.test(f), why: "configuration SQL exports belong in the private configuration repository" },
   { test: (f) => /\.(csv|tsv|ofx|qfx|qif|xlsx?|sqlite3?|db|log)$/i.test(f), why: "bank exports, databases and logs never belong in the repository" },
-  { test: (f) => /\.(png|jpe?g|webp|gif|mp4|webm)$/i.test(f) && !/^docs\//.test(f), why: "screenshots and captures are the likeliest leak; only docs/ may hold images" },
+  { test: (f) => /\.(png|jpe?g|webp|gif|mp4|webm|ico)$/i.test(f) && !/^(docs|assets\/icons)\//.test(f), why: "screenshots and captures are the likeliest leak; only docs/ and assets/icons/ may hold images" },
   { test: (f) => /(^|\/)(private|data|dropbox|inbox|backups|reports|release)\//.test(f), why: "this folder is private by design" },
   { test: (f) => /remote-access\.json$|remote-status\.json$|workspace\.json$|\.env(\..*)?$|\.pem$|\.key$|\.p12$|\.pfx$/i.test(f), why: "local settings and secrets" },
 ];

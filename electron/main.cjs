@@ -15,17 +15,19 @@ const { seedConfiguration } = require("./configuration.cjs");
 const { resolveWorkspace } = require("./workspace-location.cjs");
 const { createUpdateManager, parseUpdateConfig } = require("./updates.cjs");
 
-// Development runs (electron ., unpacked builds) keep the repository workspace; installed
-// releases keep theirs under application data unless Urbanomics/workspace.json points elsewhere.
-const workspace = resolveWorkspace({
-  env: process.env,
-  isPackaged: app.isPackaged,
-  appData: app.getPath("appData"),
-  repoRoot: path.join(__dirname, ".."),
-});
-const privateRoot = workspace.dataDir, configurationDir = workspace.configurationDir;
 // Only an installer built on the release channel updates itself (scripts/release.cjs).
 const build = app.isPackaged && require("../package.json").channel === "release" ? "release" : "development";
+// An installed release keeps its workspace under application data, or where Urbanomics/workspace.json
+// points. Development runs (electron ., unpacked builds) keep the repository workspace unless the
+// environment says otherwise, so the two are isolated from each other.
+const workspace = resolveWorkspace({
+  env: process.env,
+  isPackaged: build === "release",
+  appData: app.getPath("appData"),
+  repoRoot: path.join(__dirname, ".."),
+  usePointer: build === "release",
+});
+const privateRoot = workspace.dataDir, configurationDir = workspace.configurationDir;
 const updateConfigFile = path.join(process.resourcesPath || "", "app-update.yml");
 const updatesEnabled = build === "release" && fs.existsSync(updateConfigFile);
 fs.mkdirSync(privateRoot, { recursive: true });
@@ -223,7 +225,8 @@ else {
           return service.invoke(channel, ...args);
         });
       window = new BrowserWindow({
-        title: "Urbanomics",
+        title: build === "release" ? "Urbanomics" : "Urbanomics (development)",
+        icon: path.join(__dirname, "..", "assets", "icons", build === "release" ? "icon.png" : "icon-dev.png"),
         width: 1360,
         height: 900,
         minWidth: 900,

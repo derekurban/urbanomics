@@ -1,6 +1,8 @@
 // Where the app keeps its workspace. Environment variables win, then the pointer file in the
-// per-user application data folder (Urbanomics/workspace.json), then the defaults: the repository
-// for a development run, the application data folder for an installed release. A data folder from
+// per-user application data folder (Urbanomics/workspace.json), which only an installed release
+// reads, then the defaults: the repository for a development run, the application data folder for
+// an installed release. Development and release builds therefore never share a ledger unless the
+// environment says so. A data folder from
 // the environment never borrows the pointer file's configuration folder: without an explicit
 // configuration folder there is no configuration SQL export, so a synthetic workspace can neither
 // seed from nor export over the real configuration.
@@ -17,9 +19,9 @@ function readPointer(file) {
 }
 const text = (value) => (typeof value === "string" && value.trim() ? value.trim() : "");
 
-function resolveWorkspace({ env = process.env, isPackaged, appData, repoRoot, pointer } = {}) {
+function resolveWorkspace({ env = process.env, isPackaged, appData, repoRoot, pointer, usePointer = true } = {}) {
   const pointerFile = path.join(appData, "Urbanomics", "workspace.json");
-  const pointed = pointer === undefined ? readPointer(pointerFile) : pointer || {};
+  const pointed = !usePointer ? {} : pointer === undefined ? readPointer(pointerFile) : pointer || {};
   const envData = text(env.URBANOMICS_DATA_DIR), envConfig = text(env.URBANOMICS_CONFIG_DIR);
   const pointedData = text(pointed.dataDir), pointedConfig = text(pointed.configurationDir);
   const dataDir = envData || pointedData || (isPackaged ? path.join(appData, "Urbanomics", "private") : path.join(repoRoot, "private", "desktop"));

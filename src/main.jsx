@@ -269,6 +269,7 @@ function App() {
       </aside>
       <div className="workspace">
         <div className="mobile-topbar"><strong><Mark size={24} label="Urbanomics" /><span>urbanomics</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
+        {update?.build === "development" && <div className="dev-banner" role="note">Development build</div>}
         <header className="topbar">
           <div>
             <span className="breadcrumb">Workspace</span>

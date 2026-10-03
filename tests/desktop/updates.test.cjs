@@ -25,6 +25,8 @@ test("workspace location: environment, then pointer file, then build defaults", 
   const pointedConfigOnly = resolveWorkspace({ env: {}, isPackaged: true, appData, repoRoot, pointer: { configurationDir: "D:\\real\\configuration" } });
   assert.deepEqual([pointedConfigOnly.dataDir, pointedConfigOnly.configurationDir], [path.join(appData, "Urbanomics", "private"), "D:\\real\\configuration"]);
   assert.equal(resolveWorkspace({ env: {}, isPackaged: false, appData, repoRoot, pointer: null }).pointerFile, path.join(appData, "Urbanomics", "workspace.json"));
+  const devIgnoresPointer = resolveWorkspace({ env: {}, isPackaged: true, appData, repoRoot, usePointer: false, pointer: { dataDir: "D:\\ledger", configurationDir: "D:\\real\\configuration" } });
+  assert.deepEqual([devIgnoresPointer.dataDir, devIgnoresPointer.configurationDir, devIgnoresPointer.source], [path.join(appData, "Urbanomics", "private"), path.join(appData, "Urbanomics", "configuration"), "default"], "a development build never reads the installed release's pointer file");
 });
 
 test("update config and error wording", () => {

@@ -163,4 +163,4 @@ Installed releases come from `npm run release` and update themselves from GitHub
 
 ## Public repository
 
-The source is public; the ledger, the configuration export and local settings never are. [docs/public-repository.md](docs/public-repository.md) lists what lives where, how the app finds the private parts, and the pre-commit guard. npm resolves the design-system dependency over SSH; without a GitHub SSH key, run `git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"` once before `npm install`.
+The source is public; the ledger, the configuration export and local settings never are. Development builds wear an amber icon and a "Development build" tag; installed releases wear the dark icon (`assets/icons/`, rebuilt with `node scripts/build-icons.cjs`). [docs/public-repository.md](docs/public-repository.md) lists what lives where, how the app finds the private parts, and the pre-commit guard. npm resolves the design-system dependency over SSH; without a GitHub SSH key, run `git config --global url."https://github.com/".insteadOf "ssh://git@github.com/"` once before `npm install`.

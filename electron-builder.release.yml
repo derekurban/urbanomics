@@ -3,3 +3,5 @@
 extends: ./electron-builder.yml
 extraMetadata:
   channel: release
+win:
+  icon: assets/icons/icon.ico
