@@ -4,18 +4,17 @@ import "./snapshots-v2.css";
 import {
   AccountDot,
   api,
-  bankNames,
   countOf,
   FileGlyph,
   InfoDot,
   monthLabel,
-  onDesktop,
   plural,
   SnapshotScene,
-  Stat,
   Sv2Dialog,
   whenLabel,
 } from "./snapshots-v2-atoms.jsx";
+import { notify } from "./toast.jsx";
+import { Alert, ConfirmDialog, StatRow } from "./ui.jsx";
 import { LayoutEditor, LayoutLibrary } from "./snapshots-v2-layout.jsx";
 import { GuidedSetup } from "./snapshots-v2-guided.jsx";
 import { GuideDialog } from "./snapshots-v2-guide.jsx";
@@ -37,8 +36,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     snapshots = data.snapshotIndex || [];
   const [step, setStep] = useState(() => (jobs.length ? "setup" : null));
   const [busy, setBusy] = useState(false),
-    [error, setError] = useState(""),
-    [notice, setNotice] = useState("");
+    [error, setError] = useState("");
   const [progress, setProgress] = useState(null),
     [results, setResults] = useState(null);
   const [activeId, setActiveId] = useState(null),
@@ -48,13 +46,10 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     [dragging, setDragging] = useState(null);
   const [templates, setTemplates] = useState([]);
   const working = useRef(false);
+  // On the full-height landing an inline alert would push the page into scrolling; errors there are toasts.
+  const onLanding = useRef(false);
 
   useEffect(() => api?.onProgress?.((value) => setProgress(value)), []);
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 5200);
-    return () => clearTimeout(timer);
-  }, [notice]);
 
   async function run(work, message) {
     if (working.current) return false;
@@ -64,12 +59,13 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     try {
       const value = await work();
       await onRefresh?.();
-      if (message)
-        setNotice(typeof message === "function" ? message(value) : message);
+      const text = message && (typeof message === "function" ? message(value) : message);
+      if (text) notify({ title: text, tone: "success" });
       return value;
     } catch (issue) {
       await onRefresh?.().catch(()=>{});
-      setError(issue?.message || String(issue));
+      if (onLanding.current) notify({ title: "That didn't work", description: issue?.message || String(issue), tone: "danger", duration: 8000 });
+      else setError(issue?.message || String(issue));
       return false;
     } finally {
       working.current = false;
@@ -105,12 +101,6 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     };
   }, [step, jobsKey]);
 
-  const layoutName = (job) =>
-    !job.schema
-      ? "Needs a layout"
-      : bankNames[job.schema]
-        ? `${bankNames[job.schema]} export`
-        : templates.find((one) => "custom:" + one.id === job.schema)?.name || "Custom layout";
   const stage = (work, filtered = 0) =>
     run(async () => {
       const value = await work();
@@ -122,9 +112,10 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
         ? ` ${plural(value.skipped, "item was", "items were")} skipped: not a CSV, a subfolder, or too large.`
         : "";
       const dropped = filtered ? ` ${skippedNote(filtered)}` : "";
+      // Cancelling the file picker isn't news; only say something when files were added or skipped.
       return added
         ? `${plural(added, "file", "files")} added.${left}${dropped}`
-        : `Nothing added.${left || dropped || " No files selected."}`;
+        : left || dropped ? `Nothing added.${left || dropped}` : "";
     });
 
   // Dropped files are filtered by name first: only CSV exports reach the server.
@@ -132,7 +123,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     const files = Array.from(list || []);
     const { csv, skipped: filtered } = splitCsvFiles(files);
     if (!csv.length) {
-      if (filtered) setNotice(skippedNote(filtered));
+      if (filtered) notify({ title: "Nothing added", description: skippedNote(filtered), tone: "warning" });
       return;
     }
     stage(() => api.stageDrop(csv), filtered);
@@ -140,7 +131,8 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
   const dropRef = useRef(dropFiles);dropRef.current=dropFiles;
   useEffect(()=>{const dropped=event=>dropRef.current(event.detail);window.addEventListener('snapshots-drop',dropped);return ()=>window.removeEventListener('snapshots-drop',dropped);},[]);
   const previousJobs=useRef(jobs.length);
-  useEffect(()=>{if(jobs.length>previousJobs.current&&!step)setStep('files');previousJobs.current=jobs.length;},[jobs.length]);
+  // Files staged elsewhere (another device, the Dropbox folder, Refresh) open the setup.
+  useEffect(()=>{if(jobs.length>previousJobs.current&&!step)setStep('setup');previousJobs.current=jobs.length;},[jobs.length]);
   const reveal = (kind, id) => run(() => api.reveal(kind, id));
   const openLatest = (month) => {
     const saved = snapshots
@@ -185,6 +177,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     .at(-1);
   const months = calendarEnd ? rollingMonths(calendarEnd) : [];
   const settled = snapshots.length > 0;
+  onLanding.current = !step && !settled;
   const lastImport = (data.activity || []).find((item) => item.status === "complete");
 
   return (
@@ -193,20 +186,18 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
       aria-label="Snapshots"
       {...dragProps}
     >
-      {error && (
-        <p className="sv2-alert" role="alert">
-          <span>{error}</span>
-          <button type="button" onClick={() => setError("")}>
-            Dismiss
-          </button>
-        </p>
-      )}
+      {error && <Alert onDismiss={() => setError("")}>{error}</Alert>}
 
       {!step && !settled && (
         <section className="sv2-landing" aria-label="Add bank exports">
           <div className="sv2-landing-core">
             <SnapshotScene />
             <h1>Start with a bank export.</h1>
+            {jobs.length > 0 && (
+              <Alert tone="info" className="sv2-landing-waiting" action={<button type="button" className="sm" onClick={() => setStep("setup")}>Continue setup</button>}>
+                {plural(jobs.length, "file is", "files are")} waiting to be set up.
+              </Alert>
+            )}
             <p className="sv2-lede">
               Download a CSV of your account activity and bring it here. Every
               transaction is filed into its account and month, and the file is
@@ -230,7 +221,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
               )}
               <span>{dropCopy[dragging] || "or drop files anywhere on this page"}</span>
             </p>
-            <button type="button" className="sv2-inline sv2-landing-guide" onClick={() => setModal("guide")}>
+            <button type="button" className="link sv2-landing-guide" onClick={() => setModal("guide")}>
               How importing works
             </button>
           </div>
@@ -275,12 +266,12 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
         <div className="sv2-home">
           <header className="sv2-top">
             <div>
-              <p className="sv2-eyebrow">Snapshots</p>
-              <h1>{months.length ? `${monthLabel(months[0], true)} — ${monthLabel(months.at(-1), true)}` : "Your months"}</h1>
+              <h1>Snapshots</h1>
+              <p>{months.length ? `Each account's monthly records, ${monthLabel(months[0], true)} to ${monthLabel(months.at(-1), true)}.` : "Each account's monthly records."}</p>
             </div>
             <div className="sv2-card-actions">
-              <button type="button" className="sv2-inline" onClick={() => setModal("guide")}>
-                How it works
+              <button type="button" className="ghost" onClick={() => setModal("guide")}>
+                How importing works
               </button>
               <button type="button" onClick={() => setModal("archive")}>
                 Archive
@@ -375,10 +366,10 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
             )}
             <p className="sv2-legend">
               <span>
-                <i className="sv2-legend-filled" /> snapshot saved
+                <i className="sv2-legend-filled" /> Saved
               </span>
               <span>
-                <i /> nothing imported
+                <i /> Nothing imported
               </span>
               {lastImport && <small>Last import {whenLabel(lastImport.created)}</small>}
             </p>
@@ -448,88 +439,56 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
       {step === "done" && results && (
         <section className="sv2-panel sv2-results">
           <h2>
-            {results.remaining ? "Imported, with some left over." : "Filed."}
+            {results.remaining
+              ? `${results.completed} of ${plural(results.attempted, "file", "files")} imported`
+              : `${plural(results.completed, "file", "files")} imported`}
           </h2>
           <p className="sv2-quiet">
-            {results.completed} of {plural(results.attempted, "file", "files")} imported
             {results.remaining
-              ? ` · ${plural(results.remaining, "file", "files")} still need attention`
-              : ""}
-            .
+              ? `${plural(results.remaining, "file still needs", "files still need")} attention.`
+              : "Every row is filed into its account and month."}
           </p>
-          <div className="sv2-stats">
-            <Stat value={results.added} label="rows added" />
-            <Stat value={results.matched} label="already recorded" />
-            <Stat value={countOf(results.files)} label="files read" />
-            <Stat value={countOf(results.months)} label="months updated" />
-          </div>
+          <StatRow items={[
+            { label: "Rows added", value: (results.added || 0).toLocaleString("en-CA") },
+            { label: "Already recorded", value: (results.matched || 0).toLocaleString("en-CA") },
+            { label: "Files read", value: countOf(results.files).toLocaleString("en-CA") },
+            { label: "Months updated", value: countOf(results.months).toLocaleString("en-CA") },
+          ]} />
           {Array.isArray(results.months) && results.months.length > 0 && (
-            <div className="sv2-chiprow">
-              {results.months.map((month, index) => (
-                <button
-                  type="button"
-                  className="sv2-chip"
-                  key={month}
-                  style={{ "--i": index }}
-                  onClick={() => openLatest(month)}
-                >
-                  {monthLabel(month, true)}
-                  <em>open</em>
-                </button>
-              ))}
+            <div className="sv2-results-months">
+              <span className="sv2-quiet">Open a month</span>
+              <div className="sv2-chiprow">
+                {results.months.map((month) => (
+                  <button type="button" className="sm" key={month} aria-label={`Open ${monthLabel(month)}`} onClick={() => openLatest(month)}>
+                    {monthLabel(month, true)}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {results.excluded > 0 && (
             <p className="sv2-quiet">
-              {plural(results.excluded, "row", "rows")} were left out by an
-              earlier import and stay that way.
+              {plural(results.excluded, "row was", "rows were")} left out by an
+              earlier import and {results.excluded === 1 ? "stays" : "stay"} that way.
             </p>
           )}
           <footer className="sv2-panel-foot">
-            <button
-              type="button"
-              className="primary"
-              onClick={() => {
-                setResults(null);
-                setStep(null);
-              }}
-            >
+            {results.remaining > 0 && (
+              <button type="button" className="link" onClick={() => { setResults(null); setStep("setup"); }}>
+                See what's left
+              </button>
+            )}
+            <button type="button" className={onReview ? "" : "primary"} onClick={() => { setResults(null); setStep(null); }}>
               Back to snapshots
             </button>
             {onReview && (
-              <button type="button" onClick={onReview}>
+              <button type="button" className="primary" onClick={onReview}>
                 Organize these transactions
-              </button>
-            )}
-            {results.remaining > 0 && (
-              <button
-                type="button"
-                className="sv2-inline"
-                onClick={() => {
-                  setResults(null);
-                  setStep("setup");
-                }}
-              >
-                See what is left
+                <Icon name="arrow-right" size={16} />
               </button>
             )}
           </footer>
         </section>
-      )}
-
-      {notice && (
-        /* Keyed on the message so a new notice restarts both the entrance and
-           the hairline that empties over the hold before it is cleared. */
-        <div className="sv2-snack" key={notice} role="status" aria-live="polite">
-          <span>{notice}</span>
-          <button
-            type="button"
-            aria-label="Dismiss message"
-            onClick={() => setNotice("")}
-          >
-            <Icon name="x" size={16} />
-          </button>
-        </div>
       )}
 
       {modal === "history" && (
@@ -552,7 +511,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
       )}
       {modal === "guide" && <GuideDialog onClose={() => setModal(null)} />}
       {editTemplate && jobs.find((job) => job.id === activeId) && (
-        <Sv2Dialog title={`Edit layout “${editTemplate.name}”`} onClose={() => setEditTemplate(null)} wide>
+        <Sv2Dialog title={`Edit “${editTemplate.name}”`} onClose={() => setEditTemplate(null)} wide>
           <LayoutEditor
             key={`${activeId}:${editTemplate.id}:${editTemplate.version}`}
             job={jobs.find((job) => job.id === activeId)}
@@ -572,42 +531,30 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
             setModal(null);
             setEditTemplate(template);
             setActiveId(jobId);
-            setStep("setup");
+          }}
+          onChooseExample={async (template) => {
+            const value = await run(() => api.stageChoose(false));
+            const id = value?.ids?.[0];
+            if (id) { setModal(null); setEditTemplate(template); setActiveId(id); }
           }}
         />
       )}
       {modal === "clear" && (
-        <Sv2Dialog
-          title="Remove all files"
+        <ConfirmDialog
+          title={`Remove ${plural(jobs.length, "waiting file", "waiting files")}?`}
+          confirmLabel="Remove files"
+          busy={busy}
           onClose={() => setModal(null)}
-          footer={
-            <div className="sv2-form-foot">
-              <button type="button" onClick={() => setModal(null)}>
-                Keep them
-              </button>
-              <button
-                type="button"
-                className="danger"
-                disabled={busy}
-                onClick={async () => {
-                  const value = await run(
-                    () => api.clear(),
-                    (result) =>
-                      `${plural(result?.cleared ?? 0, "file", "files")} removed. Archived originals stay.`,
-                  );
-                  if (value !== false) setModal(null);
-                }}
-              >
-                Remove files
-              </button>
-            </div>
-          }
+          onConfirm={async () => {
+            const value = await run(
+              () => api.clear(),
+              (result) => `${plural(result?.cleared ?? 0, "file", "files")} removed. Archived originals stay.`,
+            );
+            if (value !== false) setModal(null);
+          }}
         >
-          <p>
-            This removes the {plural(jobs.length, "file", "files")} waiting to be set
-            up. Archived originals and everything already imported stay as they are.
-          </p>
-        </Sv2Dialog>
+          <p>They're taken out of the setup. Archived originals and everything already imported stay as they are.</p>
+        </ConfirmDialog>
       )}
     </section>
   );

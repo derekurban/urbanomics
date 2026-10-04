@@ -29,7 +29,9 @@ function customParse(bytes,template){const {headers,mapping:m}=validate(template
 }
 class ImportLayouts{
  constructor(store){this.store=store;this.db=store.db;}
- list(){return this.db.prepare('SELECT * FROM import_layouts ORDER BY name,id').all().map(r=>({...r,headers:JSON.parse(r.headers),mapping:JSON.parse(r.mapping)}));}
+ list(){return this.db.prepare('SELECT * FROM import_layouts ORDER BY name,id').all().map(r=>({...r,headers:JSON.parse(r.headers),mapping:JSON.parse(r.mapping),inUse:this.inUse(r.id)}));}
+ // A layout an account or an imported file depends on can't be removed (see remove()); the library says so up front.
+ inUse(id){return !!(this.db.prepare('SELECT 1 FROM source_layouts sl JOIN imports i ON i.source_hash=sl.source_hash WHERE sl.template_id=?').get(id)||this.db.prepare('SELECT 1 FROM accounts WHERE schema=?').get('custom:'+id)||this.db.prepare('SELECT 1 FROM account_import_layouts WHERE schema=?').get('custom:'+id));}
  get(id){const t=this.list().find(t=>t.id===id);if(!t)throw Error('Input template no longer exists.');return t;}
  bytes(id){const job=this.store.job(id),bytes=fs.readFileSync(path.join(this.store.root,'archive/sources',job.source_hash+'.csv'));if(hash(bytes)!==job.source_hash)throw Error('Original archive integrity check failed.');return {job,bytes};}
  parse(bytes,filename='',{allowBuiltin=false}={}){const sourceHash=hash(bytes),binding=this.db.prepare('SELECT definition FROM source_layouts WHERE source_hash=?').get(sourceHash);if(binding)return customParse(bytes,JSON.parse(binding.definition));

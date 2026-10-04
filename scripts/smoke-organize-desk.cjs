@@ -32,7 +32,7 @@ const {csv} = require('../electron/imports/parsers.cjs');
     // Tagging completes the row and the list moves on to the next unsorted row.
     await main('Desk cabin').click(); await describe().fill('groc'); await page.getByRole('option', {name: /Groceries/}).waitFor(); await shot('02-describe');
     await page.keyboard.press('Enter'); assert.match(await shape('Desk cabin'), /^Groceries \$100\.00$/, 'strip updates before the save completes');
-    await page.waitForFunction(() => document.querySelector('.od-toast.is-on')?.textContent.includes('Tagged Groceries'));
+    await page.waitForFunction(() => [...document.querySelectorAll('.toast-item')].map(t => t.textContent).join(' ').includes('Tagged Groceries'));
     await settle(); assert.match(await shape('Desk cabin'), /^Groceries \$100\.00$/);
     assert.equal(row('Desk cabin').review.tags[0].cents, 10000); assert.equal(row('Desk cabin').review.allocationMode, 'layers');
     assert.ok(await page.locator('.od-row.is-open').count(), 'next unsorted row opened');
@@ -73,9 +73,9 @@ const {csv} = require('../electron/imports/parsers.cjs');
     assert.deepEqual(row('Desk pal receipt').review.allocations, [{id: row('Desk cabin').id, cents: 2000}], 'oldest open share first');
     assert.deepEqual(row('Desk cabin').review.shares, [{id: 'me', cents: 2667}, {id: pal, cents: 3333}, {id: person, cents: 4000}]);
     await main('Desk cabin').click(); await page.getByRole('button', {name: 'Desk pal', exact: true, pressed: true}).waitFor(); await shot('05a-split-slot');
-    await page.getByRole('button', {name: 'Desk pal', exact: true, pressed: true}).click(); await page.waitForFunction(() => document.querySelector('.od-toast.is-error')); await settle();
+    await page.getByRole('button', {name: 'Desk pal', exact: true, pressed: true}).click(); await page.waitForFunction(() => document.querySelector('.toast-item[data-tone=danger]')); await settle();
     assert.equal(row('Desk cabin').review.shares.length, 3, 'a settler stays in the split');
-    await page.getByRole('button', {name: /Follow Desk weekend again/}).click(); await page.waitForFunction(() => document.querySelector('.od-toast.is-error')?.textContent.includes('Desk friend')); await settle();
+    await page.getByRole('button', {name: /Split like Desk weekend/}).click(); await page.waitForFunction(() => [...document.querySelectorAll('.toast-item[data-tone=danger]')].map(t => t.textContent).join(' ').includes('Desk friend')); await settle();
     assert.equal(row('Desk cabin').review.sharesSource, 'manual', 'cannot follow an event that excludes a settler');
     await page.keyboard.press('Escape');
     await main('Desk receipt').click(); await page.waitForTimeout(150); await shot('05-mixed');
@@ -83,7 +83,7 @@ const {csv} = require('../electron/imports/parsers.cjs');
     await page.keyboard.press('Escape');
     // Transfer twins from the list button, undo, then from the describe box; unlink from the open row.
     await main('Desk transfer in').click(); await page.locator('.od-row.is-twin').waitFor(); await shot('06-twin');
-    await page.locator('.od-twin').click(); await page.waitForFunction(() => document.querySelector('.od-toast.is-on')?.textContent.includes('Moved between accounts')); await settle();
+    await page.locator('.od-twin').click(); await page.waitForFunction(() => [...document.querySelectorAll('.toast-item')].map(t => t.textContent).join(' ').includes('Moved between accounts')); await settle();
     assert.equal(row('Desk transfer in').review.kind, 'transfer'); assert.equal(row('Desk transfer out').review.transferFeeCents, 200);
     assert.match(await shape('Desk transfer out'), /Transfer to Desk savings \$500\.00, Transfer fee \$2\.00/);
     await page.getByRole('button', {name: 'Undo'}).click(); await settle(); assert.notEqual(row('Desk transfer in').review.kind, 'transfer');
@@ -99,17 +99,17 @@ const {csv} = require('../electron/imports/parsers.cjs');
     await page.getByRole('button', {name: 'Unsorted', exact: false}).first().click(); await shot('09-unsorted');
     // Deep link from Transactions opens the row.
     await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('button', {name: 'Transactions'}).click();
-    await page.getByRole('button', {name: 'Filters & view +', exact: true}).click(); await page.getByLabel('Search transactions', {exact: true}).fill('Desk cabin');
-    await page.getByRole('button', {name: 'Desk cabin', exact: true}).click(); await page.getByRole('button', {name: 'Organize transaction →', exact: true}).click();
+    await page.getByLabel('Search transactions', {exact: true}).fill('Desk cabin');
+    await page.getByRole('button', {name: 'Desk cabin', exact: true}).click(); await page.getByRole('button', {name: 'Organize transaction', exact: true}).click();
     await page.locator('.od-row.is-open', {hasText: 'Desk cabin'}).waitFor(); await shot('10-deep-link');
     // Transfer settings live under Settings.
     await page.getByRole('navigation', {name: 'Main navigation'}).getByRole('button', {name: 'Settings'}).click();
-    await page.getByRole('navigation', {name: 'Settings sections'}).getByRole('button', {name: 'Transfers', exact: true}).click();
-    await page.getByLabel('Lab amount tolerance').waitFor(); await shot('11-settings-transfers', true);
-    // Admin clears every split and repayment behind a confirmation.
-    await page.getByRole('navigation', {name: 'Settings sections'}).getByRole('button', {name: 'Admin', exact: true}).click();
-    await page.getByRole('button', {name: 'Clear all splits and repayments', exact: true}).click(); await page.getByRole('dialog', {name: 'Clear all splits and repayments?'}).waitFor(); await shot('11b-admin-clear');
-    await page.getByRole('button', {name: 'Confirm clear all', exact: true}).click(); await page.getByText(/repayments cleared/).waitFor();
+    await page.getByRole('tablist', {name: 'Settings sections'}).getByRole('tab', {name: 'Transfers', exact: true}).click();
+    await page.getByLabel('Amounts may differ by').waitFor(); await shot('11-settings-transfers', true);
+    // Maintenance clears every split and repayment behind a confirmation.
+    await page.getByRole('tablist', {name: 'Settings sections'}).getByRole('tab', {name: 'Maintenance', exact: true}).click();
+    await page.getByRole('button', {name: 'Clear splits…', exact: true}).click(); await page.getByRole('dialog', {name: 'Clear every split and repayment?'}).waitFor(); await shot('11b-admin-clear');
+    await page.getByRole('button', {name: 'Clear splits and repayments', exact: true}).click(); await page.getByText(/^Cleared \d+ splits? and \d+ repayments?$/).waitFor();
     assert.equal(row('Desk cabin').review.shares, null); assert.deepEqual(row('Desk receipt').review.allocations, []); assert.equal(row('Desk receipt').review.kind, 'income'); assert.equal(row('Desk pal receipt').review.kind, 'unreviewed');
     assert.deepEqual(row('Desk cabin').review.groups, [event], 'event membership stays');
     // Dark mode and a narrow layout.

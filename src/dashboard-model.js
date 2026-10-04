@@ -398,21 +398,22 @@ export function dashboard(
       .filter((e) => e.kind === "category" || e.kind === "bucket")
       .map((e) => [e.id, e]),
   );
+  // Buckets the app makes up (not user tags) step through gray, following the theme.
   categoryNames.set(UNCATEGORIZED, {
     id: UNCATEGORIZED,
-    name: "Unallocated",
-    color: "#b9b2c7",
+    name: "Unsorted",
+    color: "var(--data-neutral)",
   });
-  categoryNames.set(CONNECTED_REPAYMENTS,{id:CONNECTED_REPAYMENTS,name:'Connected repayments',color:'#b6cbd0'});
+  categoryNames.set(CONNECTED_REPAYMENTS,{id:CONNECTED_REPAYMENTS,name:'Repayments',color:'var(--ink-tertiary)'});
   categoryNames.set(TRANSFER_FEES, {
     id: TRANSFER_FEES,
-    name: "Transfer fees (linked)",
-    color: "#d8b38c",
+    name: "Transfer fees",
+    color: "var(--line-strong)",
   });
   categoryNames.set(TRANSFER_EXCESS, {
     id: TRANSFER_EXCESS,
-    name: "Unexplained transfer extra",
-    color: "#b9b2c7",
+    name: "Extra received on transfers",
+    color: "var(--data-neutral)",
   });
   categoryNames.set(UNGROUPED, {
     ...systemPalette(entities, "ungrouped"),
@@ -426,7 +427,7 @@ export function dashboard(
   const incomeUsed = new Set(inflow.flatMap((e) => e.parts.map((p) => p.id)));
   const definition = (id, lens) => {
     const entity = categoryNames.get(id);
-    if (!entity) return { id, name: "Archived tag", color: "#b9b2c7" };
+    if (!entity) return { id, name: "Archived tag", color: "var(--data-neutral)" };
     return entity.kind === "category" && tagType(entity) !== lens
       ? { ...entity, name: `${entity.name} (legacy ${tagType(entity)} tag)` }
       : entity;
@@ -455,7 +456,7 @@ export function dashboard(
           ...(definition(categoryId, "expense") || {
             id: p.id,
             name: "Archived tag",
-            color: "#b9b2c7",
+            color: "var(--data-neutral)",
           }),
           gross: 0,
           repaid: 0,
@@ -548,22 +549,22 @@ export function dashboard(
       },
       {
         id: "transfer-extra",
-        label: "Unexplained transfer extra",
+        label: "Extra received on transfers",
         rows: inflow.filter((t) => t.excess),
       },
       {
         id: "unassigned",
-        label: "Other / unassigned inflow",
+        label: "Other money in",
         rows: unassignedRows,
       },
       {
         id: "expenses",
-        label: "Expense debits & account fees",
+        label: "Spending and account fees",
         rows: outflow.filter((t) => !t.transfer),
       },
       {
         id: "transfer-fees",
-        label: "Linked transfer fees",
+        label: "Transfer fees",
         rows: outflow.filter((t) => t.fee),
       },
     ],

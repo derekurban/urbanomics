@@ -96,7 +96,7 @@ organize("Household shopping", {
     { id: food, cents: 18000 },
     { id: home, cents: 12000 },
   ],
-  groups: [trip, dates],
+  groups: [trip],
 });
 organize("Dinner", { groups: [trip] });
 organize("Paycheck", { tags: [{ id: income, cents: 100000 }] });
@@ -119,6 +119,14 @@ save("Alex later", {
   personId: person,
   allocations: [{ id: row("Household shopping").id, cents: 4999 }],
   remainder: 0,
+});
+// Schema 22: a repayment only reduces an expense shared with the payer.
+save("July dinner", {
+  kind: "expense",
+  shares: [
+    { id: "me", cents: 2000 },
+    { id: person, cents: 2000 },
+  ],
 });
 save("Older repayment", {
   kind: "repayment",

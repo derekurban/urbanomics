@@ -5,7 +5,9 @@ import {
   eventDateLabel,
   shiftDate,
 } from "../electron/review/event-model.mjs";
-import { CostBreakdown, currencyMoney } from "./CostBreakdown.jsx";
+import { CostBreakdown } from "./CostBreakdown.jsx";
+import { Segmented } from "./ui.jsx";
+import { money as currencyMoney, dayLabel, weekdayLabel, rangeLabel, plural } from "./format.js";
 import "./event-calendar.css";
 
 const monthLabel = (month) =>
@@ -19,20 +21,6 @@ function moveMonth(month, direction) {
   date.setUTCMonth(date.getUTCMonth() + direction);
   return date.toISOString().slice(0, 7);
 }
-const Chevron = ({ right }) => (
-  <svg
-    width="18"
-    height="18"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    aria-hidden="true"
-  >
-    <path d={right ? "m9 5 7 7-7 7" : "m15 5-7 7 7 7"} />
-  </svg>
-);
-
 export function EventCalendar({
   selectedEvent,
   onSelectEvent,
@@ -99,19 +87,10 @@ export function EventCalendar({
   );
   return (
     <section className="event-workspace" aria-label="Event calendar">
-      <div className="event-top">
-        <div>
-          <h2>Your events.</h2>
-          <p>Choose an event, then click a day to link its transactions.</p>
-        </div>
-        <button disabled={busy} onClick={() => onEdit({ kind: "group" })}>
-          + New event
-        </button>
-      </div>
       <input
         className="event-search"
         aria-label="Search events"
-        placeholder="Find an event…"
+        placeholder="Find an event"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
@@ -121,8 +100,8 @@ export function EventCalendar({
           .map((e) => (
             <button
               key={e.id}
+              className="sm"
               aria-pressed={event?.id === e.id}
-              aria-label={`Manage event ${e.name}`}
               style={{ "--event-color": e.color }}
               onClick={() => {
                 onSelectEvent(e.id);
@@ -136,37 +115,20 @@ export function EventCalendar({
             </button>
           ))}
       </div>
-      {!groups.length && (
-        <p className="rv-help">
-          Create an event to start linking transactions from the calendar.
-        </p>
-      )}
       {event && (
         <div className="event-context">
           <div>
             <strong>{event.name}</strong>
             <small>
               {!event.startDate || !event.endDate
-                ? "Dates required · edit event"
-                : eventDateLabel(event)}{" "}
-              · {members.length} linked transactions
+                ? <button className="link" onClick={() => onEdit(event)}>Add its dates</button>
+                : rangeLabel(event.startDate, event.endDate)}{" "}
+              · {plural(members.length, "linked transaction", "linked transactions")}
+              {event.participants?.length ? ` · split with ${event.participants.map((id) => people.find((p) => p.id === id)?.name).filter(Boolean).join(", ")}` : ""}
             </small>
           </div>
-          <button onClick={() => onEdit(event)}>Edit event</button>
-          <div className="rv-toggle">
-            <button
-              aria-pressed={view === "calendar"}
-              onClick={() => setView("calendar")}
-            >
-              Calendar
-            </button>
-            <button
-              aria-pressed={view === "costs"}
-              onClick={() => setView("costs")}
-            >
-              Costs & repayments
-            </button>
-          </div>
+          <button className="sm" onClick={() => onEdit(event)}>Edit event</button>
+          <Segmented label="Event view" value={view} onChange={setView} options={[{ value: "calendar", label: "Calendar" }, { value: "costs", label: "Costs & repayments" }]} />
         </div>
       )}
       {view === "calendar" || !event ? (
@@ -189,27 +151,26 @@ export function EventCalendar({
                   setDay(date);
                 }}
               >
-                {suggestions.length} nearby unlinked · View
+                {suggestions.length ? `Show ${plural(suggestions.length, "nearby transaction", "nearby transactions")}` : "No nearby transactions left"}
               </button>
-              <small>
-                Using bank-exported dates; highlighted days are suggestions.
-              </small>
+              <small>Framed days fall within the event's dates. Dates come from your bank exports.</small>
             </div>
           )}
           <div className="event-layout">
             <div className="event-calendar-panel">
               <div className="event-month-nav">
                 <button
-                  aria-label="Previous calendar month"
+                  className="icon"
+                  aria-label="Previous month"
                   onClick={() => {
                     setMonth(moveMonth(month, -1));
                     setDay("");
                   }}
                 >
-                  <Chevron />
+                  <Icon name="chevron-left" size={18} />
                 </button>
                 <label>
-                  <span>{monthLabel(month)}</span>
+                  <span className="visually-hidden">Month</span>
                   <input
                     type="month"
                     aria-label="Event calendar month"
@@ -225,13 +186,14 @@ export function EventCalendar({
                   />
                 </label>
                 <button
-                  aria-label="Next calendar month"
+                  className="icon"
+                  aria-label="Next month"
                   onClick={() => {
                     setMonth(moveMonth(month, 1));
                     setDay("");
                   }}
                 >
-                  <Chevron right />
+                  <Icon name="chevron-right" size={18} />
                 </button>
               </div>
               <div className="event-calendar-grid">
@@ -242,7 +204,7 @@ export function EventCalendar({
                   date ? (
                     <button
                       key={date}
-                      aria-label={`Transactions on ${date}`}
+                      aria-label={[weekdayLabel(date), byDay[date]?.length ? plural(byDay[date].length, "transaction", "transactions") : "no transactions", byDay[date]?.some(linked) ? "some linked to this event" : "", event && nearEvent(date, event, buffer ? 1 : 0) ? "within the event's dates" : ""].filter(Boolean).join(", ")}
                       aria-pressed={selectedDay === date}
                       className={
                         event && nearEvent(date, event, buffer ? 1 : 0)
@@ -254,18 +216,15 @@ export function EventCalendar({
                       <span>{Number(date.slice(-2))}</span>
                       {!!byDay[date]?.length && (
                         <>
-                          <strong>
-                            {byDay[date].length}
-                            <small> transactions</small>
-                          </strong>
                           <div className="event-day-dots">
+                            <strong>{byDay[date].length}</strong>
                             {[...new Set(byDay[date].map((t) => t.color))].map(
                               (color) => (
                                 <i key={color} style={{ background: color }} />
                               ),
                             )}
                             {byDay[date].some(linked) && (
-                              <b aria-label="Has linked transactions"><Icon name="check" size={12} /></b>
+                              <b><Icon name="check" size={16} /></b>
                             )}
                           </div>
                         </>
@@ -276,53 +235,46 @@ export function EventCalendar({
                   ),
                 )}
               </div>
-              <p className="rv-help">
-                Dots show accounts. A check marks days with transactions linked to
-                this event.
+              <p className="form-help">
+                Each day shows how many transactions it has, a dot for each account, and a check when some are linked to this event.
               </p>
             </div>
             <aside className="event-day-panel" aria-label="Day transactions">
-              <div className="rv-section-title">
-                <h3>{selectedDay}</h3>
-                <small>{dayRows.length} transactions</small>
+              <div className="section-title">
+                <h3>{weekdayLabel(selectedDay)}</h3>
+                <small>{plural(dayRows.length, "transaction", "transactions")}</small>
               </div>
-              {event && dayRows.some((t) => !linked(t)) && (
+              {event && dayRows.filter((t) => !linked(t)).length > 1 && (
                 <button
+                  className="sm"
                   disabled={busy}
                   onClick={() => link(dayRows.filter((t) => !linked(t)))}
                 >
-                  Link unlinked on this day
+                  {`Link all ${dayRows.filter((t) => !linked(t)).length} to ${event.name}`}
                 </button>
               )}
-              {!dayRows.length && (
-                <p className="rv-help">
-                  No transactions for this day in the current search.
-                </p>
-              )}
+              {!dayRows.length && <p className="form-help">No transactions on this day.</p>}
               {dayRows.map((t) => (
                 <article key={t.id} className={linked(t) ? "is-linked" : ""}>
                   <div>
                     <strong>{t.description}</strong>
                     <small>
-                      {t.account} ·{" "}
-                      {t.review.kind === "transfer"
-                        ? "Own-account transfer"
-                        : t.amountCents > 0
-                          ? "Money in"
-                          : "Money out"}
+                      {t.account} · {t.amountCents > 0 ? "Money in" : "Money out"}
                     </small>
                   </div>
-                  <b>{currencyMoney(t.amountCents, t.currency)}</b>
+                  <b className="tabular">{currencyMoney(t.amountCents, t.currency)}</b>
                   <div className="event-row-actions">
                     {!t.manual && (
-                      <button onClick={() => onSource(t.id)}>Source</button>
+                      <button className="sm ghost" onClick={() => onSource(t.id)}>Original record</button>
                     )}
                     <button
+                      className="sm"
                       disabled={busy || !event}
+                      aria-pressed={linked(t)}
                       aria-label={`${linked(t) ? "Unlink" : "Link"} ${t.description}`}
                       onClick={() => link([t])}
                     >
-                      {linked(t) ? "Linked · Remove" : "Link to event"}
+                      {linked(t) ? <><Icon name="check" size={16} />Linked</> : "Link"}
                     </button>
                   </div>
                   {t.review.groups.filter((id) => id !== event?.id).length >
@@ -351,31 +303,33 @@ export function EventCalendar({
           />
           <div className="event-incoming">
             <h3>Money in for this event</h3>
-            <p className="rv-help">
-              Event membership groups a payment. Allocate it to expenses to
-              reduce their remaining cost.
+            <p className="form-help">
+              Money in linked to this event. Applying it to the event's expenses (on the Organize desk) lowers what's still owed.
             </p>
-            {incoming.map((t) => (
-              <div key={t.id}>
-                <span>
-                  <strong>{t.description}</strong>
-                  <small>
-                    {t.date} · {t.account}
-                  </small>
-                </span>
-                <strong>{currencyMoney(t.amountCents, t.currency)}</strong>
-                <button onClick={() => onPayment(t, event.id)}>
-                  {t.review.kind === "repayment"
-                    ? "Edit allocation"
-                    : "Allocate payment"}
-                </button>
-              </div>
-            ))}
+            {incoming.map((t) => {
+              const memberIds = new Set(members.map((m) => m.id));
+              const applied = (t.review.allocations || []).filter((a) => memberIds.has(a.id)).reduce((n, a) => n + a.cents, 0);
+              return (
+                <div key={t.id}>
+                  <span>
+                    <strong>{t.description}</strong>
+                    <small>
+                      {dayLabel(t.date)} · {t.account}
+                    </small>
+                  </span>
+                  <span className="event-incoming-amount">
+                    <strong className="tabular">{currencyMoney(applied, t.currency)}</strong>
+                    <small>applied of {currencyMoney(t.amountCents, t.currency)}</small>
+                  </span>
+                  <button className="sm" onClick={() => onPayment(t, event.id)}>
+                    Open in Organize
+                  </button>
+                </div>
+              );
+            })}
             {!incoming.length && (
-              <p className="rv-help">
-                Link incoming transactions from the calendar, or choose
-                an incoming transaction in Organize. Payments may arrive after the
-                event.
+              <p className="form-help">
+                Link money in from the calendar, or open it on the Organize desk. Repayments often arrive after the event.
               </p>
             )}
           </div>

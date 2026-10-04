@@ -1,331 +1,179 @@
-import {
-  blend,
-  endpoints,
-  systemPalette,
-} from "../electron/review/palette.mjs";
+import { systemPalette, endpoints } from "../electron/review/palette.mjs";
 import React, { useState } from "react";
+import { Icon } from "@derekurban/design-system";
 import "./tag-hierarchy.css";
 import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
+import { Alert, Segmented } from "./ui.jsx";
+import { palette } from "./snapshots-v2-atoms.jsx";
+import { plural } from "./format.js";
 const api = window.urbanomics;
+
+// Expense tags grouped into categories (drag or Space/Enter to move and reorder), income tags in their own
+// list, and the system tags, which can only be renamed. Category palettes colour their tags.
 export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
   const [lens, setLens] = useState("expense");
   const [lifted, setLifted] = useState("");
   const [query, setQuery] = useState(""),
     [over, setOver] = useState(null);
-  const tags = alphabetical(
-      entities.filter((e) => e.kind === "category" && !e.systemRole && tagType(e) === lens),
-    ),
-    buckets = entities.filter((e) => e.kind === "bucket");
-  const incomePalette = systemPalette(entities, "income");
-  const ungroupedPalette = systemPalette(entities, "ungrouped");
-  const paletteGroup = (palette) => ({
-    ...palette,
-    ...endpoints(palette),
-    color: palette.color,
-    id: "",
-    paletteId: palette.id,
-  });
-  const groups =
-    lens === "income"
-      ? [{ ...paletteGroup(incomePalette), name: "Income tags" }]
-      : [...buckets, paletteGroup(ungroupedPalette)];
+  const tags = alphabetical(entities.filter((e) => e.kind === "category" && !e.systemRole && tagType(e) === lens)),
+    buckets = entities.filter((e) => e.kind === "bucket"),
+    system = entities.filter((e) => e.systemRole);
+  const paletteGroup = (palette) => ({ ...palette, ...endpoints(palette), color: palette.color, id: "", paletteId: palette.id });
+  const groups = lens === "income" ? [{ ...paletteGroup(systemPalette(entities, "income")), name: "Income tags" }] : [...buckets, paletteGroup(systemPalette(entities, "ungrouped"))];
+  const fresh = lens === "expense" && !buckets.length && !tags.length;
+  const usageLine = (id) => {
+    const u = usage.get(id);
+    return [plural(u?.active || 0, "transaction"), u?.rules ? plural(u.rules, "rule") : ""].filter(Boolean).join(" · ");
+  };
   async function move(tag, parentId) {
-    if (!tag || tagType(tag) !== "expense" || tag.parentId === parentId || busy)
-      return;
+    if (!tag || tagType(tag) !== "expense" || tag.parentId === parentId || busy) return;
     setLifted("");
-    await act(() =>
-      api.saveEntity("category", {
-        ...tag,
-        color: tag.customColor ?? tag.color,
-        parentId,
-      }),
-    );
+    await act(() => api.saveEntity("category", { ...tag, color: tag.customColor ?? tag.color, parentId }));
   }
   async function reorder(tag, beforeId) {
     if (busy || !tag || tag.id === beforeId) return;
-    const siblings = tags.filter(t => t.parentId === tag.parentId);
-    const expected = siblings.map(t => t.id), ids = expected.filter(id => id !== tag.id);
+    const siblings = tags.filter((t) => t.parentId === tag.parentId);
+    const expected = siblings.map((t) => t.id), ids = expected.filter((id) => id !== tag.id);
     ids.splice(beforeId ? ids.indexOf(beforeId) : ids.length, 0, tag.id);
     setLifted(""); setOver(null);
     await act(() => api.reorderTags(ids, expected));
   }
+  const dragging = (e) => !busy && e.dataTransfer.types.includes("application/urbanomics-tag");
   return (
-    <section
-      className="th-workspace"
-      aria-label="Categories and tags hierarchy"
-    >
-      <div className="th-lenses" role="group" aria-label="Organization lens">
-        {["expense", "income", "transfer", "system"].map((type) => (
-          <button
-            key={type}
-            style={
-              type === "income"
-                ? {
-                    "--lens-color": blend(
-                      incomePalette.gradientStart,
-                      incomePalette.gradientEnd,
-                    ),
-                  }
-                : undefined
-            }
-            aria-pressed={lens === type}
-            onClick={() => {
-              setLens(type);
-              setQuery("");
-              setLifted("");
-            }}
-          >
-            <strong>{type === "expense" ? "Expenses" : type === "income" ? "Income" : type === "transfer" ? "Transfers" : "System tags"}</strong>
-            <small>
-              {type === "expense"
-                ? "Categories with detailed tags"
-                : type === "income" ? "Sources of money received" : type === "transfer" ? "Linked movements between accounts" : "Automatic classification"}
-            </small>
-          </button>
-        ))}
-      </div>
-      {(lens === 'system' || lens === 'expense' || lens === 'income') && <div className="th-system-tags" aria-label="System tags">
-        {entities.filter(t => t.systemRole && (lens === 'system' || t.systemRole === `other-${lens}`)).map(t => <article key={t.id}>
-          <i style={{background:t.color}}/><div><strong>{t.name}</strong><small>{t.systemRole === 'other-income' ? 'Income default' : t.systemRole === 'other-expense' ? 'Expense default' : 'Linked automatically'} · Locked</small><p>{t.description}</p></div><button disabled={busy} onClick={()=>edit(t)} aria-label={`Rename ${t.systemRole}`}>Rename</button>
-        </article>)}
-      </div>}
-      {lens === "system" ? null : lens === "transfer" ? <div className="th-transfer-info"><h2>Transfers have a place of their own.</h2><p>Link the money leaving one account to the money arriving in another in Review → Transfers. Both entries leave expense and income tagging automatically. Their saved tags stay preserved if you unlink them.</p><p>Transfer fees remain separate costs. The system Transfer tag follows the link automatically. Rename it under System tags.</p></div> : <>
-      <div className="th-heading">
-        <div>
-          <h2>
-            {lens === "expense" ? "Expense categories & tags" : "Income tags"}
-          </h2>
-          <p>
-            {lens === "expense"
-              ? "Organize spending from broad buckets down to details."
-              : "Keep income sources separate from spending. Repayments and transfers retain their own relationships."}
-          </p>
-        </div>
-        {lens === "expense" && (
-          <button
-            disabled={busy}
-            onClick={() => edit({ kind: "bucket", color: "#8DAE87" })}
-          >
-            + New category
-          </button>
-        )}
-        <button
-          className="primary"
-          disabled={busy}
-          onClick={() =>
-            edit({
-              kind: "category",
-              flowType: lens,
-              color: lens === "income" ? "#8FA6CB" : "#8DAE87",
-            })
-          }
-        >
-          + New tag
-        </button>
-      </div>
+    <section className="th-workspace" aria-label="Categories and tags">
       <div className="th-toolbar">
-        <input
-          type="search"
-          aria-label="Search categories and tags"
-          placeholder={
-            lens === "income"
-              ? "Find an income tag…"
-              : "Find a category or tag…"
-          }
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-        />
-        <span>
-          {lens === "expense" && `${buckets.length} categories · `}
-          {tags.length} {tags.length === 1 ? "tag" : "tags"}
-        </span>
-        {lens === "expense" && (
-          <button
-            disabled={busy}
-            onClick={() => act(() => api.starterHierarchy())}
-          >
-            Add Food & Personal starter
-          </button>
+        <Segmented label="Which tags" value={lens} onChange={(v) => { setLens(v); setQuery(""); setLifted(""); }}
+          options={[{ value: "expense", label: "Expenses" }, { value: "income", label: "Income" }, { value: "system", label: "System tags" }]} />
+        {lens !== "system" && tags.length > 6 && (
+          <input type="search" aria-label="Search categories and tags" placeholder={lens === "income" ? "Find an income tag" : "Find a category or tag"} value={query} onChange={(e) => setQuery(e.target.value)} />
+        )}
+        {lens !== "system" && (
+          <div className="th-actions">
+            {lens === "expense" && <button disabled={busy} onClick={() => edit({ kind: "bucket", color: palette[buckets.length % palette.length] })}><Icon name="plus" size={16} />New category</button>}
+            <button className="primary" disabled={busy} onClick={() => edit({ kind: "category", flowType: lens })}><Icon name="plus" size={16} />New tag</button>
+          </div>
         )}
       </div>
-      <p className="th-hint">
-        {lens === "expense"
-          ? "Drag tags onto another tag to reorder, or into a category to move. Use the arrows for precise ordering. Keyboard: Space picks up; Enter places."
-          : "Choose your income tag order by dragging or using the arrows. Gradient colors follow this order."}
-      </p>
-      {error && (
-        <p role="alert" className="dr-error-text">
-          {error}
-        </p>
-      )}
-      <div className="th-groups">
-        {groups.map((group) => {
-          const children = tags.filter((t) => (t.parentId || "") === group.id),
-            matches = children.filter((t) =>
-              `${group.name} ${t.name}`
-                .toLowerCase()
-                .includes(query.toLowerCase()),
-            );
-          if (
-            query &&
-            !matches.length &&
-            !group.name.toLowerCase().includes(query.toLowerCase())
-          )
-            return null;
-          return (
-            <section
-              key={group.id}
-              className={`th-group ${over === group.id ? "is-over" : ""}`}
-              style={{ "--group-color": group.color }}
-              aria-label={`Category ${group.name}`}
-              tabIndex={0}
-              onKeyDown={(e) => {
-                if (
-                  e.target === e.currentTarget &&
-                  e.key === "Enter" &&
-                  lifted
-                ) {
-                  e.preventDefault();
-                  const tag = tags.find((t) => t.id === lifted);
-                  if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
-                }
-              }}
-              onDragOver={(e) => {
-                if (
-                  !busy &&
-                  e.dataTransfer.types.includes("application/urbanomics-tag")
-                ) {
-                  e.preventDefault();
-                  setOver(group.id);
-                }
-              }}
-              onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget)) setOver(null);
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                setOver(null);
-                const tag = tags.find(t => t.id === e.dataTransfer.getData("application/urbanomics-tag"));
-                if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
-              }}
-            >
-              <header>
-                <i />
-                <h3>{group.name}</h3>
-                <small>
-                  {children.length} {children.length === 1 ? "tag" : "tags"}
-                </small>
-                {(group.id || group.paletteId) && (
-                  <button
-                    disabled={busy}
-                    aria-label={
-                      group.paletteId
-                        ? `Edit ${group.paletteId === "income" ? "Income" : "Ungrouped tags"} colors`
-                        : `Edit category ${group.name}`
+      {error && <Alert>{error}</Alert>}
+      {lens === "system" ? (
+        <>
+          <p className="form-help">The app uses these on its own. You can rename them; they can't be deleted or recoloured.</p>
+          <div className="th-system">
+            {system.map((t) => (
+              <article key={t.id}>
+                <i style={{ background: t.color }} aria-hidden="true" />
+                <div>
+                  <strong>{t.name}</strong>
+                  <small>{t.systemRole === "other-income" ? "Money in that has no tag yet" : t.systemRole === "other-expense" ? "Money out that has no tag yet" : t.description}</small>
+                </div>
+                <button className="sm" disabled={busy} onClick={() => edit(t)} aria-label={`Rename ${t.name}`}>Rename</button>
+              </article>
+            ))}
+          </div>
+        </>
+      ) : fresh ? (
+        <div className="empty-state">
+          <Icon name="tags" size={24} />
+          <h2>No categories yet.</h2>
+          <p>Make your own, or start with Food and Personal and their usual tags. You can rename, move or delete any of them later.</p>
+          <button disabled={busy} onClick={() => act(() => api.starterHierarchy())}>Start with Food and Personal</button>
+        </div>
+      ) : (
+        <>
+          <p className="form-help">
+            {lens === "expense"
+              ? "Drag a tag into another category to move it, or onto a tag to put it before that one. With the keyboard, Space picks a tag up and Enter puts it down."
+              : "Drag to reorder, or use the arrows. Colours follow this order across the income palette."}
+          </p>
+          <div className="th-groups">
+            {groups.map((group) => {
+              const children = tags.filter((t) => (t.parentId || "") === group.id),
+                q = query.trim().toLowerCase(),
+                matches = children.filter((t) => `${group.name} ${t.name}`.toLowerCase().includes(q));
+              if (q && !matches.length && !group.name.toLowerCase().includes(q)) return null;
+              const index = (tag) => children.findIndex((t) => t.id === tag.id);
+              return (
+                <section
+                  key={group.id || group.paletteId}
+                  className={`th-group ${over === (group.id || group.paletteId) ? "is-over" : ""}`}
+                  aria-label={`Category ${group.name}`}
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.target === e.currentTarget && e.key === "Enter" && lifted) {
+                      e.preventDefault();
+                      const tag = tags.find((t) => t.id === lifted);
+                      if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
                     }
-                    onClick={() =>
-                      edit(
-                        group.paletteId
-                          ? systemPalette(entities, group.paletteId)
-                          : group,
-                      )
-                    }
-                  >
-                    {group.paletteId ? "Colors" : "Edit"}
-                  </button>
-                )}
-                <button
-                  disabled={busy}
-                  aria-label={`Add tag to ${group.name}`}
-                  onClick={() =>
-                    edit({
-                      kind: "category",
-                      parentId: group.id,
-                      flowType: lens,
-                      color: group.color,
-                    })
-                  }
+                  }}
+                  onDragOver={(e) => { if (dragging(e)) { e.preventDefault(); setOver(group.id || group.paletteId); } }}
+                  onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) setOver(null); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setOver(null);
+                    const tag = tags.find((t) => t.id === e.dataTransfer.getData("application/urbanomics-tag"));
+                    if (tag?.parentId === group.id) reorder(tag, null); else move(tag, group.id);
+                  }}
                 >
-                  ＋
-                </button>
-              </header>
-              <div className="th-tags">
-                {matches.map((tag) => (
-                  <article
-                    className="th-tag"
-                    data-inherited-color={tag.inheritedColor || undefined}
-                    style={{ "--tag-color": tag.color }}
-                    key={tag.id}
-                    draggable={!busy}
-                    tabIndex={0}
-                    aria-label={`Tag ${tag.name}`}
-                    aria-grabbed={lifted === tag.id}
-                    onKeyDown={(e) => {
-                      if (e.target !== e.currentTarget) return;
-                      if (e.key === " ") {
-                        e.preventDefault();
-                        setLifted(lifted === tag.id ? "" : tag.id);
-                      }
-                      if (e.key === "Escape") setLifted("");
-                      if (e.key === "Enter" && lifted) { e.preventDefault(); reorder(tags.find(t => t.id === lifted && t.parentId === tag.parentId), tag.id); }
-                    }}
-                    onDragOver={e => { if (!busy && e.dataTransfer.types.includes("application/urbanomics-tag")) { e.preventDefault(); e.stopPropagation(); setOver(tag.id); } }}
-                    onDrop={e => { const dragged = tags.find(t => t.id === e.dataTransfer.getData("application/urbanomics-tag")); if (dragged?.parentId === tag.parentId) { e.preventDefault(); e.stopPropagation(); reorder(dragged, tag.id); } }}
-                    data-drop-before={over === tag.id || undefined}
-                    onDragStart={(e) => {
-                      e.dataTransfer.setData(
-                        "application/urbanomics-tag",
-                        tag.id,
-                      );
-                      e.dataTransfer.effectAllowed = "move";
-                    }}
-                    onDragEnd={() => setOver(null)}
-                  >
-                    <span aria-hidden="true">
-                      ⠿
-                    </span>
-                    <i style={{ background: tag.color }} />
-                    <div>
-                      <strong>{tag.name}</strong>
-                      <small>
-                        {usage.get(tag.id)?.active || 0}{" "}
-                        {usage.get(tag.id)?.active === 1
-                          ? "transaction"
-                          : "transactions"}
-                        {usage.get(tag.id)?.rules
-                          ? ` · ${usage.get(tag.id).rules} rules`
-                          : ""}
-                      </small>
-                    </div>
-
-                    <div className="th-order-actions">
-                      <button aria-label={`Move ${tag.name} earlier`} disabled={busy || children[0]?.id === tag.id} onClick={() => reorder(tag, children[children.findIndex(t => t.id === tag.id) - 1]?.id)}>↑</button>
-                      <button aria-label={`Move ${tag.name} later`} disabled={busy || children.at(-1)?.id === tag.id} onClick={() => reorder(tag, children[children.findIndex(t => t.id === tag.id) + 2]?.id)}>↓</button>
-                    </div>
-                    <button
-                      disabled={busy}
-                      aria-label={`Edit tag ${tag.name}`}
-                      onClick={() => edit(tag)}
-                    >
-                      Edit
+                  <header>
+                    <i style={{ background: group.color }} aria-hidden="true" />
+                    <h3>{group.name}</h3>
+                    <small>{plural(children.length, "tag")}</small>
+                    <button className="icon ghost sm" disabled={busy}
+                      aria-label={group.paletteId ? `Edit ${group.paletteId === "income" ? "Income" : "Ungrouped tags"} colors` : `Edit category ${group.name}`}
+                      title={group.paletteId ? "Colours" : "Edit category"}
+                      onClick={() => edit(group.paletteId ? systemPalette(entities, group.paletteId) : group)}>
+                      <Icon name={group.paletteId ? "palette" : "pencil"} size={16} />
                     </button>
-                  </article>
-                ))}
-              </div>
-              {!matches.length && (
-                <p className="th-empty">
-                  {query
-                    ? "No matching tags."
-                    : lens === "income"
-                      ? "Add an income tag to begin."
-                      : "Drop tags here, or add a new one."}
-                </p>
-              )}
-            </section>
-          );
-        })}
-      </div>
-      </>}
+                    <button className="icon ghost sm" disabled={busy} aria-label={`Add tag to ${group.name}`} title="Add a tag here"
+                      onClick={() => edit({ kind: "category", parentId: group.id, flowType: lens })}>
+                      <Icon name="plus" size={16} />
+                    </button>
+                  </header>
+                  <div className="th-tags">
+                    {matches.map((tag) => (
+                      <article
+                        className="th-tag"
+                        key={tag.id}
+                        draggable={!busy}
+                        tabIndex={0}
+                        aria-label={`Tag ${tag.name}${lifted === tag.id ? ", picked up" : ""}`}
+                        data-lifted={lifted === tag.id || undefined}
+                        data-drop-before={over === tag.id || undefined}
+                        onKeyDown={(e) => {
+                          if (e.target !== e.currentTarget) return;
+                          if (e.key === " ") { e.preventDefault(); setLifted(lifted === tag.id ? "" : tag.id); }
+                          if (e.key === "Escape") setLifted("");
+                          if (e.key === "Enter" && lifted) { e.preventDefault(); reorder(tags.find((t) => t.id === lifted && t.parentId === tag.parentId), tag.id); }
+                        }}
+                        onDragOver={(e) => { if (dragging(e)) { e.preventDefault(); e.stopPropagation(); setOver(tag.id); } }}
+                        onDrop={(e) => {
+                          const dragged = tags.find((t) => t.id === e.dataTransfer.getData("application/urbanomics-tag"));
+                          if (dragged?.parentId === tag.parentId) { e.preventDefault(); e.stopPropagation(); reorder(dragged, tag.id); }
+                        }}
+                        onDragStart={(e) => { e.dataTransfer.setData("application/urbanomics-tag", tag.id); e.dataTransfer.effectAllowed = "move"; }}
+                        onDragEnd={() => setOver(null)}
+                      >
+                        <Icon name="grip-vertical" size={16} />
+                        <i style={{ background: tag.color }} aria-hidden="true" />
+                        <div>
+                          <strong>{tag.name}</strong>
+                          <small>{usageLine(tag.id)}</small>
+                        </div>
+                        <div className="th-tag-actions">
+                          <button className="icon ghost sm" aria-label={`Move ${tag.name} earlier`} disabled={busy || index(tag) === 0} onClick={() => reorder(tag, children[index(tag) - 1]?.id)}><Icon name="chevron-up" size={16} /></button>
+                          <button className="icon ghost sm" aria-label={`Move ${tag.name} later`} disabled={busy || index(tag) === children.length - 1} onClick={() => reorder(tag, children[index(tag) + 2]?.id)}><Icon name="chevron-down" size={16} /></button>
+                          <button className="icon ghost sm" disabled={busy} aria-label={`Edit tag ${tag.name}`} onClick={() => edit(tag)}><Icon name="pencil" size={16} /></button>
+                        </div>
+                      </article>
+                    ))}
+                  </div>
+                  {!matches.length && <p className="th-empty">{query ? "No matching tags." : lens === "income" ? "No income tags yet." : "Drop tags here, or add one with the plus."}</p>}
+                </section>
+              );
+            })}
+          </div>
+        </>
+      )}
     </section>
   );
 }

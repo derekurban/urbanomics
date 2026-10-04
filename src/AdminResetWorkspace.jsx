@@ -1,9 +1,38 @@
-import React,{useRef,useState} from 'react';
-import {WorkspaceModal} from './WorkspaceModal.jsx';
-const api=window.urbanomics;
-export function AdminResetWorkspace({act,busy}){
- const [preview,setPreview]=useState(null),[phrase,setPhrase]=useState(''),[working,setWorking]=useState(false),[error,setError]=useState(''),[result,setResult]=useState(null),saving=useRef(false);
- async function open(){setWorking(true);setError('');setPhrase('');try{setPreview(await api.previewWorkspaceReset());}catch(e){setError(e.message);}finally{setWorking(false);}}
- async function confirm(){if(saving.current)return;saving.current=true;setWorking(true);setError('');try{const value=await act(()=>api.resetWorkspace(preview.token,phrase));if(value!==false){setResult(value);setPreview(null);localStorage.removeItem('urbanomics.transfer-route-layout');}}catch(e){setError(e.message);}finally{saving.current=false;setWorking(false);}}
- return <><article className="admin-action"><div><span className="admin-action-label">Entire workspace</span><h3>Start from scratch</h3><p>Clear imported transactions, snapshots, upload history and all account, tag, person, event, alias and rule setup.</p><small>Archived files are kept. A recovery copy is saved before the reset.</small></div><button className="danger" disabled={busy||working} onClick={open}>Start from scratch</button></article>{error&&!preview&&<p role="alert">{error}</p>}{result&&<div className="admin-result" role="status"><strong>Workspace reset. Ready for your first import.</strong><p>Archived sources and snapshots are still in your archive folder. The previous workspace and pending files are preserved in archive/workspace-resets.</p></div>}{preview&&<WorkspaceModal title="Start from scratch?" onClose={()=>{if(!working)setPreview(null);}} footer={<div className="admin-confirm-buttons"><button disabled={working} onClick={()=>setPreview(null)}>Cancel</button><button className="danger" disabled={busy||working||phrase!=='RESET'} onClick={confirm}>{working?'Resetting workspace…':'Confirm workspace reset'}</button></div>}><div className="admin-confirm"><p>This clears <b>{preview.counts.transactions+preview.counts.cash_receipts} transactions</b>, {preview.counts.accounts} accounts, {preview.counts.snapshots} active snapshot records, {preview.counts.jobs} upload entries, {preview.counts.transaction_rules} rules/templates and {preview.counts.transaction_aliases} aliases.</p><p>Categories, tags, people, events, transfer routes, links, deductions, reviews and filename mappings are also cleared. Only built-in system labels remain.</p><p><b>Archived originals and snapshot files are kept.</b> Old archive entries leave the active library; files remain accessible through Open archive folder. A complete local database recovery copy is stored in archive/workspace-resets, along with {preview.intake} pending inbox/Dropbox files.</p><p>You can import the same CSVs again. Old configuration will not be restored on restart. There is no automatic undo.</p><label>Type RESET to confirm<input aria-label="Reset confirmation" autoComplete="off" value={phrase} onChange={e=>setPhrase(e.target.value)} disabled={working}/></label>{error&&<p role="alert">{error}</p>}</div></WorkspaceModal>}</>;
+import React, { useRef, useState } from "react";
+import { AdminAction } from "./admin-action.jsx";
+import { Alert, ConfirmDialog } from "./ui.jsx";
+import { plural } from "./format.js";
+const api = window.urbanomics;
+
+export function AdminResetWorkspace({ act, busy }) {
+  const [preview, setPreview] = useState(null), [phrase, setPhrase] = useState(""), [working, setWorking] = useState(false), [error, setError] = useState(""), [result, setResult] = useState(null), saving = useRef(false);
+  async function open() {
+    setWorking(true); setError(""); setPhrase(""); setResult(null);
+    try { setPreview(await api.previewWorkspaceReset()); } catch (e) { setError(e.message); } finally { setWorking(false); }
+  }
+  async function confirm() {
+    if (saving.current) return;
+    saving.current = true; setWorking(true); setError("");
+    try {
+      const value = await act(() => api.resetWorkspace(preview.token, phrase));
+      if (value !== false) { setResult(value); setPreview(null); localStorage.removeItem("urbanomics.transfer-route-layout"); }
+    } catch (e) { setError(e.message); } finally { saving.current = false; setWorking(false); }
+  }
+  const c = preview?.counts;
+  return (
+    <>
+      <AdminAction title="Start from scratch" count="The original files you imported are kept." action="Start from scratch…" onOpen={open} disabled={busy || working}>
+        Erases every transaction and all your setup: accounts, tags, people, events, aliases and rules. The workspace is as it was on the first day.
+      </AdminAction>
+      {error && !preview && <Alert>{error}</Alert>}
+      {result && <Alert tone="success" title="The workspace is empty again" onDismiss={() => setResult(null)}>Import a bank export to begin. The previous workspace and any files that were waiting are saved in archive/workspace-resets.</Alert>}
+      {preview && (
+        <ConfirmDialog title="Erase the whole workspace?" confirmLabel={working ? "Erasing…" : "Erase workspace"} busy={working || busy} disabled={phrase !== "RESET"} error={error} onClose={() => { if (!working) setPreview(null); }} onConfirm={confirm}>
+          <p>This erases {plural(c.transactions + c.cash_receipts, "transaction")}, {plural(c.accounts, "account")}, {plural(c.transaction_rules, "rule")}, {plural(c.transaction_aliases, "alias", "aliases")}, every tag, person and event, and the import history{c.snapshots ? ` (${plural(c.snapshots, "snapshot")})` : ""}.</p>
+          <p>The original files you imported stay in the archive, so you can import them again. A complete copy of the current workspace{preview.intake ? `, and ${plural(preview.intake, "file")} waiting to be imported,` : ""} is saved in archive/workspace-resets.</p>
+          <label className="admin-phrase">Type RESET to confirm<input aria-label="Reset confirmation" autoComplete="off" value={phrase} onChange={(e) => setPhrase(e.target.value)} disabled={working} /></label>
+        </ConfirmDialog>
+      )}
+    </>
+  );
 }

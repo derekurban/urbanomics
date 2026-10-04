@@ -12,11 +12,11 @@ export function GuideDialog({ onClose }) {
           <p>Download a CSV of your account activity from your bank and drop it here, or choose it. The file is copied into this computer's archive exactly as it came and never changed. Nothing imports until you say so.</p>
         </section>
         <section>
-          <h3>2. Files that look alike are one kind</h3>
-          <p>Files with the same column headings are read the same way, so three months of the same export are set up once. Each kind gets one screen.</p>
+          <h3>2. Files with the same columns are set up once</h3>
+          <p>Files with the same column headings are one export format and are read the same way, so three months of the same export are set up together, on one screen.</p>
         </section>
         <section>
-          <h3>3. We read the cells, not just the headings</h3>
+          <h3>3. The cells decide, not just the headings</h3>
           <ul>
             <li><b>Dates</b>: the column where every value is a calendar date. The order (year-month-day, month-day-year or day-month-year) is settled when only one order fits every row. If two fit, you choose, with an example of each.</li>
             <li><b>Amounts</b>: one signed column, or a pair of money-out and money-in columns where each row fills exactly one.</li>
@@ -27,7 +27,7 @@ export function GuideDialog({ onClose }) {
         </section>
         <section>
           <h3>4. The account and how to recognize its files</h3>
-          <p>An account name, type and colour are suggested from the filenames. A recognition sentence, such as “files whose name starts with Bank_everyday”, is checked against the files in front of you and remembered. Next time, files with matching names go to that account and are read the same way, with no setup at all.</p>
+          <p>An account name, type and color are suggested from the filenames. A plain sentence, such as “files whose name starts with Bank_everyday”, is checked against the files in front of you and remembered. Next time, files with matching names go to that account and are read the same way, with no setup at all.</p>
         </section>
         <section>
           <h3>5. Import</h3>
@@ -35,7 +35,7 @@ export function GuideDialog({ onClose }) {
         </section>
         <section>
           <h3>Changing things later</h3>
-          <p>Saved layouts (how each kind is read) are listed under Saved layouts on the Snapshots page. Accounts, their colours and their recognition rules live under Accounts. Changing either affects future files only; what is already imported keeps the interpretation it was imported with.</p>
+          <p>Saved layouts (how each export format is read) are listed under Saved layouts on the Snapshots page. Accounts, their colors and how their files are recognized live under Accounts. Changing either affects future files only; what is already imported keeps the interpretation it was imported with.</p>
         </section>
       </div>
     </Sv2Dialog>

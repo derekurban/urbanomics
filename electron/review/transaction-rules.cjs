@@ -177,7 +177,7 @@ class TransactionRuleStore {
         if (categoryIds.length > 1 || personIds.length > 1) status = "conflict";
         else if (row.review.kind === "transfer") {
           status = "protected";
-          reasons.push("Linked transfer assignments are preserved.");
+          reasons.push("It's a linked transfer, so it isn't tagged.");
         } else {
           const categoryId = categoryIds[0],
             personId = personIds[0];
@@ -189,7 +189,7 @@ class TransactionRuleStore {
               )
             )
               reasons.push(
-                "Tag type does not match this transaction or its financial purpose.",
+                "The tag is for money going the other way.",
               );
             else if (needsTagging(row) && row.amountCents !== 0 && (!row.review.tags.length || row.tagsAutomatic) && !(row.review.allocationMode==='layers'&&row.review.allocations?.some(a=>a.cents>0)))
               changes.categoryId = categoryId;
@@ -199,7 +199,7 @@ class TransactionRuleStore {
               row.review.tags[0].cents === Math.abs(row.amountCents)
             ))
               reasons.push(
-                "Existing categories or a zero amount are protected.",
+                "It already has other tags.",
               );
           }
           const existingPerson =
@@ -207,7 +207,7 @@ class TransactionRuleStore {
           if (personId) {
             if (!existingPerson) changes.personId = personId;
             else if (existingPerson !== personId)
-              reasons.push("Existing person assignment is protected.");
+              reasons.push("It already has another person.");
           }
           status = Object.keys(changes).length
             ? "ready"
@@ -227,11 +227,11 @@ class TransactionRuleStore {
             status,
             reason:
               status === "conflict"
-                ? "Matching rules propose different mappings."
+                ? "Two rules would give it different tags or people."
                 : reasons.join(" ") ||
                   (status === "ready"
-                    ? "Fill unassigned fields."
-                    : "Mappings already assigned."),
+                    ? "Gets the tag or person it's missing."
+                    : "Already has what the rule gives."),
             changes,
             rules: matched.map((r) => r.name),
             ruleIds: matched.map((r) => r.id),

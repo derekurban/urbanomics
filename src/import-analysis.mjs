@@ -134,7 +134,14 @@ export function suggestType(names, rows = []) {
   const lower = names.join(" ").toLowerCase();
   return /credit|visa|mastercard|amex|card/.test(lower) || rows.some((r) => /payment.*thank/i.test(r.join(" "))) ? "Credit card" : /saving/.test(lower) ? "Savings" : /chequing|checking|everyday|daily|spending/.test(lower) ? "Chequing" : "";
 }
-export const suggestName = (start) => titleCase(start.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim());
+/* An account name from the part of the filename that stays: sentence case, without words that describe the
+   file rather than the account ("initial", "export", "statement"…). */
+const fileWords = /\b(initial|exports?|transactions?|statements?|downloads?|activity|history|reports?|csv|data|files?)\b/gi;
+export const suggestName = (start) => {
+  const spaced = start.replace(/[_-]+/g, " ").replace(/\s+/g, " ").trim();
+  const text = spaced.replace(fileWords, "").replace(/\s+/g, " ").trim() || spaced;
+  return text.charAt(0).toUpperCase() + text.slice(1);
+};
 /** The part of one filename that stays the same from export to export: its stem without trailing numbers or months. */
 export const fileStem = (name) => sharedStart([name]);
 
@@ -246,4 +253,33 @@ export function monthsCovered(rows, roles, dateFormat) {
   const d = Number(Object.keys(roles).find((k) => roles[k] === "date") ?? -1);
   if (d < 0 || !dateFormat) return [];
   return [...new Set(rows.map((r) => parseDate(r[d], dateFormat)?.slice(0, 7)).filter(Boolean))].sort();
+}
+
+/* ---------- plain-language rules for bank descriptions (aliases and transaction rules) ----------
+   Description patterns are searched anywhere in the text, ignoring case (RE2 "iu"), so the sentence
+   compiles without the filename forms' trailing wildcard. Anything else stays a custom pattern. */
+export function compileTextRule(rule) {
+  const e = escapeRegex((rule?.text || "").trim());
+  if (!e) return "";
+  switch (rule.mode) {
+    case "contains": return e;
+    case "ends": return `${e}$`;
+    case "exact": return `^${e}$`;
+    case "custom": return rule.text.trim();
+    default: return `^${e}`;
+  }
+}
+export function decompileTextRule(pattern) {
+  const p = (pattern || "").trim();
+  if (!p) return { mode: "starts", text: "" };
+  let m;
+  if ((m = /^\^((?:\\.|[^\\.*+?^${}()|[\]])+)\$$/.exec(p))) return { mode: "exact", text: unescapeRegex(m[1]) };
+  if ((m = /^\^((?:\\.|[^\\.*+?^${}()|[\]])+)$/.exec(p))) return { mode: "starts", text: unescapeRegex(m[1]) };
+  if ((m = /^((?:\\.|[^\\.*+?^${}()|[\]])+)\$$/.exec(p))) return { mode: "ends", text: unescapeRegex(m[1]) };
+  if ((m = /^((?:\\.|[^\\.*+?^${}()|[\]])+)$/.exec(p))) return { mode: "contains", text: unescapeRegex(m[1]) };
+  return { mode: "custom", text: p };
+}
+export function textMatches(pattern, text) {
+  if (!pattern?.trim()) return false;
+  try { return new RegExp(pattern.trim(), "iu").test(text || ""); } catch { return false; }
 }

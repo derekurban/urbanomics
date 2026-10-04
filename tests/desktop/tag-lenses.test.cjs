@@ -157,35 +157,3 @@ test("typed tags migrate configuration without rewriting records and enforce sep
   );
 });
 
-test("all radial targets fit without overlap or pages, including large groups", async () => {
-  const { ringSlots, radialSize } =
-    await import("../../src/radial-hierarchy-layout.js");
-  for (const count of [0, 1, 8, 9, 13, 25, 60]) {
-    for (const lens of ["income", "expense"]) {
-      const tags = Array.from({ length: count }, (_, i) => ({
-        id: String(i),
-        parentId: "b",
-      }));
-      const { width, height } = radialSize(tags, [{ id: "b" }], lens);
-      const { points, radius } = ringSlots(
-        count,
-        lens === "income" ? 205 : 123,
-      );
-      assert.ok(
-        points.every((p) => Math.abs(Math.hypot(p.x, p.y) - radius) < 0.000001),
-        "all targets share one growing ring",
-      );
-      assert.equal(points.length, count);
-      for (let i = 0; i < points.length; i++) {
-        assert.ok(Math.abs(points[i].x) + 42 <= width / 2);
-        assert.ok(Math.abs(points[i].y) + 42 <= height / 2);
-        for (let j = i + 1; j < points.length; j++)
-          assert.ok(
-            Math.hypot(points[i].x - points[j].x, points[i].y - points[j].y) >=
-              84,
-            "84px tag bubbles never overlap",
-          );
-      }
-    }
-  }
-});

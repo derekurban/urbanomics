@@ -3,11 +3,14 @@
 // words and asks only about what they could not prove. A kind can belong to more than one account
 // (one bank, one export format, several accounts): the accounts are tabs that stay on screen, the
 // file list always shows which account each file goes to, and the selected tab holds that account's
-// name, colour and recognition sentence, for new and existing accounts alike. Nothing is saved until
+// name, color and recognition sentence, for new and existing accounts alike. Nothing is saved until
 // Looks right; nothing imports until the last screen's Import. A finished kind can be reopened.
 import { Icon } from "@derekurban/design-system";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AccountDot, api, palette, plural } from "./snapshots-v2-atoms.jsx";
+import { Recognize } from "./recognize.jsx";
+import { FloatingMenu, Swatches } from "./ui.jsx";
+import { money } from "./format.js";
 import { PreviewTable } from "./snapshots-v2-layout.jsx";
 import {
   analyzeKind, compileRule, decompileRule, fileStem, formatLabel, fromMapping, monthsCovered, patternMatches,
@@ -16,7 +19,6 @@ import {
 
 const monthLabel = (m) => new Date(`${m}-15T12:00:00`).toLocaleDateString("en-CA", { month: "short", year: "numeric" });
 const readable = (iso) => (iso ? new Date(`${iso}T12:00:00`).toLocaleDateString("en-CA", { month: "short", day: "numeric", year: "numeric" }) : "");
-const money = (cents, currency = "CAD") => new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(cents / 100);
 const kindKeyOf = (inspect) => inspect.headers.join("\u0000");
 let groupSeq = 0;
 
@@ -37,8 +39,8 @@ function Stage({ title, lede, step, steps, onBack, backLabel = "Back", next, nex
       </header>
       <div className="sv2-g-body" key={bodyKey ?? title}>{children}</div>
       <footer className="sv2-g-foot">
-        {onBack ? <button type="button" className={backLabel === "Back" ? "" : "sv2-inline"} onClick={onBack}>{backLabel === "Back" && <span aria-hidden="true"><Icon name="arrow-left" size={15} /></span>}{backLabel}</button> : <span />}
-        {next && <button type="button" className="primary" disabled={nextDisabled} onClick={next}>{nextLabel}<span aria-hidden="true"><Icon name="arrow-right" size={15} /></span></button>}
+        {onBack ? <button type="button" className={backLabel === "Back" ? "" : "ghost"} onClick={onBack}>{backLabel === "Back" && <Icon name="arrow-left" size={16} />}{backLabel}</button> : <span />}
+        {next && <button type="button" className="primary" disabled={nextDisabled} onClick={next}>{nextLabel}<Icon name="arrow-right" size={16} /></button>}
       </footer>
     </section>
   );
@@ -47,7 +49,7 @@ function Stage({ title, lede, step, steps, onBack, backLabel = "Back", next, nex
 function Fact({ ok, children, why, action }) {
   return (
     <li className={`sv2-g-fact${ok ? " is-ok" : " is-open"}`}>
-      <span className="sv2-g-fact-mark" aria-hidden="true">{ok ? <Icon name="check" size={13} /> : "?"}</span>
+      <span className="sv2-g-fact-mark" aria-hidden="true"><Icon name={ok ? "check" : "circle-help"} size={16} /></span>
       <div className="sv2-g-fact-main">
         <div className="sv2-g-fact-text">{children}</div>
         {why && <small>{why}</small>}
@@ -57,92 +59,63 @@ function Fact({ ok, children, why, action }) {
   );
 }
 
-function Swatches({ value, onChange }) {
-  return (
-    <div className="sv2-g-swatches" role="group" aria-label="Account colour">
-      {palette.map((c) => (
-        <button key={c} type="button" aria-pressed={value?.toUpperCase() === c.toUpperCase()} aria-label={`Colour ${c}`} style={{ "--sv2-account": c }} onClick={() => onChange(c)}>
-          {value?.toUpperCase() === c.toUpperCase() ? <Icon name="check" size={12} /> : ""}
-        </button>
-      ))}
-      <label className="sv2-custom-color">Custom<input type="color" aria-label="Custom account colour" value={value || palette[0]} onChange={(e) => onChange(e.target.value)} /></label>
-    </div>
-  );
-}
-
-/* Plain-language recognition: the sentence is the rule, the chips are the proof. Files that go to
-   another account but match too are flagged, because two matching rules mean being asked every time. */
-function Recognize({ rule, onChange, candidates, others = [], lead = "Recognize files whose name", extraModes = [], patternFor = compileRule, what = "this account", label = "Text to match" }) {
-  const matches = (f) => patternMatches(patternFor(rule), f.filename);
-  const hits = candidates.filter(matches), strays = others.filter(matches);
-  const special = extraModes.some((m) => m.id === rule.mode);
-  const empty = !special && !rule.text.trim();
-  return (
-    <div className="sv2-g-recognize">
-      <div className="sv2-g-sentence">
-        <span>{lead}</span>
-        {rule.mode === "custom" ? <span className="sv2-g-custom-label">matches the pattern</span> : (
-          <select aria-label="How to match" value={rule.mode} onChange={(e) => onChange({ ...rule, mode: e.target.value })}>
-            {extraModes.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-            {ruleModes.map((m) => <option key={m.id} value={m.id}>{m.label}</option>)}
-          </select>
-        )}
-        {!special && <input aria-label={label} value={rule.text} spellCheck={false} maxLength={200} onChange={(e) => onChange({ ...rule, text: e.target.value })} />}
-        {rule.mode === "custom" && <button type="button" className="sv2-inline" onClick={() => onChange({ mode: "starts", text: "" })}>Use plain words</button>}
-      </div>
-      <div className="sv2-g-proof" role="status">
-        <small className={!empty && hits.length && !strays.length ? "" : "sv2-g-warn"}>
-          {empty ? `Nothing to match yet: ${what} would be chosen by hand each time.` : !hits.length ? `Matches none of ${what}'s files.` : strays.length ? `Also matches ${strays.map((f) => f.filename).join(", ")}, which ${strays.length === 1 ? "goes" : "go"} to another account, so ${strays.length === 1 ? "it" : "they"} would be asked about every time.` : hits.length === candidates.length ? `Matches ${candidates.length === 1 ? "the file" : `all ${candidates.length} files`} here.` : `Matches ${hits.length} of ${plural(candidates.length, "file", "files")} here.`}
-        </small>
-        <div className="sv2-g-chips">{[...candidates, ...others].map((f) => { const on = matches(f), stray = on && others.includes(f); return <span key={f.id} className={`sv2-g-chip${stray ? " is-stray" : on ? " is-on" : ""}`}><Icon name={stray ? "x" : on ? "check" : "circle-dashed"} size={12} />{f.filename}</span>; })}</div>
-      </div>
-    </div>
-  );
-}
-
-/* Table-first columns: click a heading, say what it holds. */
+/* Table-first columns: click a heading, say what it holds. The menu floats above the scrolling table. */
 function ColumnMapper({ headers, rows, roles, onChange }) {
   const [open, setOpen] = useState(null);
+  const anchors = useRef({});
   const set = (i, role) => {
     const next = { ...roles };
     for (const k of Object.keys(next)) if (next[k] === role) delete next[k];
     if (role) next[i] = role; else delete next[i];
     onChange(next);
-    setOpen(null);
   };
   return (
     <div className="sv2-g-mapper">
       <table>
         <thead><tr>{headers.map((h, i) => (
           <th key={i} className={roles[i] ? "is-set" : ""}>
-            <button type="button" className={`sv2-g-col${open === i ? " is-open" : ""}`} aria-expanded={open === i} aria-label={`Column ${h}: ${roles[i] ? roleLabel[roles[i]] : "not used"}`} onClick={() => setOpen(open === i ? null : i)}>
-              <span className="sv2-g-col-role">{roles[i] ? roleLabel[roles[i]] : <em>Not used</em>}</span>
-              <span className="sv2-g-col-name">{h}</span>
+            <button type="button" ref={(el) => (anchors.current[i] = el)} className={`sv2-g-col${open === i ? " is-open" : ""}`} aria-haspopup="menu" aria-expanded={open === i} aria-label={`Column ${h}: ${roles[i] ? roleLabel[roles[i]] : "not used"}`} onClick={() => setOpen(open === i ? null : i)}>
+              <span className="sv2-g-col-role">{roles[i] ? roleLabel[roles[i]] : "Not used"}</span>
+              <span className="sv2-g-col-name">{h}<Icon name="chevron-down" size={16} /></span>
             </button>
-            {open === i && (
-              <div className="sv2-g-menu" role="menu">
-                {Object.entries(roleLabel).map(([id, label]) => <button key={id} type="button" role="menuitemradio" aria-checked={roles[i] === id} onClick={() => set(i, id)}>{label}</button>)}
-                <button type="button" role="menuitem" className="is-quiet" onClick={() => set(i, null)}>Not used</button>
-              </div>
-            )}
           </th>
         ))}</tr></thead>
         <tbody>{rows.slice(0, 4).map((r, ri) => <tr key={ri}>{headers.map((_, i) => <td key={i} className={roles[i] ? "is-set" : ""}>{r[i] || <span className="sv2-g-blank">—</span>}</td>)}</tr>)}</tbody>
       </table>
+      {open != null && (
+        <FloatingMenu
+          anchor={anchors.current[open]}
+          label={`What column ${headers[open]} holds`}
+          onClose={() => setOpen(null)}
+          onSelect={(value) => set(open, value === "none" ? null : value)}
+          items={[
+            ...Object.entries(roleLabel).map(([id, label]) => ({ value: id, label, selected: roles[open] === id })),
+            { type: "divider" },
+            { value: "none", label: "Not used", selected: !roles[open] },
+          ]}
+        />
+      )}
     </div>
   );
 }
 
 /* ---------- account tabs within a kind ----------
-   A tab is one account: what it is called, coloured and recognized by. Which files go to it follows
+   A tab is one account: what it is called, colored and recognized by. Which files go to it follows
    from its recognition sentence, so the sentence and the assignment can never disagree. A file no
    sentence matches can be sent to a tab by hand for this batch only. An existing account carries its
    stored values and is saved back only if changed. */
 const fromAccount = (a) => ({ id: "g" + ++groupSeq, existingId: a.id, name: a.name, type: a.kind || "", color: a.color, rule: decompileRule(a.prefixRegex || "") });
-const freshTab = (jobs, rows, colorIx) => {
-  const names = jobs.map((j) => j.filename), start = sharedStart(names);
-  return { id: "g" + ++groupSeq, existingId: null, name: names.length ? suggestName(start || fileStem(names[0])) : "", type: suggestType(names, rows), color: palette[colorIx % palette.length], rule: { mode: "starts", text: start || (names.length === 1 ? fileStem(names[0]) : "") } };
+/* A new account takes the first palette color no account or other new account in this batch uses yet. */
+const pickColor = (taken) => {
+  const free = palette.find((c) => !taken.has(c.toUpperCase())) || palette[taken.size % palette.length];
+  taken.add(free.toUpperCase());
+  return free;
 };
+const freshTab = (jobs, rows, taken) => {
+  const names = jobs.map((j) => j.filename), start = sharedStart(names);
+  return { id: "g" + ++groupSeq, existingId: null, name: names.length ? suggestName(start || fileStem(names[0])) : "", type: suggestType(names, rows), color: pickColor(taken), rule: { mode: "starts", text: start || (names.length === 1 ? fileStem(names[0]) : "") } };
+};
+const takenColors = (accounts, state, except) => new Set([...accounts.map((a) => (a.color || "").toUpperCase()), ...Object.entries(state).filter(([key]) => key !== except).flatMap(([, st]) => (st.tabs || []).map((g) => g.color.toUpperCase()))]);
 /* Which tab a file goes to: the one tab whose sentence matches its name; failing that, a hand-picked
    tab for this batch; two matching sentences are ambiguous and need a hand pick. */
 function resolveFile(job, tabs, manual) {
@@ -155,7 +128,7 @@ function resolveFile(job, tabs, manual) {
 /* Files already assigned, or matched by an existing rule, start on that account. The rest are grouped
    by what stays the same in their names: two files from one bank's export format with different stems
    (a card and a chequing account) become two tabs; three months of one export stay one. */
-function initialTabs(kind, accounts, byId, rows) {
+function initialTabs(kind, accounts, byId, rows, taken) {
   const tabs = [], known = new Map(), rest = [], manual = {};
   for (const job of kind.jobs) {
     const acc = byId[job.accountId] || accounts.find((a) => a.prefixRegex && patternMatches(a.prefixRegex, job.filename));
@@ -164,8 +137,7 @@ function initialTabs(kind, accounts, byId, rows) {
   for (const [id, jobs] of known) { const tab = fromAccount(byId[id]); tabs.push(tab); for (const job of jobs) if (!patternMatches(byId[id].prefixRegex || "", job.filename)) manual[job.id] = tab.id; }
   const byStem = new Map();
   for (const job of rest) { const key = fileStem(job.filename).toLowerCase(); if (!byStem.has(key)) byStem.set(key, []); byStem.get(key).push(job); }
-  let colorIx = accounts.length;
-  for (const jobs of byStem.values()) { const tab = freshTab(jobs, rows, colorIx++); tabs.push(tab); for (const job of jobs) if (!ruleMatches(tab.rule, job.filename)) manual[job.id] = tab.id; }
+  for (const jobs of byStem.values()) { const tab = freshTab(jobs, rows, taken); tabs.push(tab); for (const job of jobs) if (!ruleMatches(tab.rule, job.filename)) manual[job.id] = tab.id; }
   return { tabs, manual };
 }
 const groupLabel = (g) => g.name.trim() || "New account";
@@ -224,7 +196,7 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
         const rows = kind.files.flatMap((f) => f.rows);
         if (current[kind.key]) {
           const st = current[kind.key];
-          if (st.jobIds !== ids && !st.groupsTouched) { next = { ...next, [kind.key]: { ...st, jobIds: ids, ...initialTabs(kind, accounts, byId, rows), analysis: analyzeKind({ headers: kind.headers, files: kind.files }) } }; changed = true; }
+          if (st.jobIds !== ids && !st.groupsTouched) { next = { ...next, [kind.key]: { ...st, jobIds: ids, ...initialTabs(kind, accounts, byId, rows, takenColors(accounts, next, kind.key)), analysis: analyzeKind({ headers: kind.headers, files: kind.files }) } }; changed = true; }
           continue;
         }
         const an = analyzeKind({ headers: kind.headers, files: kind.files });
@@ -233,7 +205,7 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
           analysis: an, roles: tpl ? fromMapping(tpl.mapping) : an.roles, changed: false, saved: false, jobIds: ids, groupsTouched: false,
           dateFormat: tpl ? tpl.mapping.dateFormat : an.dateFits.length === 1 ? an.dateFits[0] : null, dateChosen: false,
           sign: tpl ? tpl.mapping.sign : an.sign, currency: tpl?.mapping.currency || "CAD",
-          ...initialTabs(kind, accounts, byId, rows),
+          ...initialTabs(kind, accounts, byId, rows, takenColors(accounts, next, kind.key)),
           layoutRule: tpl ? decompileRule(tpl.prefixRegex || "") : { mode: "accounts", text: "" },
           columns: false, dates: null, preview: null, previewError: "",
         } };
@@ -279,11 +251,14 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
     const loading = kinds.pending > 0;
     return (
       <Stage
-        title={loading ? "Reading your files…" : `We found ${plural(jobs.length, "file", "files")}.`}
-        lede={loading ? "Looking at the columns and the first rows of each one." : `${plural(kinds.list.length, "kind", "kinds")} of export${kinds.unreadable.length ? ` and ${plural(kinds.unreadable.length, "file", "files")} that cannot be read` : ""}. ${todo.length ? `${todo.length === kinds.list.length ? "How to read them" : "How to read the new ones"} was worked out from the cells inside; ${totalOpen ? `${plural(totalOpen, "thing", "things")} still ${totalOpen === 1 ? "needs" : "need"} your call.` : "nothing needs your call."}` : "Everything is recognized and ready to import."}`}
+        title={loading ? "Reading your files…" : `You added ${plural(jobs.length, "file", "files")}.`}
+        lede={loading ? "Looking at the columns and the first rows of each one." : [
+          kinds.list.length > 1 ? `They come in ${kinds.list.length} export formats` : jobs.length > 1 ? "They share one export format" : "",
+          kinds.unreadable.length ? `${plural(kinds.unreadable.length, "file", "files")} can't be read` : "",
+        ].filter(Boolean).join(", and ").replace(/^(.)/, (c) => c.toUpperCase()) + (kinds.list.length > 1 || jobs.length > 1 || kinds.unreadable.length ? ". " : "") + (todo.length ? `Columns, dates and signs were read from the files themselves; ${totalOpen ? `${plural(totalOpen, "question", "questions")} ${totalOpen === 1 ? "needs" : "need"} your answer.` : "nothing needs your answer."}` : "Everything is recognized and ready to import.")}
         step={1} steps={steps} bodyKey="intro"
-        aside={onGuide && <button type="button" className="sv2-inline" onClick={onGuide}>How this works</button>}
-        onBack={settled ? onBack : onRemoveAll} backLabel={settled ? "Back to snapshots" : "Remove all files"}
+        aside={<span className="sv2-g-aside">{onGuide && <button type="button" className="link" onClick={onGuide}>How importing works</button>}<button type="button" className="link" disabled={busy} onClick={onRemoveAll}>Remove all files</button></span>}
+        onBack={onBack} backLabel={settled ? "Back to snapshots" : "Set up later"}
         next={() => startWalk(todo[0]?.key || "check")} nextLabel={todo.length ? "Walk me through it" : "Check and import"} nextDisabled={loading || !kinds.list.length}
       >
         <ul className="sv2-g-found">
@@ -299,15 +274,15 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
               <li key={kind.key} className={kind.ready ? "is-known" : ""} style={{ "--sv2-account": color }}>
                 <span className="sv2-g-found-mark" aria-hidden="true"><Icon name={kind.ready ? "circle-check" : "circle-dashed"} size={18} /></span>
                 <div className="sv2-g-found-main">
-                  <b>{names.join(", ") || "New account"}{type ? <span className="sv2-quiet"> · {type.toLowerCase()}</span> : null}</b>
+                  <b>{names.join(", ") || "New account"}{type ? <span className="sv2-quiet"> · {type}</span> : null}</b>
                   <small>{plural(kind.jobs.length, "file", "files")}{names.length > 1 ? ` · ${plural(names.length, "account", "accounts")}` : ""}{months.length ? ` · ${months.length === 1 ? monthLabel(months[0]) : `${monthLabel(months[0])} to ${monthLabel(months.at(-1))}`}` : ""}</small>
                   <span className={`sv2-g-found-status${q ? " is-open" : ""}`}>
-                    {kind.ready ? (st?.saved ? "Set up" : "Already yours, recognized by name") : q ? `${plural(q, "question", "questions")} for you` : "Columns, dates and signs worked out"}
-                    {kind.ready && <button type="button" className="sv2-inline" onClick={() => startWalk(kind.key)}>Review</button>}
+                    {kind.ready ? (st?.saved ? "Set up" : "Recognized from earlier imports") : q ? `${plural(q, "question", "questions")} for you` : "Columns, dates and signs worked out"}
+                    {kind.ready && <button type="button" className="link" onClick={() => startWalk(kind.key)}>Review</button>}
                   </span>
                 </div>
                 <div className="sv2-g-found-files">{kind.jobs.map((j) => (
-                  <span key={j.id} className="sv2-g-chip is-on">{j.filename}<button type="button" aria-label={`Remove ${j.filename}`} title="Remove this file" disabled={busy} onClick={() => run(() => api.dismiss(j.id), "File removed. Its archived copy stays.")}><Icon name="x" size={11} /></button></span>
+                  <span key={j.id} className="sv2-g-chip">{j.filename}<button type="button" className="icon ghost sm" aria-label={`Remove ${j.filename}`} title="Remove this file" disabled={busy} onClick={() => run(() => api.dismiss(j.id), "File removed. Its archived copy stays.")}><Icon name="x" size={16} /></button></span>
                 ))}</div>
               </li>
             );
@@ -315,7 +290,7 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
           {kinds.unreadable.map(({ job, error }) => (
             <li key={job.id} className="is-bad">
               <span className="sv2-g-found-mark" aria-hidden="true"><Icon name="file-x" size={18} /></span>
-              <div className="sv2-g-found-main"><b>{job.filename}</b><small>{error}</small><span className="sv2-g-found-status is-open">Cannot be read<button type="button" className="sv2-inline" disabled={busy} onClick={() => run(() => api.dismiss(job.id), "File removed. Its archived copy stays.")}>Remove</button></span></div>
+              <div className="sv2-g-found-main"><b>{job.filename}</b><small>{error}</small><span className="sv2-g-found-status is-open">Can't be read<button type="button" className="link" disabled={busy} onClick={() => run(() => api.dismiss(job.id), "File removed. Its archived copy stays.")}>Remove</button></span></div>
               <div className="sv2-g-found-files" />
             </li>
           ))}
@@ -327,20 +302,21 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
   /* ---- check and import ---- */
   if (screen === "check") {
     const ready = jobs.filter((j) => j.schema && j.accountId && j.status === "queued");
-    const layoutName = (j) => templates.find((t) => "custom:" + t.id === j.schema)?.name || (j.schema ? "saved layout" : "no layout");
     return (
       <Stage title="Ready to import" lede="Nothing has been imported yet. Each row is filed by its own date into its account's month; rows already recorded are matched, not added again." step={steps} steps={steps} bodyKey="check"
         onBack={() => setScreen(screens[steps - 2])}
         next={async () => { const value = await run(() => api.processImportBatch(ready.map((j) => j.id))); if (value !== false) onImported(value); }}
         nextLabel={progress ? `Importing ${progress.done} / ${progress.total}` : `Import ${plural(ready.length, "file", "files")}`} nextDisabled={!ready.length || ready.length !== jobs.length || busy}
       >
-        <ul className="sv2-g-plan">{jobs.map((j) => { const a = byId[j.accountId]; return (
-          <li key={j.id} className={ready.includes(j) ? "" : "is-open"}>
-            <AccountDot color={a?.color} /><span>{j.filename}</span><small>{a?.name || "no account"} · {layoutName(j)}{j.rowCount != null ? ` · ${plural(j.rowCount, "row", "rows")}` : ""}</small>
-            <span className="sv2-g-fact-mark" aria-hidden="true">{ready.includes(j) ? <Icon name="check" size={13} /> : "?"}</span>
+        <ul className="sv2-g-plan">{jobs.map((j) => { const a = byId[j.accountId], ok = ready.includes(j), home = kinds.list.find((k) => k.jobs.some((x) => x.id === j.id)); return (
+          <li key={j.id} className={ok ? "" : "is-open"}>
+            <span className="sv2-g-fact-mark" aria-hidden="true"><Icon name={ok ? "check" : "circle-help"} size={16} /></span>
+            <span className="sv2-g-plan-file"><AccountDot color={a?.color} /><span>{j.filename}</span></span>
+            <small>{ok ? `${a?.name}${j.rowCount != null ? ` · ${plural(j.rowCount, "row", "rows")}` : ""}` : "Not set up yet"}</small>
+            {!ok && <span className="sv2-g-plan-actions">{home && <button type="button" className="sm" onClick={() => startWalk(home.key)}>Set up</button>}<button type="button" className="sm ghost" disabled={busy} onClick={() => run(() => api.dismiss(j.id), "File removed. Its archived copy stays.")}>Remove</button></span>}
           </li>
         ); })}</ul>
-        {ready.length !== jobs.length && <p className="sv2-g-warn">{plural(jobs.length - ready.length, "file is", "files are")} not set up. Go back and finish them, or remove them from the intro.</p>}
+        {ready.length !== jobs.length && <p className="form-help">{jobs.length - ready.length === 1 ? "One file isn't set up yet. Set it up or remove it to import the rest." : `${jobs.length - ready.length} files aren't set up yet. Set them up or remove them to import the rest.`}</p>}
       </Stage>
     );
   }
@@ -447,7 +423,7 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
   // Tabs: edit the selected one, add one for an existing or a new account, send an unmatched file to one by hand.
   const setTabs = (fn) => upd((cur) => ({ tabs: fn(cur.tabs), groupsTouched: true }));
   const editTab = (gid, patch) => setTabs((gs) => gs.map((g) => (g.id === gid ? { ...g, ...patch } : g)));
-  const addTab = (account) => { const g = account ? fromAccount(account) : freshTab([], rows, accounts.length + st.tabs.length); setTabs((gs) => [...gs, g]); setTab(g.id); setAdding(false); };
+  const addTab = (account) => { const g = account ? fromAccount(account) : freshTab([], rows, new Set([...accounts.map((a) => (a.color || "").toUpperCase()), ...st.tabs.map((t) => t.color.toUpperCase())])); setTabs((gs) => [...gs, g]); setTab(g.id); setAdding(false); };
   const removeTab = (gid) => setTabs((gs) => gs.filter((g) => g.id !== gid));
   const sendTo = (jobId, gid) => upd((cur) => ({ manual: { ...cur.manual, [jobId]: gid }, groupsTouched: true }));
   const signExamples = (sign) => readRows(rows.slice(0, 2), st.roles, { sign, dateFormat: st.dateFormat }).map((r) => `${r.text} ${money(r.cents, st.currency)}`).join(" · ");
@@ -458,26 +434,32 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
 
   return (
     <Stage
-      title={`${total > 1 ? `${n} of ${total}: ` : ""}${kind.jobs.length === 1 ? "one file on its own" : `${kind.jobs.length} files that look alike`}`}
-      lede={kind.ready ? "Already set up. Change anything here and save it again." : open ? `Almost everything is worked out. ${plural(open, "thing", "things")} below ${open === 1 ? "needs" : "need"} your call.` : kind.template ? `Read with your saved layout “${kind.template.name}”. Change anything that is not right.` : "Everything here was worked out from the files. Change anything that is not right."}
+      title={`${total > 1 ? `${n} of ${total}: ` : ""}${kind.jobs.length === 1 ? first.filename : `${kind.jobs.length} files with the same columns`}`}
+      lede={kind.ready ? "Already set up. Change anything here and save it again." : open ? (open === 1 ? "Almost everything is worked out. One question below needs your answer." : `Almost everything is worked out. ${open} questions below need your answer.`) : kind.template ? `Read the way you set up “${kind.template.name}”. Change anything that isn't right.` : "Everything here was worked out from the files. Change anything that isn't right."}
       step={step} steps={steps} bodyKey={kind.key} wide onBack={onBack}
       next={confirm} nextLabel={kind.ready ? (dirty ? "Save changes" : "Done") : n < total ? "Looks right, next" : "Looks right"} nextDisabled={kind.ready && !dirty ? false : !canConfirm}
     >
       <div className="sv2-g-two">
         <section className="sv2-g-block" aria-label={live.length > 1 ? "The accounts" : "The account"}>
           <h4>{live.length > 1 ? "The accounts" : "The account"}</h4>
-          <div className="sv2-g-tabs" role="tablist" aria-label="Accounts for these files">
-            {st.tabs.map((g) => { const n = filesOf(g).length; return (
-              <button key={g.id} type="button" role="tab" aria-selected={current?.id === g.id} className="sv2-g-tab" style={{ "--sv2-account": g.color }} onClick={() => { setTab(g.id); setAdding(false); }}>
-                <AccountDot color={g.color} />{groupLabel(g)}<small className={n ? "" : "sv2-g-warn"}>{n}</small>
-              </button>
-            ); })}
-            <button type="button" className="sv2-g-tab is-add" aria-expanded={adding} onClick={() => setAdding((v) => !v)}><Icon name="plus" size={13} /> Add account</button>
+          <div className="sv2-g-tabrow">
+            <div className="sv2-g-tabs" role="tablist" aria-label="Accounts for these files" onKeyDown={(e) => {
+              if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+              const at = st.tabs.findIndex((g) => g.id === current?.id), next = st.tabs[(at + (e.key === "ArrowRight" ? 1 : -1) + st.tabs.length) % st.tabs.length];
+              if (next) { setTab(next.id); e.currentTarget.querySelector(`[data-tab="${next.id}"]`)?.focus(); }
+            }}>
+              {st.tabs.map((g) => { const n = filesOf(g).length; return (
+                <button key={g.id} type="button" role="tab" data-tab={g.id} id={`tab-${g.id}`} aria-controls={`panel-${kind.key.length}-${g.id}`} aria-selected={current?.id === g.id} tabIndex={current?.id === g.id ? 0 : -1} className="sv2-g-tab" onClick={() => { setTab(g.id); setAdding(false); }}>
+                  <AccountDot color={g.color} />{groupLabel(g)}<small className={n ? "" : "is-warn"} aria-label={plural(n, "file", "files")}>{n}</small>
+                </button>
+              ); })}
+            </div>
+            <button type="button" className="sm ghost" aria-expanded={adding} onClick={() => setAdding((v) => !v)}><Icon name="plus" size={16} />Add account</button>
           </div>
           {adding && (
-            <div className="sv2-g-row sv2-g-wrap sv2-g-add" role="group" aria-label="Add an account tab">
-              {spareAccounts.map((a) => <button key={a.id} type="button" className="sv2-account-chip" style={{ "--sv2-account": a.color }} onClick={() => addTab(a)}><AccountDot color={a.color} />{a.name}</button>)}
-              <button type="button" className="sv2-account-new" onClick={() => addTab(null)}>+ New account</button>
+            <div className="sv2-g-row sv2-g-wrap sv2-g-add" role="group" aria-label="Add an account">
+              {spareAccounts.map((a) => <button key={a.id} type="button" className="sm" onClick={() => addTab(a)}><AccountDot color={a.color} />{a.name}</button>)}
+              <button type="button" className="sm" onClick={() => addTab(null)}><Icon name="plus" size={16} />New account</button>
             </div>
           )}
           {(kind.jobs.length > 1 || st.tabs.length > 1 || unplaced.length > 0) && (
@@ -485,25 +467,26 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
               {kind.jobs.map((j) => { const r = resolved[j.id]; return (
                 <li key={j.id} className={r.tab && current && r.tab.id === current.id ? "is-current" : r.tab ? "" : "is-open"}>
                   <AccountDot color={r.tab?.color} /><span className="sv2-g-filename">{j.filename}</span>
-                  <span className={`sv2-g-filewhere${r.tab ? "" : " sv2-g-warn"}`}>
-                    {r.tab ? <>{groupLabel(r.tab)}{r.how === "manual" ? <small> · by hand this time</small> : null}</> : r.how === "ambiguous" ? `Matches ${r.matches.map(groupLabel).join(" and ")}` : "No sentence matches this name"}
-                    {!r.tab && current && <button type="button" className="sv2-inline" onClick={() => sendTo(j.id, current.id)}>Use {groupLabel(current)} this time</button>}
+                  <span className={`sv2-g-filewhere${r.tab ? "" : " is-warn"}`}>
+                    {r.tab ? <>{groupLabel(r.tab)}{r.how === "manual" ? <small> · chosen by hand this time</small> : null}</> : r.how === "ambiguous" ? `Both ${r.matches.map(groupLabel).join(" and ")} recognize this name` : "No account recognizes this name"}
                   </span>
+                  {!r.tab && current && <button type="button" className="sm" onClick={() => sendTo(j.id, current.id)}>Use {groupLabel(current)} this time</button>}
                 </li>
               ); })}
             </ul>
           )}
           {current && (
-            <div className="sv2-g-tabpanel" role="tabpanel" style={{ "--sv2-account": current.color }}>
+            <div className="sv2-g-tabpanel" role="tabpanel" id={`panel-${kind.key.length}-${current.id}`} aria-labelledby={`tab-${current.id}`}>
               <div className="sv2-g-row">
                 <input aria-label="Account name" value={current.name} maxLength={80} placeholder="Account name" onChange={(e) => editTab(current.id, { name: e.target.value })} />
-                <input aria-label="Account type" className="sv2-g-type" value={current.type || ""} maxLength={40} placeholder="type, optional" onChange={(e) => editTab(current.id, { type: e.target.value })} />
+                <input aria-label="Account type" className="sv2-g-type" value={current.type || ""} maxLength={40} placeholder="Type (optional)" onChange={(e) => editTab(current.id, { type: e.target.value })} />
               </div>
-              <Swatches value={current.color} onChange={(color) => editTab(current.id, { color })} />
-              <Recognize rule={current.rule} onChange={(rule) => editTab(current.id, { rule })} candidates={currentJobs} others={otherJobs} />
+              <Swatches colors={palette} value={current.color} label="Account color" onChange={(color) => editTab(current.id, { color })} />
+              <Recognize rule={current.rule} onChange={(rule) => editTab(current.id, { rule })} candidates={currentJobs} others={otherJobs}
+                hint={!current.existingId && currentJobs.length === 1 && current.rule.mode === "starts" && current.rule.text === currentJobs[0].filename.replace(/.[^.]+$/, "") ? "This is the whole filename. If next month's export is named differently, shorten it to the part that stays the same." : ""} />
               <div className="sv2-g-row sv2-g-between">
                 <small>{current.existingId ? (accountChanged(current) ? "Changes here are saved to this account." : "Saved with this account.") : `Next time, files matching this go to ${groupLabel(current)} on their own.`}</small>
-                {!currentJobs.length && <button type="button" className="sv2-inline" onClick={() => removeTab(current.id)}>Remove this tab</button>}
+                {!currentJobs.length && <button type="button" className="link" onClick={() => removeTab(current.id)}>Remove from this list</button>}
               </div>
             </div>
           )}
@@ -514,17 +497,27 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
           <ul className="sv2-g-facts">
             {dateCol != null ? (
               <Fact ok={!dateOpen} why={!st.dates ? "checking every date in the file…" : st.dates.status === "conclusive" ? `all ${st.dates.rowCount.toLocaleString()} rows read only as ${formatLabel[st.dates.suggested]}` : st.dates.status === "error" ? st.dates.error : st.dateFormat ? "your choice" : undefined}
-                action={st.dates && st.dateFormat && fits.length > 1 && !showDates ? <button type="button" className="sv2-inline" onClick={() => setShowDates(true)}>Change</button> : null}>
+                action={st.dates && st.dateFormat && fits.length > 1 && !showDates ? <button type="button" className="link" onClick={() => setShowDates(true)}>Change</button> : null}>
                 Dates in <b>{H[dateCol]}</b>{st.dateFormat ? <>, written {formatLabel[st.dateFormat]}</> : null}
-                {st.dates && (dateOpen || showDates) && st.dates.status !== "error" && (
+                {st.dates && (dateOpen || showDates) && st.dates.status !== "error" && st.dates.status !== "invalid" && (
                   <div className="sv2-g-choice">
-                    {(st.dates.status === "invalid" ? st.dates.candidates.filter((c) => c.validCount > 0) : st.dates.candidates.filter((c) => fits.includes(c.format))).map((c) => (
-                      <button type="button" key={c.format} aria-pressed={st.dateFormat === c.format} disabled={!fits.includes(c.format)} onClick={() => { upd({ dateFormat: c.format, dateChosen: true, changed: true }); setShowDates(false); }}>
+                    {st.dates.candidates.filter((c) => fits.includes(c.format)).map((c) => (
+                      <button type="button" key={c.format} aria-pressed={st.dateFormat === c.format} onClick={() => { upd({ dateFormat: c.format, dateChosen: true, changed: true }); setShowDates(false); }}>
                         <b>{formatLabel[c.format]}</b>
-                        <small>{c.example ? `${c.example.raw} → ${readable(c.example.date)}` : ""}{!fits.includes(c.format) && c.firstInvalid ? ` · record ${c.firstInvalid.record} “${c.firstInvalid.raw}” does not fit` : ""}</small>
+                        <small>{c.example ? `${c.example.raw} → ${readable(c.example.date)}` : ""}</small>
                       </button>
                     ))}
-                    {st.dates.status === "invalid" && <small className="sv2-g-warn">No single order reads every row. Check the file for mixed or invalid dates, or pick a different column below.</small>}
+                  </div>
+                )}
+                {st.dates?.status === "invalid" && (
+                  <div className="sv2-g-problem">
+                    <p>No single date order reads every row, so this file can't be imported as it is.</p>
+                    <ul>{st.dates.candidates.filter((c) => c.firstInvalid).map((c) => <li key={c.format}>Read as {formatLabel[c.format]}, row {c.firstInvalid.record} (“{c.firstInvalid.raw || "blank"}”) isn't a date.</li>)}</ul>
+                    <p>Fix the dates in the file and add it again, or choose another column if this one isn't the date.</p>
+                    <div className="sv2-g-row sv2-g-wrap">
+                      <button type="button" className="sm" onClick={() => upd({ columns: true })}>Choose another date column</button>
+                      <button type="button" className="sm danger" disabled={busy} onClick={() => run(async () => { for (const j of kind.jobs) await api.dismiss(j.id); }, kind.jobs.length === 1 ? "File removed. Its archived copy stays." : "Files removed. Their archived copies stay.")}>{kind.jobs.length === 1 ? "Remove this file" : "Remove these files"}</button>
+                    </div>
                   </div>
                 )}
               </Fact>
@@ -532,7 +525,7 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
             {colOf("description") != null ? <Fact ok why={st.changed ? undefined : st.analysis.because.description}>Descriptions in <b>{H[colOf("description")]}</b></Fact> : <Fact ok={false}>No column for descriptions yet. Choose one below.</Fact>}
             {amountCol != null && (
               <Fact ok={st.sign != null} why={st.sign != null ? (st.changed ? undefined : st.analysis.because.sign || st.analysis.because.amount) : st.changed ? undefined : st.analysis.because.amount}
-                action={st.sign != null ? <button type="button" className="sv2-inline" onClick={() => upd({ sign: null })}>Change</button> : null}>
+                action={st.sign != null ? <button type="button" className="link" onClick={() => upd({ sign: null })}>Change</button> : null}>
                 Amounts in <b>{H[amountCol]}</b>{st.sign != null ? <>; positive means <b>{st.sign === 1 ? "money in" : "money out"}</b></> : null}
                 {st.sign == null && (
                   <div className="sv2-g-choice">
@@ -542,8 +535,8 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
               </Fact>
             )}
             {colOf("debit") != null && colOf("credit") != null && (
-              <Fact ok why={st.changed ? undefined : st.analysis.because.debit} action={<button type="button" className="sv2-inline" onClick={() => changeRoles({ ...st.roles, [colOf("debit")]: "credit", [colOf("credit")]: "debit" })}>Swap</button>}>
-                Money out in <b>{H[colOf("debit")]}</b>, money in in <b>{H[colOf("credit")]}</b>
+              <Fact ok why={st.changed ? undefined : st.analysis.because.debit} action={<button type="button" className="link" onClick={() => changeRoles({ ...st.roles, [colOf("debit")]: "credit", [colOf("credit")]: "debit" })}>Swap</button>}>
+                <b>{H[colOf("debit")]}</b> holds money out and <b>{H[colOf("credit")]}</b> money in
               </Fact>
             )}
             {amountCol == null && (colOf("debit") == null || colOf("credit") == null) && <Fact ok={false}>No amounts yet: choose one signed column, or a money-out and a money-in column, below.</Fact>}
@@ -551,14 +544,14 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
             <Fact ok action={<select aria-label="Currency" value={st.currency} onChange={(e) => upd({ currency: e.target.value, changed: true })}>{["CAD", "USD", "EUR", "GBP"].map((c) => <option key={c}>{c}</option>)}</select>}>Amounts in <b>{st.currency}</b></Fact>
             {H.some((_, i) => !st.roles[i]) && <Fact ok>Not used: {H.filter((_, i) => !st.roles[i]).join(", ")}</Fact>}
           </ul>
-          <button type="button" className="sv2-inline" onClick={() => upd({ columns: !st.columns })}>{st.columns ? "Hide the columns" : "Not right? Change the columns"}</button>
+          <button type="button" className="link sv2-g-columns-toggle" onClick={() => upd({ columns: !st.columns })}>{st.columns ? "Hide the columns" : "Not right? Change the columns"}</button>
           {st.columns && <ColumnMapper headers={H} rows={rows} roles={st.roles} onChange={changeRoles} />}
-          <div className="sv2-g-layoutrule">
-            <h4>Reading future files this way</h4>
-            <Recognize lead="Read this way: files whose name" rule={st.layoutRule} onChange={(layoutRule) => upd({ layoutRule })} candidates={kind.jobs} extraModes={[{ id: "accounts", label: "is recognized by one of these accounts" }]} patternFor={layoutPatternFor} what="this layout" label="Layout text to match" />
-            <small>{st.layoutRule.mode === "accounts" ? "Any file one of these accounts recognizes is read with these columns." : "A file whose name matches is read with these columns, whichever account it goes to."}</small>
-          </div>
-          {st.previewError && <p className="sv2-error" role="alert">{st.previewError}</p>}
+          <details className="sv2-g-layoutrule" open={st.layoutRule.mode !== "accounts" || undefined}>
+            <summary>Which future files are read this way</summary>
+            <p className="form-help">Usually the files these accounts recognize. Change this only when other files share these columns.</p>
+            <Recognize lead="Files whose name" rule={st.layoutRule} onChange={(layoutRule) => upd({ layoutRule })} candidates={kind.jobs} extraModes={[{ id: "accounts", label: "is recognized by one of these accounts" }]} patternFor={layoutPatternFor} what="these columns" label="Text to match for these columns" />
+          </details>
+          {st.previewError && <p className="alert" role="alert">{st.previewError}</p>}
           {st.preview && <PreviewTable rows={st.preview.preview.slice(0, 3)} caption={`All ${plural(st.preview.rowCount, "row", "rows")} read. The first ones as they will be recorded:`} />}
         </section>
       </div>

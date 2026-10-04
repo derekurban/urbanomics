@@ -1,59 +1,31 @@
+import { Icon } from "@derekurban/design-system";
 import { AppearanceWorkspace } from "./AppearanceWorkspace.jsx";
 import { AboutWorkspace } from "./AboutWorkspace.jsx";
 import { AdminWorkspace } from "./AdminWorkspace.jsx";
 import { categoryColors } from "./category-colors.js";
-import { eventDateLabel } from "../electron/review/event-model.mjs";
 import React, { useEffect, useMemo, useState } from "react";
 import { TagHierarchy } from "./TagHierarchy.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
 import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
 import { RulesWorkspace } from "./RulesWorkspace.jsx";
 import { TransferLab } from "./TransferLab.jsx";
+import { palette } from "./snapshots-v2-atoms.jsx";
+import { Alert, PageTabs, PersonAvatar } from "./ui.jsx";
+import { plural } from "./format.js";
 import "./organize-workspace.css";
 
 const api = window.urbanomics;
+// Everyday sections first, maintenance last. The id stays "admin" so older addresses keep working.
 const sections = [
-  ["category", "Categories & tags"],
-  ["person", "People"],
-  ["aliases", "Aliases"],
-  ["rules", "Rules"],
-  ["transfers", "Transfers"],
-  ["admin", "Admin"],
-  ["appearance", "Appearance"],
-  ["about", "About"],
+  ["category", "Categories & tags", "Tags say what a transaction is; categories group expense tags for the Dashboard, and each category's palette colours its tags."],
+  ["person", "People", "People you share expenses with or who pay you back. Shares and repayments on the Organize desk refer to them."],
+  ["aliases", "Aliases", "Readable names for bank descriptions. They change how transactions are shown, never the original records."],
+  ["rules", "Rules", "Tags and people applied to new imports whose bank description matches. Transactions you already have change only when you apply a rule to them."],
+  ["transfers", "Transfers", "How Organize finds the other half of a transfer between your accounts. It offers matches within these settings; nothing links without you."],
+  ["appearance", "Appearance", "Light, dark, or the same as this device."],
+  ["about", "About", "Which version this is and how it updates."],
+  ["admin", "Maintenance", "Changes across the whole workspace, for starting over. Each one shows what it touches first and keeps a recovery copy."],
 ];
-const titles = Object.fromEntries(sections);
-const singular = {
-  category: "category",
-  group: "event",
-  person: "person",
-};
-const descriptions = {
-  category:
-    "Where your money goes. Split a transaction across several categories when needed.",
-  group: "Trips, occasions, and other collections of whole transactions.",
-  person: "People you share expenses with or receive repayments from.",
-};
-const colors = [
-  "#78976A",
-  "#8FA6CB",
-  "#C8A06D",
-  "#AF8EB5",
-  "#70A8A5",
-  "#CA8D86",
-];
-function initials(name) {
-  return name
-    .split(/\s+/)
-    .filter(Boolean)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("");
-}
-
-function plural(n, word, words = `${word}s`) {
-  return `${n} ${n === 1 ? word : words}`;
-}
 
 /* Resolves a promise-returning call so a missing or throwing API surfaces as
    a rejection instead of breaking the render. */
@@ -65,15 +37,7 @@ function attempt(fn) {
   }
 }
 
-export function OrganizeWorkspace({
-  data,
-  run,
-  busy,
-  section,
-  onSection,
-  onNavigate,
-  onSource,
-}) {
+export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavigate, onSource }) {
   const [state, setState] = useState(null),
     [query, setQuery] = useState(""),
     [unusedOnly, setUnusedOnly] = useState(false),
@@ -83,38 +47,18 @@ export function OrganizeWorkspace({
     [extrasError, setExtrasError] = useState("");
   useEffect(() => {
     let live = true;
-    api
-      .reviewState()
-      .then((s) => {
-        if (live) setState(s);
-      })
-      .catch((e) => {
-        if (live) setError(e.message);
-      });
-    return () => {
-      live = false;
-    };
+    api.reviewState().then((s) => { if (live) setState(s); }).catch((e) => { if (live) setError(e.message); });
+    return () => { live = false; };
   }, [data]);
   useEffect(() => {
     let live = true;
     setExtras(null);
     setExtrasError("");
-    Promise.allSettled([
-      attempt(() => api.transactionRulesState()),
-    ]).then(([rules]) => {
-      if (!live) return;
-      setExtras({
-        rules: rules.status === "fulfilled" ? rules.value : null,
-      });
-      const failed = [rules].filter((r) => r.status === "rejected");
-      if (failed.length)
-        setExtrasError(
-          failed.map((f) => f.reason?.message || String(f.reason)).join(" "),
-        );
-    });
-    return () => {
-      live = false;
-    };
+    attempt(() => api.transactionRulesState()).then(
+      (rules) => { if (live) setExtras({ rules }); },
+      (e) => { if (live) { setExtras({ rules: null }); setExtrasError(e?.message || String(e)); } },
+    );
+    return () => { live = false; };
   }, [data]);
 
   const entities = categoryColors(state?.entities || []),
@@ -138,7 +82,7 @@ export function OrganizeWorkspace({
       }
     }
     for (const rule of extras?.rules?.rules || []) {
-      for (const id of [rule.categoryId, rule.personId,...(rule.template?.tags||[]).map(p=>p.id),...(rule.template?.groups||[])].filter(Boolean)) {
+      for (const id of [rule.categoryId, rule.personId, ...(rule.template?.tags || []).map((p) => p.id), ...(rule.template?.groups || [])].filter(Boolean)) {
         const u = map.get(id) || { active: 0, archived: 0 };
         u.rules = (u.rules || 0) + 1;
         map.set(id, u);
@@ -146,20 +90,15 @@ export function OrganizeWorkspace({
     }
     return map;
   }, [records, extras]);
+  const usageOf = (id) => { const u = usage.get(id); return u ? { transactions: u.active + u.archived, rules: u.rules || 0 } : { transactions: 0, rules: 0 }; };
 
-  const list = entities.filter((e) => e.kind === section);
-  const unusedCount = list.filter((e) => !usage.get(e.id)).length;
-  const shown = list.filter(
-    (e) =>
-      e.name.toLowerCase().includes(query.toLowerCase()) &&
-      (!unusedOnly || !usage.get(e.id)),
-  );
-  const peak = Math.max(1, ...list.map((e) => usage.get(e.id)?.active || 0));
-  const label = titles[section] || "Settings",
-    lower = label.toLowerCase();
+  const people = entities.filter((e) => e.kind === "person");
+  const unusedCount = people.filter((e) => !usage.get(e.id)).length;
+  const shown = people.filter((e) => e.name.toLowerCase().includes(query.trim().toLowerCase()) && (!unusedOnly || !usage.get(e.id)));
+  const current = sections.find(([id]) => id === section) || sections[0];
 
   function go(id) {
-    if(id==="accounts"||id==="group"){onNavigate(id==="group"?"events":"accounts");return;}
+    if (id === "accounts" || id === "group") { onNavigate(id === "group" ? "events" : "accounts"); return; }
     onSection(id);
     setQuery("");
     setUnusedOnly(false);
@@ -183,182 +122,65 @@ export function OrganizeWorkspace({
     });
   }
   return (
-    <div className="organize-workspace settings-workspace">
-      <div className="workspace-heading"><div><h1>Settings</h1></div></div>
-      <nav className="og-sections" aria-label="Settings sections">
-        {sections.map(([id, name]) => {
-          const count =
-            id === "accounts"
-              ? data.accounts.length
-              : singular[id]
-                ? entities.filter((e) => e.kind === id).length
-                : null;
-          return (
-            <button
-              key={id}
-              aria-label={name}
-              aria-pressed={section === id}
-              onClick={() => go(id)}
-            >
-              <span>{name}</span>
-              {count !== null && <small aria-hidden="true">{count}</small>}
-            </button>
-          );
-        })}
-      </nav>
-      {extrasError&&<p role="alert" className="dr-error-text">{extrasError}</p>}
-      {section === "about" ? <AboutWorkspace/> : section === "appearance" ? <AppearanceWorkspace/> : section === "admin" ? (
+    <div className="organize-workspace settings-workspace workspace-page">
+      <div className="page-heading"><div><h1>Settings</h1></div></div>
+      <PageTabs label="Settings sections" value={current[0]} onChange={go} items={sections.map(([value, label]) => ({ value, label }))} />
+      <div className="settings-intro">
+        <p>{current[2]}</p>
+      </div>
+      {extrasError && <Alert>{extrasError}</Alert>}
+      {section === "about" ? <AboutWorkspace /> : section === "appearance" ? <AppearanceWorkspace /> : section === "admin" ? (
         <AdminWorkspace data={data} act={act} busy={busy} />
       ) : section === "aliases" ? (
-        <AliasesWorkspace
-          data={data}
-          run={run}
-          busy={busy}
-          onAccounts={() => go("accounts")}
-        />
-      ) : section === "category" ? (
-        <TagHierarchy
-          entities={entities}
-          usage={usage}
-          edit={edit}
-          act={act}
-          busy={busy || !state}
-          error={editing ? "" : error}
-        />
+        <AliasesWorkspace data={data} run={run} busy={busy} onAccounts={() => go("accounts")} />
       ) : section === "transfers" ? (
-        <section className="settings-transfers">
-          <div className="og-heading"><div><h2>Transfers</h2><p>How Organize finds the other half of a transfer between your accounts: allowed routes, how many days apart the two entries may be, and how far the amounts may differ. Organize offers matches within these settings; nothing links without you.</p></div></div>
-          <TransferLab records={records} act={act} busy={busy || !state} onSource={onSource || (() => {})} />
-        </section>
+        <TransferLab records={records} act={act} busy={busy || !state} onSource={onSource || (() => {})} />
       ) : section === "rules" ? (
-        <RulesWorkspace
-          data={data}
-          run={run}
-          busy={busy}
-          onSection={go}
-          onNavigate={onNavigate}
-        />
-      ) : (
-        <>
-          <div className="og-heading">
-            <div>
-              <h2>{label}</h2>
-              <p>{descriptions[section]}</p>
-            </div>
-            <button
-              className="primary"
-              disabled={busy || !state}
-              onClick={() =>
-                edit({
-                  kind: section,
-                  color: colors[list.length % colors.length],
-                })
-              }
-            >
-              + New {singular[section]}
-            </button>
-          </div>
+        <RulesWorkspace data={data} run={run} busy={busy} onSection={go} onNavigate={onNavigate} />
+      ) : section === "person" ? (
+        <section className="settings-people" aria-label="People">
           <div className="og-toolbar">
-            <input
-              className="og-search"
-              type="search"
-              aria-label={`Search ${lower}`}
-              placeholder={`Find ${lower}…`}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
-            <button
-              className="og-filter"
-              aria-pressed={unusedOnly}
-              disabled={!state}
-              onClick={() => setUnusedOnly((v) => !v)}
-            >
-              Unused only <small>{unusedCount}</small>
+            {people.length > 6 && <input type="search" aria-label="Search people" placeholder="Find a person" value={query} onChange={(e) => setQuery(e.target.value)} />}
+            {people.length > 6 && unusedCount > 0 && <button className="sm" aria-pressed={unusedOnly} onClick={() => setUnusedOnly((v) => !v)}>Unused only · {unusedCount}</button>}
+            <button className="primary" disabled={busy || !state} onClick={() => edit({ kind: "person", color: palette[people.length % palette.length] })}>
+              <Icon name="plus" size={16} />New person
             </button>
-            {state && (
-              <span className="og-stat">
-                {plural(list.length, singular[section] || "item")}
-              </span>
-            )}
           </div>
-          {error && !editing && (
-            <p className="dr-error-text" role="alert">
-              {error}
-            </p>
-          )}
+          {error && !editing && <Alert onDismiss={() => setError("")}>{error}</Alert>}
           {!state ? (
-            <p className="og-empty">
-              {error
-                ? "Unable to load organization items."
-                : "Loading your workspace…"}
-            </p>
-          ) : !shown.length ? (
-            <div className="og-empty">
-              <h3>
-                {query || unusedOnly ? "No matches." : `No ${lower} yet.`}
-              </h3>
-              <p>
-                {query
-                  ? "Try a different name."
-                  : unusedOnly
-                    ? `Every ${singular[section]} is in use.`
-                    : `Create a ${singular[section]} to use it throughout your workspace.`}
-              </p>
+            <p role="status">{error ? "People couldn't be loaded." : "Loading people…"}</p>
+          ) : !people.length ? (
+            <div className="empty-state">
+              <Icon name="users" size={24} />
+              <h2>No people yet.</h2>
+              <p>Add the people you share costs with. You can then split an expense with them, or apply money they send you to what they owe.</p>
             </div>
+          ) : !shown.length ? (
+            <p className="form-help">{query ? "No one by that name." : "Everyone is in use."}</p>
           ) : (
             <div className="og-rows">
-              {shown.map((entity) => {
-                const u = usage.get(entity.id) || { active: 0, archived: 0 },
-                  total = u.active + u.archived + (u.rules || 0),
-                  dated =
-                    entity.kind !== "group" ||
-                    (entity.startDate && entity.endDate);
+              {shown.map((person) => {
+                const u = usageOf(person.id), archived = usage.get(person.id)?.archived || 0;
                 return (
-                  <article className="og-row" key={entity.id}>
-                    <span
-                      className={`og-symbol ${section === "person" ? "og-avatar" : ""}`}
-                      style={{ "--item-color": entity.color }}
-                      aria-hidden="true"
-                    >
-                      {section === "person" ? initials(entity.name) : null}
-                    </span>
+                  <article className="og-row" key={person.id}>
+                    <PersonAvatar name={person.name} size={32} />
                     <div className="og-row-body">
-                      <h3 title={entity.name}>{entity.name}</h3>
-                      <div className="og-row-meta">
-                        {entity.kind === "group" &&
-                          (dated ? (
-                            <span>{eventDateLabel(entity)}</span>
-                          ) : (
-                            <span className="og-badge is-warn">
-                              Dates required
-                            </span>
-                          ))}
-                        <span>{plural(u.active, "transaction")}</span>
-                        {u.rules > 0 && <span>{plural(u.rules, "rule")}</span>}
-                        {u.archived > 0 && (
-                          <span>{u.archived} in deleted accounts</span>
-                        )}
-                        {!total && <span className="og-badge">Unused</span>}
-                      </div>
+                      <h3 title={person.name}>{person.name}</h3>
+                      <small>
+                        {u.transactions || u.rules
+                          ? [u.transactions ? plural(u.transactions, "transaction") : "", u.rules ? plural(u.rules, "rule") : "", archived ? `${archived} in deleted accounts` : ""].filter(Boolean).join(" · ")
+                          : "Not on any transaction or rule yet"}
+                      </small>
                     </div>
-                    <span
-                      className="og-usage-bar"
-                      aria-hidden="true"
-                      style={{ "--fill": `${(u.active / peak) * 100}%` }}
-                    />
-                    <button
-                      disabled={busy}
-                      aria-label={`Edit ${singular[section]} ${entity.name}`}
-                      onClick={() => edit(entity)}
-                    >
-                      Edit
-                    </button>
+                    <button className="sm" disabled={busy} aria-label={`Edit person ${person.name}`} onClick={() => edit(person)}>Edit</button>
                   </article>
                 );
               })}
             </div>
           )}
-        </>
+        </section>
+      ) : (
+        <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} />
       )}
       {editing && (
         <EntityEditor
@@ -367,10 +189,8 @@ export function OrganizeWorkspace({
           entities={entities}
           act={act}
           error={error}
-          onClose={() => {
-            setEditing(null);
-            setError("");
-          }}
+          usage={editing.id ? usageOf(editing.id) : null}
+          onClose={() => { setEditing(null); setError(""); }}
         />
       )}
     </div>

@@ -9,52 +9,67 @@ import { Dashboard } from "./Dashboard.jsx";
 import React, { useEffect, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 import "./design-system.css";
+import "./shared-ui.css";
 import "./styles.css";
 import { SnapshotsWorkspace } from "./SnapshotsWorkspace.jsx";
 import { AccountsWorkspace } from "./AccountsWorkspace.jsx";
 import { TransactionsWorkspace } from "./TransactionsWorkspace.jsx";
 import { EventsWorkspace } from "./EventsWorkspace.jsx";
-import { OrganizeHub } from "./OrganizeHub.jsx";
-import {RenderRecovery} from './RenderRecovery.jsx';
-
-
+import { OrganizeDesk } from "./OrganizeDesk.jsx";
+import { RenderRecovery } from "./RenderRecovery.jsx";
 import { OrganizeWorkspace } from "./OrganizeWorkspace.jsx";
-import { ProcessingResults } from "./ProcessingResults.jsx";
-import "./data-workspace.css";
+import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { ToastRegion, notify } from "./toast.jsx";
+import { Alert } from "./ui.jsx";
 import "./mobile.css";
 import "./workspace-refresh.css";
 
 const api = window.urbanomics;
-const banks = { pc: "PC Financial", eq: "EQ Bank", simplii: "Simplii" };
-const currency = (n) =>
-  new Intl.NumberFormat("en-CA", { style: "currency", currency: "CAD" }).format(
-    n / 100,
-  );
-const monthName = (m, short = false) =>
-  new Date(`${m}-15T12:00:00`).toLocaleDateString("en-CA", {
-    month: short ? "short" : "long",
-    year: "numeric",
-  });
-const dateName = (d) =>
-  new Date(`${d}T12:00:00`).toLocaleDateString("en-CA", {
-    month: "short",
-    day: "numeric",
-  });
-const initials = (name) =>
-  name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((n) => n[0])
-    .join("");
+const pages = ["dashboard", "snapshots", "organize", "transactions", "events", "accounts", "settings"];
+// Older addresses keep working: retired pages open their replacements.
+const legacy = { allocations: "organize", experimental: "organize", review: "organize", months: "transactions", data: "snapshots", "snapshots-v2": "snapshots" };
+function readLocation() {
+  const [head, section] = location.hash.slice(1).split("/");
+  const page = legacy[head] || (pages.includes(head) ? head : "snapshots");
+  return { page, section: page === "settings" ? section || "" : "" };
+}
+const money = (cents, currency = "CAD") =>
+  new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(cents / 100);
+const hostLabel = () =>
+  api.host !== "browser" ? "On this computer" : api.workspaceMode === "desktop" ? "Connected to your desktop" : "Sample workspace";
 
 function App() {
-  const [organizeSection, setOrganizeSection] = useState("category");
-  const [organizeTarget,setOrganizeTarget]=useState(null);
-  const openOrganize=(id=null,mode="transactions")=>{setOrganizeTarget({id,mode,key:Date.now()});setPage("organize");};
+  const initial = readLocation();
+  const [organizeSection, setOrganizeSection] = useState(initial.section || "category");
+  const [organizeTarget, setOrganizeTarget] = useState(null);
   const [data, setData] = useState(null),
-    [page, setPage] = useState(() => {const hash=location.hash.slice(1);return ({allocations:"organize",experimental:"organize",review:"organize",months:"transactions"})[hash]||(["dashboard","snapshots","accounts","events","transactions","organize","settings"].includes(hash)?hash:"snapshots");}),
+    [page, setPageState] = useState(initial.page),
     [busy, setBusy] = useState(false);
   const running = useRef(false);
+  // The address follows the page (and the Settings section), so back, forward and reload work.
+  const go = (next, section = next === "settings" ? organizeSection : "") => {
+    const hash = "#" + next + (next === "settings" && section ? "/" + section : "");
+    if (location.hash !== hash) history.pushState(null, "", hash);
+    setPageState(next);
+  };
+  useEffect(() => {
+    const sync = () => {
+      const { page: next, section } = readLocation();
+      setPageState(next);
+      if (section) setOrganizeSection(section);
+    };
+    window.addEventListener("popstate", sync);
+    window.addEventListener("hashchange", sync);
+    if (location.hash !== "#" + initial.page + (initial.section ? "/" + initial.section : "")) history.replaceState(null, "", "#" + initial.page + (initial.page === "settings" ? "/" + (initial.section || "category") : ""));
+    return () => {
+      window.removeEventListener("popstate", sync);
+      window.removeEventListener("hashchange", sync);
+    };
+  }, []);
+  const openOrganize = (id = null, mode = "transactions") => {
+    setOrganizeTarget({ id, mode, key: Date.now() });
+    go("organize");
+  };
   const [connected, setConnected] = useState(true);
   const [update, setUpdate] = useState(null);
   useEffect(() => {
@@ -65,22 +80,11 @@ function App() {
   }, []);
   useEffect(() => { if (api?.host !== "browser" && update && update.build !== "release") document.title = "Urbanomics (development)"; }, [update?.build]);
   useEffect(() => {
-    const update = event => setConnected(event.detail);
-    window.addEventListener("urbanomics-connection", update);
-    return () => window.removeEventListener("urbanomics-connection", update);
+    const listen = (event) => setConnected(event.detail);
+    window.addEventListener("urbanomics-connection", listen);
+    return () => window.removeEventListener("urbanomics-connection", listen);
   }, []);
-  const [progress, setProgress] = useState(null);
-  const [processResult, setProcessResult] = useState(null);
-  useEffect(
-    () =>
-      api?.onProgress((value) => {
-        setSelectedJob(null);
-        setProgress(value);
-      }),
-    [],
-  );
-  const [notice, setNotice] = useState(""),
-    [error, setError] = useState(""),
+  const [error, setError] = useState(""),
     [dragging, setDragging] = useState(null);
   // Unpinned, the sidebar is an icon rail that opens over the page while hovered or keyboard-focused.
   const [pinned, setPinned] = useState(readSidebarPinned),
@@ -101,57 +105,20 @@ function App() {
     // Unpinning under the pointer keeps the rail open until the pointer leaves.
     if (!next) openRail();
   };
-  useEffect(() => {
-    if (!notice) return;
-    const timer = setTimeout(() => setNotice(""), 5000);
-    return () => clearTimeout(timer);
-  }, [notice]);
-  const [month,setMonth]=useState(""),[accountFilter,setAccountFilter]=useState("");
+  const [month, setMonth] = useState(""),
+    [accountFilter, setAccountFilter] = useState("");
   const [detail, setDetail] = useState(null),
-    [selectedJob, setSelectedJob] = useState(null),
-    [choices, setChoices] = useState({}),
-    [revision, setRevision] = useState(null);
+    [revision, setRevision] = useState(null),
+    [loadError, setLoadError] = useState("");
   async function refresh() {
     const next = await api.state();
     setData(next);
-
+    setLoadError("");
   }
+  const load = () => refresh().catch((e) => setLoadError(e.message));
   useEffect(() => {
-    if (api) refresh().catch((e) => setError(e.message));
+    if (api) load();
   }, []);
-  useEffect(() => {
-    if (!selectedJob && !detail) return;
-    const previous = document.activeElement;
-    const modal = document.querySelector('[role="dialog"]');
-    modal?.querySelector("button")?.focus();
-    const keyboard = (e) => {
-      if (e.key === "Escape") {
-        setSelectedJob(null);
-        setDetail(null);
-      }
-      if (e.key === "Tab" && modal) {
-        const items = [
-          ...modal.querySelectorAll(
-            "button:not(:disabled),input:not(:disabled)",
-          ),
-        ];
-        const first = items[0],
-          last = items.at(-1);
-        if (e.shiftKey && document.activeElement === first) {
-          e.preventDefault();
-          last?.focus();
-        } else if (!e.shiftKey && document.activeElement === last) {
-          e.preventDefault();
-          first?.focus();
-        }
-      }
-    };
-    document.addEventListener("keydown", keyboard);
-    return () => {
-      document.removeEventListener("keydown", keyboard);
-      previous?.focus();
-    };
-  }, [selectedJob, detail]);
   useEffect(
     () =>
       api?.onChanged((message) => {
@@ -160,38 +127,34 @@ function App() {
       }),
     [month],
   );
-  async function run(fn, message) {
+  // local: the caller shows its own error (a dialog or page), so the shell banner stays quiet.
+  async function run(fn, message, { local = false } = {}) {
     if (running.current) return false;
     running.current = true;
     setBusy(true);
     setError("");
-    setNotice("");
     try {
       const result = await fn();
       await refresh();
-      if (result?.result)
-        setProcessResult({ result: result.result, celebrate: true });
-      if (message)
-        setNotice(typeof message === "function" ? message(result) : message);
+      if (message) notify({ title: typeof message === "function" ? message(result) : message, tone: "success" });
       return result;
     } catch (e) {
       await refresh().catch(() => {});
-      setError(e.message);
+      if (!local) setError(e.message);
       return false;
     } finally {
-      setProgress(null);
       running.current = false;
       setBusy(false);
     }
   }
   async function intake(method, clientSkipped = 0) {
-    setPage("snapshots");
+    go("snapshots");
     const filtered = clientSkipped ? ` ${skippedNote(clientSkipped)}` : "";
     await run(method, (result) =>
       (result.ids.length
-        ? `${result.ids.length} CSV${result.ids.length === 1 ? "" : "s"} received${result.skipped ? `. ${result.skipped} non-CSV, subfolder, or oversized item(s) skipped` : ""}. Originals stay where they are.`
+        ? `${result.ids.length} CSV ${result.ids.length === 1 ? "file" : "files"} added${result.skipped ? `. ${result.skipped} other ${result.skipped === 1 ? "item was" : "items were"} skipped` : ""}.`
         : result.skipped
-          ? "No supported CSV files in that selection."
+          ? "No CSV files in that selection."
           : "No files selected.") + filtered,
     );
   }
@@ -199,23 +162,23 @@ function App() {
     event.preventDefault();
     setDragging(null);
     const files = Array.from(event.dataTransfer.files);
-    if(page === 'snapshots'){window.dispatchEvent(new CustomEvent('snapshots-drop',{detail:files}));return;}
+    if (page === "snapshots") { window.dispatchEvent(new CustomEvent("snapshots-drop", { detail: files })); return; }
     if (busy || !files.length) return;
     // Only CSV exports reach the server; anything else is reported here and left where it is.
     const { csv, skipped } = splitCsvFiles(files);
     if (!csv.length) {
-      setNotice(skippedNote(skipped));
+      notify({ title: "Nothing added", description: skippedNote(skipped), tone: "warning" });
       return;
     }
     intake(() => api.stageDrop(csv), skipped);
   }
+  const openSource = (id) => api.detail(id).then(setDetail).catch((e) => setError(e.message));
   if (!api)
     return (
       <div className="launch-message">
-        <h1>Open your Urbanomics workspace.</h1>
-        <p>
-          Use npm run web for browser verification, or npm start for Electron.
-        </p>
+        <Mark size={28} label="Urbanomics" />
+        <h1>Urbanomics needs its workspace.</h1>
+        <p>Open the desktop app, or run npm run web and open the address it prints.</p>
       </div>
     );
   if (!data)
@@ -224,10 +187,16 @@ function App() {
         <div className="brand">
           <Mark size={28} label="Urbanomics" /><span>urbanomics</span>
         </div>
-        <p>{error || "Opening your local workspace…"}</p>
+        {loadError ? (
+          <>
+            <Alert title="Your workspace didn't open.">{loadError} Check that Urbanomics is still running, then try again.</Alert>
+            <button className="primary" onClick={load}>Try again</button>
+          </>
+        ) : (
+          <p>Opening your workspace…</p>
+        )}
       </div>
     );
-  const activeJob = data.jobs.find((j) => j.id === selectedJob);
   const tabs = [
     ["dashboard", "layout-dashboard", "Dashboard", "Overview"],
     ["snapshots", "layers", "Snapshots", "Workspace"],
@@ -237,6 +206,8 @@ function App() {
     ["accounts", "wallet", "Accounts"],
     ["settings", "settings", "Settings", "Preferences"],
   ];
+  const updateReady = update?.status === "ready";
+  const persistent = data.archiveError || data.configurationError;
   return (
     <div
       className={pinned ? "app-shell" : "app-shell sidebar-rail"}
@@ -274,109 +245,85 @@ function App() {
             <span className="dev-tag-short" aria-hidden="true">dev</span>
           </p>
         )}
-        <p className="brand-sub">A little order. A clearer picture.</p>
         <nav aria-label="Main navigation">
           {tabs.map(([id, icon, label, group]) => (
-            <React.Fragment key={id}>{group&&<div className="navigation-group">{group}</div>}
+            <React.Fragment key={id}>{group && <div className="navigation-group">{group}</div>}
             <button
-              key={id}
               className={page === id ? "nav-item active" : "nav-item"}
               aria-current={page === id ? "page" : undefined}
               onClick={() => {
-                setPage(id);
-                if (id === "transactions") {setRevision(null);setAccountFilter("");setMonth("");}
-                setSelectedJob(null);
+                go(id);
+                if (id === "transactions") { setRevision(null); setAccountFilter(""); setMonth(""); }
               }}
             >
               <span aria-hidden="true"><Icon name={icon} size={18} /></span>
               <span className="sidebar-label">{label}</span>
               {id === "snapshots" && data.jobs.length > 0 && (
-                <b>{data.jobs.length}</b>
+                <b aria-label={`${data.jobs.length} ${data.jobs.length === 1 ? "file" : "files"} waiting`}>{data.jobs.length}</b>
               )}
+              {id === "settings" && updateReady && <i className="nav-dot" aria-label="Update ready" />}
             </button></React.Fragment>
           ))}
         </nav>
         <div className="sidebar-extras">
-          {api.host === "browser" && (
-            <p className="browser-workspace-note">
-              {api.workspaceMode === "desktop" ? "Connected to your desktop" : "Browser verification"}
-              <br />
-              <small>{api.workspaceMode === "desktop" ? "Your files and changes stay there" : "Separate local workspace · starts with sample data"}</small>
-            </p>
-          )}
-          {update?.status === "ready" && (
+          {updateReady && (
             <div className="update-note" role="status">
               <span>Urbanomics {update.latest} is ready.</span>
-              <button className="primary" onClick={() => api.installUpdate().catch((e) => setError(e.message))}>Restart to update</button>
+              <button className="sm" onClick={() => api.installUpdate().catch((e) => setError(e.message))}>Restart to update</button>
             </div>
           )}
           <div className="local-note">
-            <span className="local-dot" /> Stored on this computer
-            <small>Your files stay in your workspace.</small>
-            <button onClick={() => run(() => api.reveal("private"))}>
-              Open workspace ↗
-            </button>
+            <strong>{hostLabel()}</strong>
+            <small>
+              {api.host !== "browser"
+                ? "Your files and decisions stay in your workspace folder."
+                : api.workspaceMode === "desktop"
+                  ? "Your files and changes stay on the desktop."
+                  : "A separate local workspace with invented data."}
+            </small>
+            {api.host !== "browser" && (
+              <button className="link" onClick={() => run(() => api.reveal("private"))}>
+                Open workspace folder ↗
+              </button>
+            )}
           </div>
         </div>
         <button
           type="button"
           className="sidebar-pin"
           aria-pressed={pinned}
-          aria-label={pinned ? "Unpin sidebar" : "Pin sidebar"}
-          title={pinned ? "Unpin sidebar" : "Pin sidebar"}
+          aria-label="Keep sidebar open"
+          title="Keep sidebar open"
           onClick={togglePinned}
         >
           <span aria-hidden="true"><Icon name={pinned ? "pin-off" : "pin"} size={18} /></span>
-          <span className="sidebar-label">{pinned ? "Unpin sidebar" : "Pin sidebar"}</span>
+          <span className="sidebar-label">Keep sidebar open</span>
         </button>
       </aside>
       <div className="workspace">
-        <div className="mobile-topbar"><strong><Mark size={24} label="Urbanomics" /><span>urbanomics</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{api.host !== "browser" ? "On this desktop" : !connected ? "Reconnecting…" : api.workspaceMode === "desktop" ? "Desktop connected" : "Sample workspace"}</span></div>
+        <div className="mobile-topbar"><strong><Mark size={24} label="Urbanomics" /><span>{tabs.find((t) => t[0] === page)?.[2]}</span></strong><span className={connected ? "mobile-connection" : "mobile-connection offline"}>{!connected ? "Reconnecting…" : hostLabel()}</span></div>
         <main>
-          {!connected && api.host === "browser" && <div className="alert error" role="status">Connection lost. Keep your desktop awake, Urbanomics open, and Tailscale connected. New changes need a connection to save.</div>}
-          {(error || data.archiveError || data.configurationError) && (
-            <div className="alert error" role="alert">
-              {error || data.archiveError || data.configurationError}
-              <button onClick={() => setError("")}>Dismiss</button>
-            </div>
+          {!connected && api.host === "browser" && (
+            <Alert tone="warning" title="Connection lost.">
+              {api.workspaceMode === "desktop"
+                ? "Keep your desktop awake, Urbanomics open and Tailscale connected. Changes save again once it reconnects."
+                : "The sample workspace stopped responding. Restart it, then reload this page."}
+            </Alert>
           )}
-          {notice && (
-            <div className="notice snackbar" role="status" aria-live="polite">
-              {notice}
-              <button
-                aria-label="Dismiss message"
-                onClick={() => setNotice("")}
-              >
-                <Icon name="x" size={16} />
-              </button>
-            </div>
-          )}
-          {processResult && (
-            <ProcessingResults
-              {...processResult}
-              onClose={() => setProcessResult(null)}
-            />
-          )}
+          {persistent && <Alert title="Part of your workspace needs attention.">{persistent}</Alert>}
+          {error && <Alert onDismiss={() => setError("")}>{error}</Alert>}
           {page === "dashboard" && (
-            <Dashboard
-              data={data}
-              onSnapshots={() => setPage("snapshots")}
-              onSource={(id) =>
-                api
-                  .detail(id)
-                  .then(setDetail)
-                  .catch((e) => setError(e.message))
-              }
-            />
+            <Dashboard data={data} onSnapshots={() => go("snapshots")} onSource={openSource} />
           )}
-          {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={()=>openOrganize()} onOpenSnapshot={async(target)=>{try{const saved=await api.snapshot(target.id);setMonth(target.month);setAccountFilter(target.accountId);setRevision(saved);setPage("transactions");}catch(e){setError(e.message);}}}/>}
-          {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={()=>setPage("snapshots")} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "organize" && <OrganizeHub data={data} run={run} busy={busy} target={organizeTarget} onSettings={()=>{setOrganizeSection("transfers");setPage("settings");}} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "transactions" && <TransactionsWorkspace data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={()=>setRevision(null)} onOrganize={openOrganize} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} />}
-          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={setOrganizeSection} onSource={id=>api.detail(id).then(setDetail).catch(e=>setError(e.message))} onNavigate={target=>{if(target==="accounts"||target==="events"||target==="transactions")setPage(target);else openOrganize(null,target.startsWith("transfers")?"transfers":"transactions");}} />}
+          {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={() => openOrganize()} onOpenSnapshot={async (target) => { try { const saved = await api.snapshot(target.id); setMonth(target.month); setAccountFilter(target.accountId); setRevision(saved); go("transactions"); } catch (e) { setError(e.message); } }} />}
+          {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={() => go("snapshots")} onTransactions={(accountId, month = "") => { setRevision(null); setMonth(month); setAccountFilter(accountId); go("transactions"); }} onSource={openSource} />}
+          {page === "organize" && <OrganizeDesk data={data} run={run} onSource={openSource} target={organizeTarget} onSettings={() => { setOrganizeSection("transfers"); go("settings", "transfers"); }} />}
+          {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSettings={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} />}
+          {page === "transactions" && <TransactionsWorkspace key={revision?.id || "current"} data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={() => setRevision(null)} onOrganize={openOrganize} onSource={openSource} />}
+          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} onNavigate={(target) => { if (["accounts", "events", "transactions", "snapshots"].includes(target)) go(target); else openOrganize(null, target.startsWith("transfers") ? "transfers" : "transactions"); }} />}
         </main>
       </div>
+      <ToastRegion />
       {dragging && (
         <div className={`drop-overlay drop-${dragging}`} aria-hidden="true">
           <div>
@@ -394,269 +341,40 @@ function App() {
           </div>
         </div>
       )}
-      {activeJob && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Review import"
-          >
-            <button
-              className="close"
-              aria-label="Close import review"
-              onClick={() => setSelectedJob(null)}
-            >
-              <Icon name="x" size={18} />
-            </button>
-            
-            <h2>
-              {activeJob.status === "routing"
-                ? "Where does this belong?"
-                : activeJob.status === "overlap"
-                  ? "We’ve seen something similar."
-                  : "Let’s check this file."}
-            </h2>
-            <p>{activeJob.filename}</p>
-            {activeJob.status === "routing" && (
-              <Route
-                job={activeJob}
-                data={data}
-                run={run}
-                done={() => setSelectedJob(null)}
-              />
-            )}
-            {(activeJob.status === "overlap" ||
-              activeJob.conflicts.length > 0) && (
-              <>
-                <p className="explanation">
-                  Different exports can contain the same transactions. Check the
-                  matching rows below. Identical repeated payments within a file
-                  are preserved.
-                </p>
-                <div className="conflict-list">
-                  {activeJob.conflicts.map((c) => (
-                    <div className="conflict" key={c.fingerprint}>
-                      <div>
-                        <strong>{c.description}</strong>
-                        <small>
-                          {c.date} · {currency(c.amountCents)} · {c.incoming} in
-                          this file, {c.existing} already here
-                        </small>
-                      </div>
-                      <div className="segmented">
-                        <button
-                          className={
-                            choices[c.fingerprint] === "match" ? "selected" : ""
-                          }
-                          onClick={() =>
-                            setChoices({ ...choices, [c.fingerprint]: "match" })
-                          }
-                        >
-                          Same transaction{c.matches > 1 ? "s" : ""}
-                        </button>
-                        <button
-                          className={
-                            choices[c.fingerprint] === "keep" ? "selected" : ""
-                          }
-                          onClick={() =>
-                            setChoices({ ...choices, [c.fingerprint]: "keep" })
-                          }
-                        >
-                          Additional payment{c.incoming > 1 ? "s" : ""}
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-                <button
-                  className="text-button"
-                  onClick={() =>
-                    setChoices(
-                      Object.fromEntries(
-                        activeJob.conflicts.map((c) => [
-                          c.fingerprint,
-                          "match",
-                        ]),
-                      ),
-                    )
-                  }
-                >
-                  Mark all as existing transactions
-                </button>
-                <button
-                  className="primary full"
-                  disabled={
-                    busy ||
-                    activeJob.conflicts.some((c) => !choices[c.fingerprint])
-                  }
-                  onClick={() =>
-                    run(
-                      () => api.resolve(activeJob.id, choices),
-                      "Match decisions saved.",
-                    ).then((result) => {
-                      if (result !== false) setSelectedJob(null);
-                    })
-                  }
-                >
-                  Save decisions & finish import
-                </button>
-              </>
-            )}
-            {(["error", "finalizing"].includes(activeJob.status) ||
-              (activeJob.status === "queued" &&
-                !activeJob.conflicts.length)) && (
-              <>
-                <div className="alert error">
-                  {activeJob.error ||
-                    "The database has been saved. Finish writing the archive to clear the intake copy."}
-                </div>
-                {activeJob.accountId && (
-                  <button
-                    onClick={() =>
-                      run(
-                        () => api.resolve(activeJob.id, {}),
-                        "Import retried.",
-                      )
-                    }
-                  >
-                    Retry
-                  </button>
-                )}
-              </>
-            )}
-            {activeJob.status !== "finalizing" && (
-              <button
-                className="text-button dismiss-job"
-                onClick={() =>
-                  run(
-                    () => api.dismiss(activeJob.id),
-                    "Removed from intake. Original remains archived.",
-                  ).then((result) => {
-                    if (result !== false) setSelectedJob(null);
-                  })
-                }
-              >
-                Remove from intake · keep original archived
-              </button>
-            )}
-          </section>
-        </div>
-      )}
       {detail && (
-        <div className="modal-backdrop">
-          <section
-            className="modal"
-            role="dialog"
-            aria-modal="true"
-            aria-label="Transaction source"
-          >
-            <button
-              className="close"
-              aria-label="Close transaction"
-              onClick={() => setDetail(null)}
-            >
-              <Icon name="x" size={18} />
-            </button>
-            
-            <h2>{detail.description}</h2>
-            <div className="detail-amount">{currency(detail.amountCents)}</div>
-            <p>
-              {detail.date}
-              {detail.time ? ` · ${detail.time} (as exported)` : ""} · CAD
-            </p>
-            <h3>Original bank values</h3>
-            <div className="raw-values">
-              {detail.raw.map((v, i) => (
-                <span key={i}>{v || "(blank)"}</span>
-              ))}
-            </div>
-            <h3>Source records</h3>
-            {detail.sources.map((s) => (
-              <div className="source-row" key={s.hash + ":" + s.record}>
-                <div>
-                  <strong>{s.filename}</strong>
-                  <small>CSV record {s.record}</small>
-                </div>
-                <button onClick={() => run(() => api.reveal("source", s.hash))}>
-                  Show original ↗
-                </button>
-              </div>
+        <WorkspaceModal
+          title="Original bank record"
+          onClose={() => setDetail(null)}
+          footer={<button onClick={() => setDetail(null)}>Close</button>}
+        >
+          <div className="source-summary">
+            <span>{detail.date}{detail.time ? ` · ${detail.time} (as exported)` : ""}</span>
+            <h3>{detail.description}</h3>
+            <strong className="tabular">{money(detail.amountCents, detail.currency || "CAD")}</strong>
+          </div>
+          <h4>Values in the exported file</h4>
+          <div className="raw-values">
+            {detail.raw.map((v, i) => (
+              <code key={i}>{v || "(blank)"}</code>
             ))}
-          </section>
-        </div>
+          </div>
+          <h4>Files that contain it</h4>
+          {detail.sources.map((s) => (
+            <div className="source-row" key={s.hash + ":" + s.record}>
+              <div>
+                <strong>{s.filename}</strong>
+                <small>Row {s.record}</small>
+              </div>
+              {api.host !== "browser" && (
+                <button onClick={() => run(() => api.reveal("source", s.hash))}>
+                  Show file ↗
+                </button>
+              )}
+            </div>
+          ))}
+        </WorkspaceModal>
       )}
     </div>
-  );
-}
-
-function Route({ job, data, run, done }) {
-  const accounts = data.accounts.filter((a) => a.schema === job.schema);
-  const [name, setName] = useState(""),
-    [kind, setKind] = useState(job.schema === "pc" ? "credit" : "chequing"),
-    [remember, setRemember] = useState(true);
-  async function choose(id) {
-    const result = await run(
-      () => api.route(job.id, id, remember),
-      (r) =>
-        r.result.completed
-          ? "Account assigned and import processed."
-          : "Account assigned. See Snapshots for the import issue.",
-    );
-    if (result !== false) done();
-  }
-  return (
-    <>
-      <p className="muted">
-        We recognize {banks[job.schema]}. Choose the account to keep separate
-        accounts separate.
-      </p>
-      <div className="account-choices">
-        {accounts.map((a) => (
-          <button key={a.id} onClick={() => choose(a.id)}>
-            <span className="bank-avatar">{initials(a.name)}</span>
-            {a.name}
-            <span>→</span>
-          </button>
-        ))}
-      </div>
-      <h3>Or add an account</h3>
-      <input
-        aria-label="New account name"
-        placeholder="e.g. Visa card"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-      />
-      <div className="segmented">
-        {["credit", "chequing", "savings"].map((k) => (
-          <button
-            key={k}
-            className={kind === k ? "selected" : ""}
-            onClick={() => setKind(k)}
-          >
-            {k === "credit" ? "Credit card" : k[0].toUpperCase() + k.slice(1)}
-          </button>
-        ))}
-      </div>
-      <label className="checkbox">
-        <input
-          type="checkbox"
-          checked={remember}
-          onChange={(e) => setRemember(e.target.checked)}
-        />
-        Remember this bank and filename pattern
-      </label>
-      <button
-        className="primary full"
-        disabled={!name.trim()}
-        onClick={async () => {
-          const id = await run(() => api.addAccount(name, job.schema, kind));
-          if (id) await choose(id);
-        }}
-      >
-        Add account & import
-      </button>
-    </>
   );
 }
 createRoot(document.getElementById("root")).render(<RenderRecovery><App /></RenderRecovery>);

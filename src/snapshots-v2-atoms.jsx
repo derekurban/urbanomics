@@ -1,15 +1,13 @@
 import React, { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { Icon } from "@derekurban/design-system";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { money as formatMoney } from "./format.js";
 
 export const api = window.urbanomics;
 export const onDesktop = api?.host !== "browser";
-export const bankNames = {
-  pc: "PC Financial",
-  eq: "EQ Bank",
-  simplii: "Simplii",
-};
+/* Identity colors offered for new accounts (user data, not interface color). The moss green sits last
+   so a first account never looks like the interface's accent. */
 export const palette = [
-  "#427A64",
   "#6883C5",
   "#B87654",
   "#9674B7",
@@ -17,21 +15,13 @@ export const palette = [
   "#529BA5",
   "#A38A38",
   "#687786",
+  "#427A64",
 ];
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 export const countOf = (value) =>
   Array.isArray(value) ? value.length : value || 0;
-export const money = (cents, currency = "CAD") => {
-  const amount = (cents || 0) / 100;
-  try {
-    return new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(
-      amount,
-    );
-  } catch {
-    return `${amount.toFixed(2)} ${currency}`;
-  }
-};
+export const money = formatMoney;
 export const monthLabel = (month, short = false) =>
   new Date(`${month}-15T12:00:00`).toLocaleDateString("en-CA", {
     month: short ? "short" : "long",
@@ -73,17 +63,6 @@ export function FileGlyph() {
     <span className="sv2-glyph" aria-hidden="true">
       CSV
     </span>
-  );
-}
-
-export function Stat({ value, label }) {
-  return (
-    <div className="sv2-stat">
-      <strong>
-        {typeof value === "number" ? value.toLocaleString("en-CA") : value}
-      </strong>
-      <span>{label}</span>
-    </div>
   );
 }
 
@@ -159,7 +138,7 @@ export function InfoDot({ label, children, align = "center" }) {
           setOpen(next);
         }}
       >
-        i
+        <Icon name="info" size={16} />
       </button>
       {open && (
         <span
@@ -182,38 +161,11 @@ export function Sv2Dialog({ title, onClose, footer, wide = false, children }) {
       title={title}
       onClose={onClose}
       footer={footer}
-      className={`sv2-dialog${wide ? " sv2-dialog-wide" : ""}`}
+      size={wide ? "wide" : ""}
+      className="sv2-dialog"
     >
       {children}
     </WorkspaceModal>
-  );
-}
-
-/* The server reports which part of a filename the pattern matched literally and
-   which part a wildcard covered. A literal run is exact; a pattern run can
-   accept other filenames too, so it is never described as equivalent. */
-export function PatternSegments({ result, filename }) {
-  const segments = result?.segments?.length
-    ? result.segments
-    : [{ text: filename, kind: result?.matches ? "pattern" : "unmatched" }];
-  return (
-    <p className="sv2-segments">
-      {segments.map((segment, index) => (
-        <span key={index} className={`sv2-seg sv2-seg-${segment.kind}`}>
-          {segment.text}
-        </span>
-      ))}
-    </p>
-  );
-}
-
-export function PatternLegend() {
-  return (
-    <p className="sv2-seg-legend">
-      <span className="sv2-seg sv2-seg-literal">exact text</span>
-      <span className="sv2-seg sv2-seg-pattern">matched by the pattern</span>
-      <span className="sv2-seg sv2-seg-unmatched">not matched</span>
-    </p>
   );
 }
 

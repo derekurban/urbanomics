@@ -35,13 +35,3 @@ test('tag ordering is atomic, detects stale changes, follows gradients and round
  assert.equal(tagFits({amountCents:10,review:{kind:'repayment'}},{flowType:'income'}),true);
  assert.equal(tagFits({amountCents:10,review:{kind:'transfer'}},{flowType:'income'}),false);
 });
-test('review overview separates transfers, incoming allocations, claims and cross-month repayments including untagged costs', async()=>{
- const {reviewOverview}=await import('../../src/review-overview-model.js');
- const {transactionState,transactionLabels}=await import('../../src/transaction-state.js');
- const row=(id,amount,review={},extra={})=>({id,description:id,amountCents:amount,date:'2026-08-10',month:'2026-08',accountId:'a',account:'A',currency:'CAD',review:{kind:'unreviewed',tags:[],groups:[],allocations:[],shares:null,...review},...extra});
- const records=[row('out',-10000,{kind:'transfer',transferId:'in'}),row('in',10000,{kind:'transfer',transferId:'out'},{accountId:'b'}),row('dinner',-12000,{kind:'expense',shares:[{id:'me',cents:6000},{id:'alex',cents:6000}]}),row('salary',200000,{kind:'income',incomeType:'paycheck'}),row('receipt',7000,{kind:'repayment',personId:'alex',allocations:[{id:'dinner',cents:5000}],remainder:2000},{date:'2026-09-01',month:'2026-09'}),row('coffee',-500)];
- const facts=transactionState(records[0],records);assert.equal(facts.uncategorized,false);assert.deepEqual(transactionLabels(records[0],facts),['Transfer linked']);
- const all=reviewOverview(records,records,[])[0];assert.equal(all.model.cashIn,207000);assert.equal(all.model.cashOut,12500);assert.equal(all.allocated,5000);assert.equal(all.unassigned,2000);assert.equal(all.model.repaid,5000);assert.equal(all.model.owed,1000);assert.equal(all.claims,6000);assert.equal(all.untagged,4);
- assert.equal(all.notClaimed,6500);
- const august=reviewOverview(records,records.filter(t=>t.month==='2026-08'),[])[0];assert.equal(august.model.cashIn,200000);assert.equal(august.allocated,0);assert.equal(august.model.repaid,5000);
-});

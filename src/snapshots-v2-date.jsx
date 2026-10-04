@@ -28,15 +28,15 @@ export function DateAssistant({ jobId, column, delimiter, selected, onSelect }) 
   const current=result.candidates.find(c=>c.format===selected);
   return <section className={`sv2-date-assist${result.status==='invalid'?' sv2-date-invalid':''}`} aria-label="Date format suggestions">
     <p className="sv2-date-status" role="status">{result.status==='conclusive'
-      ? `One format fits all ${result.rowCount.toLocaleString()} rows. Check the example below.`
-      : result.status==='ambiguous' ? `${possible.length} formats fit all ${result.rowCount.toLocaleString()} rows. Choose the intended reading.`
-      : result.status==='empty' ? 'No transaction dates to check.' : 'No single format reads every row. Check for invalid dates or mixed date orders.'}</p>
+      ? `One date order reads all ${result.rowCount.toLocaleString()} rows. Check the example below.`
+      : result.status==='ambiguous' ? `${possible.length} date orders read all ${result.rowCount.toLocaleString()} rows. Choose the one your bank uses.`
+      : result.status==='empty' ? 'No transaction dates to check.' : "No single date order reads every row. The file may mix orders or contain dates that aren't real."}</p>
     <div className="sv2-date-options">{candidates.map(c=><button type="button" className="sv2-date-option" aria-label={`Use ${c.label}`} aria-pressed={selected===c.format} key={c.format} onClick={()=>onSelect(c.format)}>
       <span className="sv2-date-format">{c.label}</span>
       {c.example && <span className="sv2-date-example">{c.example.raw} → {readable(c.example.date)}</span>}
-      {possible.length===0 && <span className="sv2-date-count">{c.validCount} / {result.rowCount} rows fit{c.firstInvalid ? ` · record ${c.firstInvalid.record}: “${c.firstInvalid.raw || '(blank)'}” does not` : ''}</span>}
+      {possible.length===0 && <span className="sv2-date-count">{c.validCount} / {result.rowCount} rows fit{c.firstInvalid ? ` · row ${c.firstInvalid.record}: “${c.firstInvalid.raw || '(blank)'}” isn't a date` : ''}</span>}
     </button>)}</div>
-    {current?.firstInvalid && <p className="sv2-date-status sv2-date-invalid">Record {current.firstInvalid.record}: “{current.firstInvalid.raw || '(blank)'}” does not fit {current.label}.</p>}
-    {!candidates.length && result.rowCount>0 && <p className="sv2-date-status">Record {result.candidates[0].firstInvalid.record}: “{result.candidates[0].firstInvalid.raw || '(blank)'}”. Supported orders: YYYY/MM/DD, MM/DD/YYYY and DD/MM/YYYY, with slashes or dashes.</p>}
+    {current?.firstInvalid && <p className="sv2-date-status sv2-date-invalid">Row {current.firstInvalid.record}: “{current.firstInvalid.raw || '(blank)'}” isn't a date in {current.label} order.</p>}
+    {!candidates.length && result.rowCount>0 && <p className="sv2-date-status">Row {result.candidates[0].firstInvalid.record}: “{result.candidates[0].firstInvalid.raw || '(blank)'}”. Supported orders: YYYY/MM/DD, MM/DD/YYYY and DD/MM/YYYY, with slashes or dashes.</p>}
   </section>;
 }

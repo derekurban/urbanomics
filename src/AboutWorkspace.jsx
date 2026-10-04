@@ -2,6 +2,7 @@
 // Installed releases check on their own; this page lets you check now or restart into
 // a downloaded update. Development runs and the browser say so instead.
 import React, { useEffect, useState } from "react";
+import { Alert } from "./ui.jsx";
 const api = window.urbanomics;
 const when = (iso) => (iso ? new Date(iso).toLocaleTimeString("en-CA", { hour: "numeric", minute: "2-digit" }) : "");
 
@@ -19,7 +20,7 @@ export function AboutWorkspace() {
     catch (e) { setError(e.message); }
     finally { setBusy(false); }
   }
-  const build = state?.build === "release" ? "Installed release" : state?.build === "development" ? "Development build" : "Browser";
+  const build = state?.build === "release" ? "Installed release" : state?.build === "development" ? "Development build" : "Open in a browser";
   let status = "", primary = null;
   if (state?.supported) {
     if (state.status === "ready") { status = `Version ${state.latest} is downloaded. It installs when you restart.`; primary = <button className="primary" disabled={busy} onClick={() => act(() => api.installUpdate())}>Restart to update</button>; }
@@ -35,11 +36,10 @@ export function AboutWorkspace() {
   else if (state) status = "Updates are managed by the desktop app.";
   return (
     <section className="about-workspace">
-      <h2>About</h2>
-      <p className="about-version"><b>Urbanomics {state?.version || ""}</b><span>{state ? build : ""}</span></p>
-      <p className={state?.status === "error" ? "about-status is-error" : "about-status"} role="status">{status}</p>
+      <p className="about-version"><b>Urbanomics{state?.version ? " " + state.version : ""}</b><span>{state ? build : ""}</span></p>
+      {state?.status === "error" ? <Alert title="The update check didn't work">{status}</Alert> : <p className="about-status" role="status">{status}</p>}
       {primary}
-      {error && <p role="alert" className="dr-error-text">{error}</p>}
+      {error && <Alert>{error}</Alert>}
       <p className="about-note">Your workspace stays where it is through every update. Releases are published from the Urbanomics repository.</p>
     </section>
   );

@@ -17,7 +17,7 @@ test("a running balance proves the amount column and which way positive points",
   assert.deepEqual(a.dateFits, ["ymd"]);
   assert.deepEqual(a.questions, []);
   assert.match(a.because.sign, /Balance rises when Amount is positive/);
-  assert.deepEqual(a.suggested, { name: "Bank Everyday", type: "Chequing", rule: { mode: "starts", text: "Bank_everyday" } });
+  assert.deepEqual(a.suggested, { name: "Bank everyday", type: "Chequing", rule: { mode: "starts", text: "Bank_everyday" } });
   const m = toMapping(a.roles, { dateFormat: "ymd", sign: a.sign, delimiter: "," });
   assert.equal(m.amountMode, "signed"); assert.equal(m.amount, 2); assert.equal(m.balance, 3); assert.equal(m.sign, 1);
 });

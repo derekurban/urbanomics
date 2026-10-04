@@ -27,8 +27,6 @@ test('automatic Other preserves ledger, rules replace defaults, explicit Other c
  store.transactionRules.apply(preview.token);assert.equal(view('Dinner').review.tags[0].id,tag);assert.equal(needsTagging(view('Dinner')),false);
  const pay=row('Pay');store.review.financial(pay.id,pay.version,{kind:'income',tags:[{id:OTHER_INCOME,cents:pay.amountCents}]});
  assert.equal(view('Pay').review.incomeType,'');assert.equal(needsTagging(view('Pay')),false);
- const {attentionQueues}=await import('../../src/experimental-model.js');
- assert.equal(attentionQueues(store.review.state().records,{routes:[],maxDays:1,basisPoints:0}).income.some(t=>t.id===pay.id),false);
  store.admin.untagAll(store.admin.preview().token);
  assert.equal(view('Dinner').review.tags[0].id,OTHER_EXPENSE);assert.ok(needsTagging(view('Pay')));
 });

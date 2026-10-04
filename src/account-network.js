@@ -12,15 +12,18 @@ export function accountNetwork(accounts, routes) {
   const list = [...nodes.values()].sort(
     (a, b) => a.name.localeCompare(b.name) || a.id.localeCompare(b.id),
   );
-  const width = 900,
-    height = Math.max(520, list.length * 85);
+  // The canvas grows with the number of accounts, so two accounts don't sit in a large empty well.
+  const width = 760,
+    height = list.length <= 2 ? 220 : list.length <= 4 ? 380 : Math.max(440, list.length * 72);
   list.forEach((n, i) => {
-    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / Math.max(1, list.length);
-    n.x = list.length === 1 ? width / 2 : width / 2 + 310 * Math.cos(angle);
-    n.y =
-      list.length === 1
-        ? height / 2
-        : height / 2 + (height / 2 - 65) * Math.sin(angle);
+    if (list.length <= 2) {
+      n.x = list.length === 1 ? width / 2 : i === 0 ? 120 : width - 120;
+      n.y = height / 2;
+      return;
+    }
+    const angle = -Math.PI / 2 + (i * 2 * Math.PI) / list.length;
+    n.x = width / 2 + (width / 2 - 120) * Math.cos(angle);
+    n.y = height / 2 + (height / 2 - 50) * Math.sin(angle);
   });
   const byId = new Map(list.map((n) => [n.id, n]));
   const labels = [];

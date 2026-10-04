@@ -1,5 +1,6 @@
 import React from 'react';
 
+// If a view fails to render, say so plainly and offer the way back instead of a blank window.
 export class RenderRecovery extends React.Component {
   state = {error: null};
   static getDerivedStateFromError(error) { return {error}; }
@@ -8,11 +9,11 @@ export class RenderRecovery extends React.Component {
   }
   render() {
     if (!this.state.error) return this.props.children;
-    return <main role="alert" style={{maxWidth:620,margin:'12vh auto',padding:32,fontFamily:'system-ui',color:'#333',background:'#fafafa',border:'1px solid #ddd',borderRadius:16}}>
-      <h1 style={{fontSize:24}}>This view ran into a problem</h1>
-      <p>Your saved data is still on this computer. Reloading will discard any unsaved edits.</p>
-      <button onClick={()=>location.reload()}>Reload Urbanomics</button>
-      <details style={{marginTop:24}}><summary>Error details</summary><pre style={{whiteSpace:'pre-wrap',overflowWrap:'anywhere'}}>{this.state.error?.message||String(this.state.error)}</pre></details>
+    return <main role="alert" className="render-recovery">
+      <h1>This view didn't load.</h1>
+      <p>Your saved data is safe on this computer. Reload to continue; edits that weren't saved yet will be lost.</p>
+      <button className="primary" onClick={()=>location.reload()}>Reload Urbanomics</button>
+      <details><summary>Error details</summary><pre>{this.state.error?.message||String(this.state.error)}</pre></details>
     </main>;
   }
 }

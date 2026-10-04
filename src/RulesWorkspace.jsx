@@ -1,24 +1,35 @@
-import {TransactionTemplateEditor} from './TransactionTemplateEditor.jsx';
+import { TransactionTemplateEditor } from "./TransactionTemplateEditor.jsx";
 import { alphabetical, orderedTags, tagType } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { WorkspaceModal } from "./WorkspaceModal.jsx";
-import "./rules-workspace.css";
 import { Icon } from "@derekurban/design-system";
+import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { Recognize } from "./recognize.jsx";
+import { describeText } from "./AliasesWorkspace.jsx";
+import { compileTextRule, decompileTextRule, textMatches } from "./import-analysis.mjs";
+import { Alert, ConfirmDialog, Segmented } from "./ui.jsx";
+import { signedMoney, dayLabel, plural } from "./format.js";
+import "./rules-workspace.css";
 
 const api = window.urbanomics;
 const directions = [
-  ["any", "Any direction"],
-  ["in", "Money in"],
-  ["out", "Money out"],
+  { value: "any", label: "Either way" },
+  { value: "out", label: "Money out" },
+  { value: "in", label: "Money in" },
 ];
-const directionLabel = Object.fromEntries(directions);
+// What each preview status means for the person reading it (the same words as the template editor).
 const statuses = [
-  ["ready", "Ready"],
-  ["conflict", "Conflict"],
-  ["protected", "Protected"],
-  ["unchanged", "Unchanged"],
+  ["ready", "Will apply"],
+  ["conflict", "Two rules match"],
+  ["protected", "Left alone"],
+  ["unchanged", "Already matches"],
 ];
 const statusLabel = Object.fromEntries(statuses);
+const statusHelp = {
+  ready: "Has no tag or person yet; applying fills it in.",
+  conflict: "More than one rule matches and they disagree, so neither applies.",
+  protected: "You already decided something here, or it's a transfer or repayment, so it's left alone.",
+  unchanged: "Already has what the rule would give it.",
+};
 
 function tally(list) {
   const t = { ready: 0, conflict: 0, protected: 0, unchanged: 0 };
@@ -26,299 +37,128 @@ function tally(list) {
   return t;
 }
 
-function plural(n, word, words = `${word}s`) {
-  return `${n} ${n === 1 ? word : words}`;
-}
-
-function Mapping({ categoryId, personId, byId, missing = true, template = null }) {
+function Gives({ categoryId, personId, byId }) {
   const category = categoryId ? byId.get(categoryId) : null,
     person = personId ? byId.get(personId) : null;
   return (
-    <div className="rl-maps">
-      {categoryId &&
-        (category ? (
-          <span className="rl-map">
-            <i style={{ background: category.color }} />
-            <em>Tag</em>
-            {category.name}
-          </span>
-        ) : (
-          missing && <span className="rl-map is-missing">Missing tag</span>
-        ))}
-      {personId &&
-        (person ? (
-          <span className="rl-map is-person">
-            <em>Person</em>
-            {person.name}
-          </span>
-        ) : (
-          missing && <span className="rl-map is-missing">Missing person</span>
-        ))}
-      {!categoryId && !personId && !template && (
-        <span className="rl-map is-none">No mapping</span>
-      )}
-    </div>
+    <span className="rl-gives">
+      {categoryId && <span className="rl-tag"><i style={{ background: category?.color || "var(--data-neutral)" }} />{category?.name || "Missing tag"}</span>}
+      {personId && <span className="rl-tag"><Icon name="user" size={16} />{person?.name || "Missing person"}</span>}
+    </span>
   );
 }
 
-function CandidateRow({ candidate: c, byId, onEditRule }) {
-  const rules = c.rules || [],
-    conflicts = c.conflicts || [];
-  return (
-    <article className={`rl-candidate is-${c.status}`}>
-      <div className="rl-candidate-body">
-        <strong title={c.description}>{c.description}</strong>
-        <small>
-          {c.account} · {c.date}
-        </small>
-        {(c.changes?.categoryId || c.changes?.personId) && (
-          <Mapping
-            categoryId={c.changes.categoryId}
-            personId={c.changes.personId}
-            byId={byId}
-          />
-        )}
-        {c.reason && <small className="rl-reason">{c.reason}</small>}
-        {rules.length > 0 && (
-          <div className="rl-rulenames">
-            {rules.map((name) =>
-              onEditRule ? (
-                <button
-                  key={name}
-                  type="button"
-                  className={conflicts.includes(name) ? "is-conflict" : ""}
-                  aria-label={`Edit rule ${name}`}
-                  onClick={() => onEditRule(name)}
-                >
-                  {name}
-                </button>
-              ) : (
-                <span
-                  key={name}
-                  className={conflicts.includes(name) ? "is-conflict" : ""}
-                >
-                  {name}
-                </span>
-              ),
-            )}
-          </div>
-        )}
-      </div>
-      <div className="rl-candidate-side">
-        <span className={`rl-status is-${c.status}`}>
-          {statusLabel[c.status] || c.status}
-        </span>
-        <span className="rl-amount">
-          {new Intl.NumberFormat("en-CA", {
-            style: "currency",
-            currency: c.currency,
-            currencyDisplay: "code",
-          }).format(c.amountCents / 100)}
-        </span>
-      </div>
-    </article>
-  );
+function Status({ status }) {
+  return <span className={`rl-status is-${status}`} title={statusHelp[status]}><i aria-hidden="true" />{statusLabel[status] || status}</span>;
 }
 
 function CandidateList({ candidates, byId, onEditRule, pageSize = 25 }) {
-  const [filter, setFilter] = useState("all"),
-    [query, setQuery] = useState(""),
-    [page, setPage] = useState(0);
+  const [filter, setFilter] = useState("all"), [query, setQuery] = useState(""), [page, setPage] = useState(0);
   const counts = tally(candidates);
-  useEffect(() => {
-    setPage(0);
-  }, [candidates]);
+  useEffect(() => setPage(0), [candidates]);
   const q = query.trim().toLowerCase();
-  const rows = candidates.filter(
-    (c) =>
-      (filter === "all" || c.status === filter) &&
-      (!q ||
-        `${c.description} ${c.account} ${c.date} ${(c.rules || []).join(" ")}`
-          .toLowerCase()
-          .includes(q)),
-  );
-  const pages = Math.max(1, Math.ceil(rows.length / pageSize)),
-    current = Math.min(page, pages - 1);
+  const rows = candidates.filter((c) => (filter === "all" || c.status === filter) && (!q || `${c.description} ${c.account} ${(c.rules || []).join(" ")}`.toLowerCase().includes(q)));
+  const pages = Math.max(1, Math.ceil(rows.length / pageSize)), current = Math.min(page, pages - 1);
+  const choose = (id) => { setFilter(id); setPage(0); };
   return (
     <div className="rl-list">
       <div className="rl-list-tools">
-        <div
-          className="segmented rl-filters"
-          role="group"
-          aria-label="Filter matches by status"
-        >
-          <button
-            type="button"
-            className={filter === "all" ? "selected" : ""}
-            aria-pressed={filter === "all"}
-            onClick={() => {
-              setFilter("all");
-              setPage(0);
-            }}
-          >
-            All <small>{candidates.length}</small>
-          </button>
-          {statuses.map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              className={filter === id ? "selected" : ""}
-              aria-pressed={filter === id}
-              onClick={() => {
-                setFilter(id);
-                setPage(0);
-              }}
-            >
-              {label} <small>{counts[id]}</small>
-            </button>
+        {statuses.filter(([id]) => counts[id]).length > 1 ? <div className="rl-filters" role="group" aria-label="Show matches">
+          <button className="sm" aria-pressed={filter === "all"} onClick={() => choose("all")}>All · {candidates.length}</button>
+          {statuses.filter(([id]) => counts[id]).map(([id, label]) => (
+            <button key={id} className="sm" aria-pressed={filter === id} onClick={() => choose(id)}>{label} · {counts[id]}</button>
           ))}
-        </div>
-        <input
-          type="search"
-          aria-label="Search matched transactions"
-          placeholder="Find a match…"
-          value={query}
-          onChange={(e) => {
-            setQuery(e.target.value);
-            setPage(0);
-          }}
-        />
+        </div> : <span />}
+        {candidates.length > 10 && <input type="search" aria-label="Search matched transactions" placeholder="Find a transaction" value={query} onChange={(e) => { setQuery(e.target.value); setPage(0); }} />}
       </div>
+      {filter !== "all" && <p className="form-help">{statusHelp[filter]}</p>}
       {!rows.length ? (
-        <p className="rl-none">
-          {q
-            ? "No matches for this search."
-            : filter === "all"
-              ? "No matches."
-              : `No ${statusLabel[filter].toLowerCase()} matches.`}
-        </p>
+        <p className="form-help">{q ? "Nothing matches that search." : "No matches."}</p>
       ) : (
         <div className="rl-candidates">
-          {rows
-            .slice(current * pageSize, current * pageSize + pageSize)
-            .map((c) => (
-              <CandidateRow
-                key={c.id}
-                candidate={c}
-                byId={byId}
-                onEditRule={onEditRule}
-              />
-            ))}
+          {rows.slice(current * pageSize, current * pageSize + pageSize).map((c) => (
+            <article key={c.id} className="rl-candidate">
+              <div>
+                <strong title={c.description}>{c.description}</strong>
+                <small>{c.account}, {dayLabel(c.date)}{c.reason && (c.status === "protected" || c.status === "conflict") ? ` · ${c.reason}` : ""}</small>
+                {(c.changes?.categoryId || c.changes?.personId) && <span className="rl-adds">Adds <Gives categoryId={c.changes.categoryId} personId={c.changes.personId} byId={byId} /></span>}
+                {(c.rules || []).length > 1 && (
+                  <small className="rl-rulenames">
+                    Matched by {c.rules.map((name, i) => (
+                      <React.Fragment key={name}>
+                        {i ? ", " : ""}
+                        {onEditRule ? <button className="link" aria-label={`Edit rule ${name}`} onClick={() => onEditRule(name)}>{name}</button> : name}
+                      </React.Fragment>
+                    ))}
+                  </small>
+                )}
+              </div>
+              <div className="rl-candidate-side">
+                <Status status={c.status} />
+                <span className="tabular">{signedMoney(c.amountCents, c.currency)}</span>
+              </div>
+            </article>
+          ))}
         </div>
       )}
       {pages > 1 && (
         <div className="rl-pages">
-          <button
-            type="button"
-            aria-label="Previous matches"
-            disabled={current === 0}
-            onClick={() => setPage(current - 1)}
-          >
-            Previous
-          </button>
-          <span>
-            {current + 1} / {pages}
-          </span>
-          <button
-            type="button"
-            aria-label="Next matches"
-            disabled={current === pages - 1}
-            onClick={() => setPage(current + 1)}
-          >
-            Next
-          </button>
+          <button className="icon ghost sm" aria-label="Previous matches" disabled={current === 0} onClick={() => setPage(current - 1)}><Icon name="chevron-left" size={16} /></button>
+          <span>{current + 1} of {pages}</span>
+          <button className="icon ghost sm" aria-label="Next matches" disabled={current === pages - 1} onClick={() => setPage(current + 1)}><Icon name="chevron-right" size={16} /></button>
         </div>
       )}
     </div>
   );
 }
 
-function RuleEditor({
-  rule,
-  aliases,
-  categories,
-  people,
-  byId,
-  act,
-  busy,
-  onClose,
-}) {
+function RuleEditor({ rule, aliases, categories, people, byId, act, busy, onClose, onSection }) {
   const [aliasQuery, setAliasQuery] = useState("");
   const [draft, setDraft] = useState({
     name: rule.name || "",
     pattern: rule.pattern || "",
-    matchType: rule.matchType || (rule.id ? "regex" : "aliases"),
+    matchType: rule.matchType || (rule.id ? "regex" : aliases.length ? "aliases" : "regex"),
     aliasIds: rule.aliasIds || [],
     categoryId: rule.categoryId || "",
     personId: rule.personId || "",
     direction: rule.direction || "any",
     enabled: rule.enabled !== false,
   });
-  const [preview, setPreview] = useState(null),
-    [previewError, setPreviewError] = useState(null),
-    [checking, setChecking] = useState(false);
-  const [error, setError] = useState(""),
-    [confirm, setConfirm] = useState(false),
-    [working, setWorking] = useState(false);
-  const seq = useRef(0),
-    saving = useRef(false);
-  const values = useMemo(
-    () => ({
-      ...(rule.id ? { id: rule.id, version: rule.version } : {}),
-      name: draft.name.trim(),
-      pattern: draft.matchType === "regex" ? draft.pattern : "",
-      matchType: draft.matchType,
-      aliasIds: draft.matchType === "aliases" ? draft.aliasIds : [],
-      categoryId: draft.categoryId || null,
-      personId: draft.personId || null,
-      direction: draft.direction,
-      enabled: draft.enabled,
-    }),
-    [draft, rule],
-  );
+  const [preview, setPreview] = useState(null), [previewError, setPreviewError] = useState(null), [checking, setChecking] = useState(false);
+  const [error, setError] = useState(""), [confirm, setConfirm] = useState(false), [working, setWorking] = useState(false);
+  const seq = useRef(0), saving = useRef(false);
+  const values = useMemo(() => ({
+    ...(rule.id ? { id: rule.id, version: rule.version } : {}),
+    name: draft.name.trim(),
+    pattern: draft.matchType === "regex" ? draft.pattern : "",
+    matchType: draft.matchType,
+    aliasIds: draft.matchType === "aliases" ? draft.aliasIds : [],
+    categoryId: draft.categoryId || null,
+    personId: draft.personId || null,
+    direction: draft.direction,
+    enabled: draft.enabled,
+  }), [draft, rule]);
   const signature = JSON.stringify(values);
   const mapped = !!(values.categoryId || values.personId),
-    complete = !!(
-      values.name &&
-      (values.matchType === "aliases"
-        ? values.aliasIds.length
-        : values.pattern.trim()) &&
-      mapped
-    );
-  const fresh = preview && preview.signature === signature,
-    failed = previewError && previewError.signature === signature;
-
-  const update = (key, value) => {
-    setDraft((d) => ({ ...d, [key]: value }));
-    setError("");
-  };
-  const close = () => {
-    if (!saving.current) onClose();
-  };
-  async function check() {
-    if (!complete) return;
-    const id = ++seq.current;
-    setChecking(true);
-    try {
-      const result = await api.previewTransactionRule(values);
-      if (id !== seq.current) return;
-      setPreview({
-        matches: result.matches || [],
-        checked: result.checked || 0,
-        signature,
-      });
-      setPreviewError(null);
-    } catch (e) {
-      if (id !== seq.current) return;
-      setPreview(null);
-      setPreviewError({ message: e.message, signature });
-    } finally {
-      if (id === seq.current) setChecking(false);
-    }
-  }
+    matching = values.matchType === "aliases" ? values.aliasIds.length > 0 : !!values.pattern.trim(),
+    complete = !!(values.name && matching && mapped);
+  const fresh = preview && preview.signature === signature, failed = previewError && previewError.signature === signature;
+  const update = (key, value) => { setDraft((d) => ({ ...d, [key]: value })); setError(""); };
+  // Existing transactions it would match are checked as you edit; nothing changes until Save, then Apply.
   useEffect(() => {
     if (!complete) return undefined;
-    const timer = setTimeout(check, 450);
+    const id = ++seq.current;
+    setChecking(true);
+    const timer = setTimeout(async () => {
+      try {
+        const result = await api.previewTransactionRule(values);
+        if (id === seq.current) { setPreview({ matches: result.matches || [], checked: result.checked || 0, signature }); setPreviewError(null); }
+      } catch (e) {
+        if (id === seq.current) { setPreview(null); setPreviewError({ message: e.message, signature }); }
+      } finally {
+        if (id === seq.current) setChecking(false);
+      }
+    }, 450);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, complete]);
@@ -331,349 +171,108 @@ function RuleEditor({
       if ((await act(fn)) !== false) onClose();
     } catch (e) {
       setError(e.message);
+      setConfirm(false);
     } finally {
       saving.current = false;
       setWorking(false);
     }
   }
   const counts = fresh ? tally(preview.matches) : null;
-  const noTargets = !categories.length && !people.length;
+  const shownAliases = alphabetical(aliases).filter((a) => a.name.toLowerCase().includes(aliasQuery.trim().toLowerCase()));
   return (
     <WorkspaceModal
       className="rl-editor-dialog"
-      title={rule.id ? "Edit rule" : "New rule"}
-      onClose={close}
+      title={rule.id ? `Edit “${rule.name}”` : "New rule"}
+      onClose={() => { if (!saving.current) onClose(); }}
       footer={
-        <div className="rv-modal-actions rl-actions">
-          {rule.id && (
-            <button
-              type="button"
-              disabled={working}
-              className="account-delete-link"
-              onClick={() => setConfirm(true)}
-            >
-              Delete rule
-            </button>
-          )}
-          <button type="button" disabled={working} onClick={close}>
-            Cancel
-          </button>
-          <button
-            type="button"
-            className="primary"
-            disabled={working || busy || !complete || !!failed}
-            onClick={() => mutate(() => api.saveTransactionRule(values))}
-          >
-            Save rule
-          </button>
-        </div>
+        <>
+          {rule.id && <span className="footer-start"><button disabled={working} className="danger" onClick={() => setConfirm(true)}>Delete rule</button></span>}
+          <button disabled={working} onClick={onClose}>Cancel</button>
+          <button className="primary" disabled={working || busy || !complete || !!failed} onClick={() => mutate(() => api.saveTransactionRule(values))}>Save rule</button>
+        </>
       }
     >
-      <div className="rl-editor">
-        <fieldset disabled={working} className="rl-fields">
-          <label>
-            Name
-            <input
-              maxLength={80}
-              placeholder="e.g. Grocery run"
-              value={draft.name}
-              onChange={(e) => update("name", e.target.value)}
-            />
-          </label>
-          <label>
-            Direction
-            <select
-              aria-label="Direction"
-              value={draft.direction}
-              onChange={(e) => update("direction", e.target.value)}
-            >
-              {directions.map(([id, label]) => (
-                <option key={id} value={id}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div
-            className="rl-span segmented"
-            role="group"
-            aria-label="Match using"
-          >
-            {[
-              ["aliases", "Aliases / vendors"],
-              ["regex", "Regex"],
-            ].map(([id, label]) => (
-              <button
-                key={id}
-                type="button"
-                aria-pressed={draft.matchType === id}
-                className={draft.matchType === id ? "selected" : ""}
-                onClick={() => update("matchType", id)}
-              >
-                {label}
-              </button>
-            ))}
+      <fieldset disabled={working} className="rl-editor">
+        <label>Rule name<input maxLength={80} placeholder="Groceries" value={draft.name} onChange={(e) => update("name", e.target.value)} /></label>
+        <div className="rl-field">
+          <span>Which transactions</span>
+          <div className="rl-field-row">
+            <Segmented label="Match by" value={draft.matchType} onChange={(v) => update("matchType", v)} options={[{ value: "aliases", label: "Saved vendors" }, { value: "regex", label: "Bank description" }]} />
+            <Segmented label="Direction" value={draft.direction} onChange={(v) => update("direction", v)} options={directions} />
           </div>
           {draft.matchType === "regex" ? (
-            <>
-              <label className="rl-span">
-                Bank description regex
-                <input
-                  className="rl-regex"
-                  maxLength={256}
-                  spellCheck={false}
-                  placeholder={"e.g. ^GREEN GROCER(?:\\s|$)"}
-                  value={draft.pattern}
-                  onChange={(e) => update("pattern", e.target.value)}
-                />
-              </label>
-              <p className="rv-help rl-span">
-                Matches the original bank description, not its alias. Use ^ and
-                $ to anchor. RE2 syntax; no / delimiters, lookarounds or
-                backreferences.
-              </p>
-            </>
+            <Recognize lead="Bank descriptions that" rule={decompileTextRule(draft.pattern)} onChange={(r) => update("pattern", compileTextRule(r))}
+              candidates={fresh ? preview.matches.slice(0, 6).map((m) => ({ id: m.id, filename: m.description })) : []} showChips={false}
+              test={textMatches} patternFor={compileTextRule} noun={["transaction", "transactions"]} label="Description text to match"
+              emptyMessage="Say which bank descriptions this rule is for. It reads the bank's text, not the alias." />
+          ) : !aliases.length ? (
+            <p className="form-help">No saved vendors yet. Make aliases first under Settings, Aliases, or match the bank description instead.</p>
           ) : (
-            <div className="rl-span rl-alias-picker">
-              <label>
-                Search aliases / vendors
-                <input
-                  type="search"
-                  placeholder="Find a saved vendor…"
-                  value={aliasQuery}
-                  onChange={(e) => setAliasQuery(e.target.value)}
-                />
-              </label>
-              <div className="rl-alias-selected" aria-label="Selected aliases">
-                {draft.aliasIds.map((id) => (
-                  <button
-                    type="button"
-                    key={id}
-                    aria-label={`Remove ${aliases.find((a) => a.id === id)?.name || "missing alias"}`}
-                    onClick={() =>
-                      update(
-                        "aliasIds",
-                        draft.aliasIds.filter((x) => x !== id),
-                      )
-                    }
-                  >
-                    {aliases.find((a) => a.id === id)?.name || "Missing alias"}{" "}
-                    <Icon name="x" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />
-                  </button>
-                ))}
+            <div className="rl-aliases">
+              {aliases.length > 8 && <input type="search" aria-label="Find a vendor" placeholder="Find a vendor" value={aliasQuery} onChange={(e) => setAliasQuery(e.target.value)} />}
+              <div className="rl-alias-options" role="group" aria-label="Vendors">
+                {shownAliases.map((a) => {
+                  const on = draft.aliasIds.includes(a.id);
+                  return <button key={a.id} className="sm" aria-pressed={on} onClick={() => update("aliasIds", on ? draft.aliasIds.filter((x) => x !== a.id) : [...draft.aliasIds, a.id])}>{on && <Icon name="check" size={16} />}{a.name}</button>;
+                })}
+                {!shownAliases.length && <p className="form-help">No vendor by that name.</p>}
               </div>
-              <div
-                className="rl-alias-options"
-                role="group"
-                aria-label="Available aliases"
-              >
-                {alphabetical(aliases)
-                  .filter((a) =>
-                    a.name
-                      .toLowerCase()
-                      .includes(aliasQuery.trim().toLowerCase()),
-                  )
-                  .map((a) => (
-                    <label key={a.id} className="rl-alias-option">
-                      <input
-                        type="checkbox"
-                        checked={draft.aliasIds.includes(a.id)}
-                        onChange={(e) =>
-                          update(
-                            "aliasIds",
-                            e.target.checked
-                              ? [...draft.aliasIds, a.id]
-                              : draft.aliasIds.filter((id) => id !== a.id),
-                          )
-                        }
-                      />
-                      <span>{a.name}</span>
-                    </label>
-                  ))}
-                {!aliases.length ? (
-                  <p className="rl-muted">
-                    Create vendors in Settings → Aliases first, or use Regex.
-                  </p>
-                ) : (
-                  !aliases.some((a) =>
-                    a.name
-                      .toLowerCase()
-                      .includes(aliasQuery.trim().toLowerCase()),
-                  ) && <p className="rl-muted">No aliases match this search.</p>
-                )}
-              </div>
-              <p className="rv-help">
-                {draft.aliasIds.length} selected · Matches any selected alias
-                using its current definition. Ambiguous aliases are skipped.
-              </p>
+              <p className="form-help">{draft.aliasIds.length ? `Matches ${plural(draft.aliasIds.length, "vendor")}, following each alias as it changes.` : "Choose one or more vendors."} A transaction two aliases match is skipped.</p>
             </div>
           )}
-          <label>
-            Tag
-            <select
-              aria-label="Tag"
-              value={draft.categoryId}
-              onChange={(e) => update("categoryId", e.target.value)}
-            >
+        </div>
+        <div className="rl-field">
+          <span>What it gives them</span>
+          <div className="rl-field-row">
+            <label>Tag<select aria-label="Tag" value={draft.categoryId} onChange={(e) => update("categoryId", e.target.value)}>
               <option value="">No tag</option>
-              {categories.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {tagType(c) === "income" ? "Income" : "Expense"} · {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            Person
-            <select
-              aria-label="Person"
-              value={draft.personId}
-              onChange={(e) => update("personId", e.target.value)}
-            >
+              {categories.map((c) => <option key={c.id} value={c.id}>{c.name}{tagType(c) === "income" ? " (income)" : ""}</option>)}
+            </select></label>
+            <label>Person<select aria-label="Person" value={draft.personId} onChange={(e) => update("personId", e.target.value)}>
               <option value="">No person</option>
-              {people.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className={`rv-help rl-span ${mapped ? "" : "rl-hint"}`}>
-            {mapped
-              ? "A tag fills in only where none is set. A person is an association only: no debt, split, income or repayment is created."
-              : noTargets
-                ? "Create a tag or a person first so the rule has something to map to."
-                : "Choose a tag, a person, or both."}
-          </p>
-          <label className="rl-check rl-span">
-            <input
-              type="checkbox"
-              checked={draft.enabled}
-              onChange={(e) => update("enabled", e.target.checked)}
-            />
-            Enabled. Runs on every new import.
-          </label>
-        </fieldset>
-        {error && (
-          <p role="alert" className="dr-error-text">
-            {error}
-          </p>
-        )}
-        <section
-          className="rl-preview"
-          aria-label="Matches on existing transactions"
-          aria-busy={checking}
-        >
-          <div className="rl-preview-head">
-            <h3>Existing transactions</h3>
-            <button
-              type="button"
-              onClick={check}
-              disabled={!complete || checking || working}
-            >
-              {checking ? "Checking…" : "Check now"}
-            </button>
+              {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            </select></label>
           </div>
-          {!complete ? (
-            <p className="rl-muted">
-              Add a name, aliases or a regex, and at least one mapping to see
-              matches.
-            </p>
-          ) : failed ? (
-            <p role="alert" className="dr-error-text">
-              {previewError.message}
-            </p>
-          ) : !fresh ? (
-            <p className="rl-muted" role="status">
-              {checking ? "Checking…" : "Checking soon…"}
-            </p>
-          ) : (
-            <>
-              <div className="rl-summary" role="status">
-                <strong>
-                  {plural(preview.matches.length, "match", "matches")}
-                </strong>
-                {statuses.map(([id, label]) =>
-                  counts[id] ? (
-                    <span key={id} className={`rl-status is-${id}`}>
-                      <b>{counts[id]}</b> {label}
-                    </span>
-                  ) : null,
-                )}
-                <small>
-                  {plural(preview.checked, "active transaction")} checked
-                </small>
-              </div>
-              {preview.matches.length ? (
-                <CandidateList candidates={preview.matches} byId={byId} />
-              ) : (
-                <p className="rl-muted">
-                  No existing transactions match. Saving still covers future
-                  imports.
-                </p>
-              )}
-            </>
-          )}
-          <p className="rv-help">
-            Preview only. Save the rule, then use Apply on the Rules page to
-            fill in existing transactions.
-            {!draft.enabled &&
-              " This preview shows what the rule would match if enabled."}
+          <p className="form-help">
+            {!categories.length && !people.length
+              ? <>There are no tags or people yet. <button className="link" onClick={() => { onClose(); onSection?.("category"); }}>Add tags</button></>
+              : mapped ? "Only filled in where a transaction has none. A person here is a note of who it was with; it doesn't split the cost or record a repayment." : "Choose a tag, a person, or both."}
           </p>
-        </section>
-        {confirm && (
-          <div className="rv-confirm">
-            <p>
-              Delete this rule? Categories and people it already filled in stay
-              on those transactions. New imports will no longer use it.
-            </p>
-            <button
-              type="button"
-              disabled={working}
-              className="danger"
-              onClick={() =>
-                mutate(() => api.removeTransactionRule(rule.id, rule.version))
-              }
-            >
-              Confirm deletion
-            </button>
-            <button
-              type="button"
-              disabled={working}
-              onClick={() => setConfirm(false)}
-            >
-              Keep rule
-            </button>
-          </div>
+        </div>
+        <label className="rl-check"><input type="checkbox" checked={draft.enabled} onChange={(e) => update("enabled", e.target.checked)} />Use it on every new import</label>
+      </fieldset>
+      {error && <Alert>{error}</Alert>}
+      <section className="rl-preview" aria-label="Matches on existing transactions" aria-busy={checking}>
+        <h3>{!complete ? "Transactions it matches" : failed || !fresh ? "Checking your transactions…" : preview.matches.length ? `Matches ${plural(preview.matches.length, "transaction")} you already have` : "Matches nothing you already have"}</h3>
+        {!complete ? (
+          <p className="form-help">Name the rule, say which transactions it's for and what it gives them, and the matches appear here.</p>
+        ) : failed ? (
+          <Alert>{previewError.message}</Alert>
+        ) : fresh && (
+          <>
+            {counts.conflict > 0 && <Alert tone="warning">{plural(counts.conflict, "transaction")} would match another rule too, so neither would apply. Make one of them more specific.</Alert>}
+            {preview.matches.length ? <CandidateList candidates={preview.matches} byId={byId} pageSize={10} /> : <p className="form-help">It will still apply to matching transactions you import later.</p>}
+            <p className="form-help">Saving changes future imports only. To fill in these, use Apply on the Rules page.</p>
+          </>
         )}
-      </div>
+      </section>
+      {confirm && (
+        <ConfirmDialog title={`Delete “${rule.name}”?`} confirmLabel="Delete rule" cancelLabel="Keep rule" busy={working} onClose={() => setConfirm(false)} onConfirm={() => mutate(() => api.removeTransactionRule(rule.id, rule.version))}>
+          <p>New imports won't use it. Tags and people it already filled in stay where they are.</p>
+        </ConfirmDialog>
+      )}
     </WorkspaceModal>
   );
 }
 
 export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
-  const [state, setState] = useState(null),
-    [error, setError] = useState(""),
-    [editing, setEditing] = useState(null),
-    [query, setQuery] = useState(""),
-    [result, setResult] = useState(null),
-    [reloadKey, setReloadKey] = useState(0);
+  const [state, setState] = useState(null), [error, setError] = useState(""), [editing, setEditing] = useState(null),
+    [query, setQuery] = useState(""), [result, setResult] = useState(null), [reloadKey, setReloadKey] = useState(0);
   useEffect(() => {
     let live = true;
-    api
-      .transactionRulesState()
-      .then((s) => {
-        if (live) setState(s);
-      })
-      .catch((e) => {
-        if (live) setError(e.message);
-      });
-    return () => {
-      live = false;
-    };
+    api.transactionRulesState().then((s) => { if (live) setState(s); }).catch((e) => { if (live) setError(e.message); });
+    return () => { live = false; };
   }, [data, reloadKey]);
-  const reload = () => setReloadKey((k) => k + 1);
-
   async function act(fn) {
     let failure;
     const outcome = await run(async () => {
@@ -697,22 +296,12 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
       if (outcome !== false) setResult(outcome);
     } catch (e) {
       setError(e.message);
-      reload();
+      setReloadKey((k) => k + 1);
     }
   }
-
-  const rules = state?.rules || [],
-    entities = state?.entities || [],
-    aliases = state?.aliases || [],
-    candidates = state?.candidates || [];
-  const byId = useMemo(
-    () => new Map(entities.map((e) => [e.id, e])),
-    [entities],
-  );
-  const categories = orderedTags(
-      entities.filter((e) => e.kind === "category"),
-    ),
-    people = entities.filter((e) => e.kind === "person");
+  const rules = state?.rules || [], entities = state?.entities || [], aliases = state?.aliases || [], candidates = state?.candidates || [];
+  const byId = useMemo(() => new Map(entities.map((e) => [e.id, e])), [entities]);
+  const categories = orderedTags(entities.filter((e) => e.kind === "category" && !e.systemRole)), people = entities.filter((e) => e.kind === "person");
   const counts = tally(candidates);
   const perRule = useMemo(() => {
     const map = new Map();
@@ -727,307 +316,75 @@ export function RulesWorkspace({ data, run, busy, onSection, onNavigate }) {
     return map;
   }, [candidates]);
   const enabled = rules.filter((r) => r.enabled).length;
-  const uncategorized = (state?.records || []).filter(
-    (r) => !r.deleted && !r.review?.tags?.length,
-  ).length;
-  const shownRules = rules.filter((r) =>
-    `${r.name} ${r.pattern} ${(r.aliasIds || []).map((id) => aliases.find((a) => a.id === id)?.name || "").join(" ")}`
-      .toLowerCase()
-      .includes(query.toLowerCase()),
-  );
-  const editByName = (name) => {
-    const rule = rules.find((r) => r.name === name);
-    if (rule) setEditing(rule);
+  const vendors = (r) => (r.aliasIds || []).map((id) => aliases.find((a) => a.id === id)?.name || "a deleted alias");
+  const shownRules = rules.filter((r) => `${r.name} ${r.pattern} ${vendors(r).join(" ")}`.toLowerCase().includes(query.trim().toLowerCase()));
+  const editByName = (name) => { const rule = rules.find((r) => r.name === name); if (rule) setEditing(rule); };
+  const matchLine = (r) => {
+    const what = r.matchType === "aliases" ? `Vendors ${vendors(r).join(", ") || "(none chosen)"}` : `Descriptions that ${describeText(r.pattern)}`;
+    return r.direction === "in" ? `${what}, money in` : r.direction === "out" ? `${what}, money out` : what;
   };
-
   return (
-    <section className="rules-workspace">
-      <div className="og-heading">
-        <div>
-          <h2>Rules</h2>
-          <p>
-            Match saved vendors or a bank-description regex to fill in a tag or
-            person automatically.
-          </p>
-        </div>
-        <button
-          className="primary"
-          disabled={busy || !state}
-          onClick={() => setEditing({})}
-        >
-          + New rule
-        </button>
+    <section className="rules-workspace" aria-label="Rules">
+      <div className="og-toolbar">
+        {rules.length > 6 && <input type="search" aria-label="Search rules" placeholder="Find a rule or vendor" value={query} onChange={(e) => setQuery(e.target.value)} />}
+        {state && rules.length > 0 && <span className="og-stat">{plural(rules.length, "rule")}, {enabled === rules.length ? "all on" : `${enabled} on`}</span>}
+        <button className="primary" disabled={busy || !state} onClick={() => setEditing({})}><Icon name="plus" size={16} />New rule</button>
       </div>
-      <div className="rl-facts">
-        <div className="rl-fact">
-          <strong>Runs on import</strong>
-          New transactions that match get their tag or person right away.
-        </div>
-        <div className="rl-fact">
-          <strong>Fills gaps only</strong>
-          Existing splits, repayments and choices are never overwritten.
-        </div>
-        <div className="rl-fact">
-          <strong>Existing transactions</strong>
-          Applying to what is already imported is a separate step you trigger
-          here.
-        </div>
-      </div>
-      {error && (
-        <p role="alert" className="dr-error-text">
-          {error}
-        </p>
-      )}
+      {error && <Alert>{error}</Alert>}
       {!state ? (
-        <p className="og-empty">
-          {error ? "Unable to load rules." : "Loading rules…"}
-        </p>
+        <p role="status">{error ? "Rules couldn't be loaded." : "Loading rules…"}</p>
+      ) : !rules.length ? (
+        <div className="empty-state">
+          <Icon name="list" size={24} />
+          <h2>No rules yet.</h2>
+          <p>A rule tags new imports for you: transactions from a vendor, or whose bank description starts with some text, get a tag or a person as they arrive. You see what it matches before saving.</p>
+          {!categories.length && !people.length && onSection && <p className="form-help">Rules need a tag or a person to give. <button className="link" onClick={() => onSection("category")}>Add tags first</button></p>}
+        </div>
       ) : (
         <>
-          {!categories.length && !people.length && onSection && (
-            <div className="og-callout">
-              <div>
-                <strong>Nothing to map to yet</strong>
-                <small>
-                  Rules fill in tags and people, so create one first.
-                </small>
-              </div>
-              <div className="og-callout-actions">
-                <button onClick={() => onSection("category")}>
-                  Categories
-                </button>
-                <button onClick={() => onSection("person")}>People</button>
-              </div>
-            </div>
+          {(counts.ready > 0 || result) && (
+            <Alert tone="info" title={result ? `Filled in ${plural(result.applied, "transaction")}` : `Your rules can fill in ${plural(counts.ready, "transaction")} you already have`}
+              action={!result && <button className="sm" disabled={busy} onClick={apply}>Fill in {counts.ready}</button>}
+              onDismiss={result ? () => setResult(null) : undefined}>
+              {result
+                ? <p>Skipped {[result.conflicts && `${result.conflicts} where two rules match`, result.protected && `${result.protected} already decided`, result.unchanged && `${result.unchanged} already matching`].filter(Boolean).join(", ") || "nothing"}. {onNavigate && <button className="link" onClick={() => onNavigate("transactions")}>See transactions</button>}</p>
+                : <p>Only empty tags and people are filled in. Anything you already decided stays.</p>}
+            </Alert>
           )}
-          {rules.length > 0 && (
-            <section
-              className="rl-apply"
-              aria-label="Apply rules to existing transactions"
-            >
-              <div className="rl-apply-counts">
-                {candidates.length ? (
-                  statuses.map(([id, label]) => (
-                    <span key={id} className={`rl-status is-${id}`}>
-                      <b>{counts[id]}</b> {label}
-                    </span>
-                  ))
-                ) : (
-                  <span className="rl-muted">
-                    {enabled
-                      ? "No existing transactions match your enabled rules."
-                      : "All rules are switched off."}
-                  </span>
-                )}
-                <small>
-                  {plural(candidates.length, "transaction")} matched by{" "}
-                  {plural(enabled, "enabled rule")}
-                  {uncategorized
-                    ? ` · ${plural(uncategorized, "active transaction")} without a tag`
-                    : ""}
-                </small>
-              </div>
-              <div className="rl-apply-actions">
-                <button
-                  className="primary"
-                  disabled={busy || !counts.ready}
-                  onClick={apply}
-                >
-                  Apply to {plural(counts.ready, "ready transaction")}
-                </button>
-                <button
-                  className="text-button"
-                  disabled={busy}
-                  onClick={reload}
-                >
-                  Refresh
-                </button>
-              </div>
-              {result && (
-                <p className="rl-result" role="status">
-                  Applied {result.applied}. Skipped {result.conflicts}{" "}
-                  conflicting, {result.protected} protected and{" "}
-                  {result.unchanged} unchanged.
-                  {onNavigate && (
-                    <button
-                      className="text-button"
-                      onClick={() => onNavigate("transactions")}
-                    >
-                      See transactions
-                    </button>
-                  )}
-                </p>
-              )}
-              <p>
-                Optional. Only empty tag or person fields are filled, and only
-                for transactions marked ready.
-              </p>
-            </section>
-          )}
-          {!rules.length ? (
-            <div className="og-empty rl-empty">
-              <h3>No rules yet.</h3>
-              <p>
-                Choose your saved vendors or a description regex, then assign a
-                tag or person for future imports.
-                {uncategorized
-                  ? ` Right now ${plural(uncategorized, "active transaction has", "active transactions have")} no tag.`
-                  : ""}
-              </p>
-              <button
-                className="primary"
-                disabled={busy}
-                onClick={() => setEditing({})}
-              >
-                + New rule
-              </button>
-            </div>
+          {!shownRules.length ? (
+            <p className="form-help">No rule by that name.</p>
           ) : (
-            <>
-              <div className="og-toolbar">
-                <input
-                  className="og-search"
-                  type="search"
-                  aria-label="Search rules"
-                  placeholder="Find a rule, vendor or regex…"
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                />
-                <span className="og-stat">
-                  {plural(rules.length, "rule")} · {enabled} enabled
-                </span>
-              </div>
-              {!shownRules.length ? (
-                <div className="og-empty">
-                  <h3>No matching rules.</h3>
-                  <p>Try another name, vendor or part of the regex.</p>
-                </div>
-              ) : (
-                <div className="rl-rules">
-                  {shownRules.map((r) => {
-                    const stats = perRule.get(r.name);
-                    return (
-                      <article
-                        className={`rl-rule ${r.enabled ? "" : "is-off"}`}
-                        key={r.id}
-                      >
-                        <span className="rl-dot" aria-hidden="true" />
-                        <div className="rl-rule-body">
-                          <div className="rl-rule-title">
-                            <h3 title={r.name}>{r.name}</h3>
-                            {!r.enabled && (
-                              <span className="rl-badge is-off">Off</span>
-                            )}
-                            {r.direction && r.direction !== "any" && (
-                              <span className="rl-badge">
-                                {directionLabel[r.direction] || r.direction}
-                              </span>
-                            )}
-                          </div>
-                          {r.matchType === "aliases" ? (
-                            <div
-                              className="rl-vendor-summary"
-                              title={(r.aliasIds || [])
-                                .map(
-                                  (id) =>
-                                    aliases.find((a) => a.id === id)?.name ||
-                                    "Missing alias",
-                                )
-                                .join(", ")}
-                            >
-                              Vendors ·{" "}
-                              {(r.aliasIds || [])
-                                .map(
-                                  (id) =>
-                                    aliases.find((a) => a.id === id)?.name ||
-                                    "Missing alias",
-                                )
-                                .join(", ")}
-                            </div>
-                          ) : (
-                            <code title={r.pattern}>{r.pattern}</code>
-                          )}
-                          {r.template&&<div className="rl-maps">Template · {r.template.tags.map(p=>`${byId.get(p.id)?.name||'Missing tag'} ${p.weight/100}%`).join(', ')} · {r.template.autoReview?'Auto-review':'Manual verification'}</div>}
-                          <Mapping
-                            template={r.template}
-                            categoryId={r.categoryId}
-                            personId={r.personId}
-                            byId={byId}
-                          />
-                        </div>
-                        <div className="rl-rule-stats">
-                          {stats ? (
-                            <>
-                              {stats.ready > 0 && (
-                                <span className="rl-status is-ready">
-                                  {stats.ready} ready
-                                </span>
-                              )}
-                              {stats.conflict > 0 && (
-                                <span className="rl-status is-conflict">
-                                  {plural(stats.conflict, "conflict")}
-                                </span>
-                              )}
-                              <small>{stats.matched} matched</small>
-                            </>
-                          ) : (
-                            <small>
-                              {r.enabled ? "No matches yet" : "Not running"}
-                            </small>
-                          )}
-                        </div>
-                        <button
-                          disabled={busy}
-                          aria-label={`Edit rule ${r.name}`}
-                          onClick={() => setEditing(r)}
-                        >
-                          Edit
-                        </button>
-                      </article>
-                    );
-                  })}
-                </div>
-              )}
-              <section
-                className="rl-matches"
-                aria-label="Matches on existing transactions"
-              >
-                <div className="og-panel-head">
-                  <h3>Existing transactions</h3>
-                  <small>
-                    Conflicts list every rule involved. Open one to change it.
-                  </small>
-                </div>
-                {candidates.length ? (
-                  <CandidateList
-                    candidates={candidates}
-                    byId={byId}
-                    onEditRule={editByName}
-                  />
-                ) : (
-                  <p className="rl-none">
-                    {enabled
-                      ? "No active bank transactions match your enabled rules."
-                      : "Enable a rule to see its matches here."}
-                  </p>
-                )}
-              </section>
-            </>
+            <div className="og-rows">
+              {shownRules.map((r) => {
+                const stats = perRule.get(r.name);
+                return (
+                  <article className={`og-row rl-rule ${r.enabled ? "" : "is-off"}`} key={r.id}>
+                    <div className="og-row-body">
+                      <h3 title={r.name}>{r.name}{!r.enabled && <span className="rl-off">Off</span>}</h3>
+                      <small>{matchLine(r)}</small>
+                      {r.template ? (
+                        <span className="rl-gives">{r.template.tags.map((p) => <span key={p.id} className="rl-tag"><i style={{ background: byId.get(p.id)?.color || "var(--data-neutral)" }} />{byId.get(p.id)?.name || "Missing tag"} {p.weight / 100}%</span>)}{r.personId && <Gives personId={r.personId} byId={byId} />}</span>
+                      ) : <Gives categoryId={r.categoryId} personId={r.personId} byId={byId} />}
+                    </div>
+                    <small className="rl-rule-stats">
+                      {!r.enabled ? "Not running" : !stats ? "Matches nothing yet" : [plural(stats.matched, "match", "matches"), stats.ready && `${stats.ready} to fill in`, stats.conflict && `${stats.conflict} clashing`].filter(Boolean).join(" · ")}
+                    </small>
+                    <button className="sm" disabled={busy} aria-label={`Edit rule ${r.name}`} onClick={() => setEditing(r)}>Edit</button>
+                  </article>
+                );
+              })}
+            </div>
           )}
+          <section className="rl-matches" aria-label="Matches on existing transactions">
+            <h3>Transactions your rules match</h3>
+            {candidates.length ? <CandidateList candidates={candidates} byId={byId} onEditRule={editByName} /> : <p className="form-help">{enabled ? "None of the transactions you have match a rule that's on." : "Every rule is off."}</p>}
+          </section>
         </>
       )}
-      {editing?.template ? <TransactionTemplateEditor rule={editing} entities={entities} onClose={()=>setEditing(null)} onSaved={async()=>{await act(async()=>true);}}/> : editing && (
-        <RuleEditor
-          key={editing.id || "new"}
-          rule={editing}
-          aliases={aliases}
-          categories={categories}
-          people={people}
-          byId={byId}
-          act={act}
-          busy={busy}
-          onClose={() => setEditing(null)}
-        />
+      {editing?.template ? (
+        <TransactionTemplateEditor rule={editing} entities={entities} onClose={() => setEditing(null)} onSaved={async () => { await act(async () => true); }} />
+      ) : editing && (
+        <RuleEditor key={editing.id || "new"} rule={editing} aliases={aliases} categories={categories} people={people} byId={byId} act={act} busy={busy} onClose={() => setEditing(null)} onSection={onSection} />
       )}
     </section>
   );

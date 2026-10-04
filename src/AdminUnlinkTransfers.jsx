@@ -1,26 +1,25 @@
-import React, {useEffect, useRef, useState} from 'react';
-import {WorkspaceModal} from './WorkspaceModal.jsx';
-const api=window.urbanomics;
-export function AdminUnlinkTransfers({data,act,busy}) {
-  const [preview,setPreview]=useState(null),[confirmation,setConfirmation]=useState(null),[working,setWorking]=useState(false),[error,setError]=useState(''),[result,setResult]=useState(null);
-  const saving=useRef(false);
-  useEffect(()=>{let live=true;api.previewUnlinkAll().then(value=>{if(live)setPreview(value);}).catch(e=>{if(live)setError(e.message);});return()=>{live=false;};},[data]);
-  const close=()=>{if(!saving.current){setConfirmation(null);setError('');}};
-  async function open(){setWorking(true);setError('');try{const value=await api.previewUnlinkAll();setPreview(value);setConfirmation(value);}catch(e){setError(e.message);}finally{setWorking(false);}}
-  async function confirm(){
-    if(saving.current||busy)return;
-    saving.current=true;setWorking(true);setError('');
-    try{
-      const value=await act(async()=>{try{return await api.unlinkAllTransfers(confirmation.token);}catch(e){setError(e.message);throw e;}});
-      if(value!==false){setResult(value);setConfirmation(null);setPreview(await api.previewUnlinkAll());}
-    }catch(e){setError(e.message);}finally{saving.current=false;setWorking(false);}
-  }
-  return <>
-    <article className="admin-action"><div><span className="admin-action-label">Transfer matching</span><h3>Unlink all transfers</h3><p>Remove saved transfer connections across every month and account so you can run through matching again.</p><small>{preview?`${preview.pairs} linked pairs · ${preview.count} transactions`:'Checking transfers…'}</small></div><button className="danger" disabled={busy||working||!preview?.count} onClick={open}>Unlink all transfers</button></article>
-    {error&&!confirmation&&<p role="alert" className="dr-error-text">{error}</p>}
-    {result&&<div className="admin-result" role="status"><strong>{result.pairs} transfer pairs unlinked · {result.count} transactions updated.</strong><p>A recovery copy was saved in your local workspace’s backups/admin folder. Open Experimental → Transfers to test matching.</p></div>}
-    {confirmation&&<WorkspaceModal title="Unlink all transfers?" onClose={close} footer={<div className="admin-confirm-buttons"><button disabled={working} onClick={close}>Cancel</button><button className="danger" disabled={working||busy||!confirmation.count} onClick={confirm}>{working?'Unlinking…':'Confirm unlink all transfers'}</button></div>}>
-      <div className="admin-confirm"><p>Unlink <strong>{confirmation.pairs} transfer pairs</strong> affecting <strong>{confirmation.count} transactions</strong>?</p><p>This covers every imported month and includes {confirmation.archived} transactions in archived accounts.{confirmation.unpaired>0&&` It also clears ${confirmation.unpaired} incomplete transfer assignments.`}</p><p>Both sides return to ordinary transactions. Transfer fee and extra-received classifications are cleared; spending and income totals may change until the transactions are linked again.</p><p>Amounts, source files, snapshots, tags, events, people and matching rules are kept. Existing deductions on other transactions are unchanged.</p><p>A local recovery copy is saved first. This action has no automatic undo. Nothing is relinked automatically.</p>{error&&<p role="alert" className="dr-error-text">{error}</p>}</div>
-    </WorkspaceModal>}
-  </>;
+import React from "react";
+import { AdminAction, useAdminAction } from "./admin-action.jsx";
+import { Alert, ConfirmDialog } from "./ui.jsx";
+import { plural } from "./format.js";
+const api = window.urbanomics;
+
+export function AdminUnlinkTransfers({ data, act, busy }) {
+  const a = useAdminAction({ data, act, busy, preview: () => api.previewUnlinkAll(), run: (c) => api.unlinkAllTransfers(c.token) });
+  return (
+    <>
+      <AdminAction title="Unlink every transfer" count={a.preview ? `${plural(a.preview.pairs, "linked pair")} now` : "Counting…"} action="Unlink transfers…" onOpen={a.open} disabled={busy || a.working || !a.preview?.count}>
+        Separates both halves of every transfer between your accounts, so you can match them again from Organize or Settings, Transfers.
+      </AdminAction>
+      {a.error && !a.confirmation && <Alert>{a.error}</Alert>}
+      {a.result && <Alert tone="success" title={`Unlinked ${plural(a.result.pairs, "transfer")}`} onDismiss={() => a.setResult(null)}>A recovery copy is in your workspace's backups/admin folder. Nothing is linked again on its own.</Alert>}
+      {a.confirmation && (
+        <ConfirmDialog title={`Unlink ${plural(a.confirmation.pairs, "transfer")}?`} confirmLabel={a.working ? "Unlinking…" : "Unlink transfers"} busy={a.working || busy} disabled={!a.confirmation.count} error={a.error} onClose={a.close} onConfirm={() => a.confirm()}>
+          <p>Both halves of each transfer ({plural(a.confirmation.count, "transaction")}{a.confirmation.archived ? `, ${a.confirmation.archived} in deleted accounts` : ""}) become ordinary money in and out{a.confirmation.unpaired ? `, and ${plural(a.confirmation.unpaired, "half-finished link")} ${a.confirmation.unpaired === 1 ? "is" : "are"} cleared` : ""}. Recorded fees and extra received go too, so spending and income totals change until they're linked again.</p>
+          <p>Amounts, tags, events, people, rules and the original files stay.</p>
+          <p className="form-help">A recovery copy is saved first. There's no undo button.</p>
+        </ConfirmDialog>
+      )}
+    </>
+  );
 }

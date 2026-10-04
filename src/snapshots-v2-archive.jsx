@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Icon } from "@derekurban/design-system";
 import {
   AccountDot,
   fileSize,
@@ -13,11 +14,11 @@ const statusName = {
   queued: "Ready",
   unresolved: "Needs a layout",
   routing: "Needs an account",
-  overlap: "Overlap to review",
-  error: "Error",
-  finalizing: "Finishing archive",
+  overlap: "Needs a decision",
+  error: "Didn't import",
+  finalizing: "Finishing",
   complete: "Imported",
-  dismissed: "Removed from intake",
+  dismissed: "Removed before import",
 };
 
 export function HistoryDialog({ data, onReveal, onClose }) {
@@ -33,7 +34,7 @@ export function HistoryDialog({ data, onReveal, onClose }) {
       <input
         className="sv2-search"
         aria-label="Search import history"
-        placeholder="Search accounts, files or status…"
+        placeholder="Search accounts, files or status"
         value={query}
         onChange={(event) => setQuery(event.target.value)}
       />
@@ -66,14 +67,14 @@ export function HistoryDialog({ data, onReveal, onClose }) {
                     </p>
                   )}
                   {item.error && (
-                    <p className="sv2-error">{item.error}</p>
+                    <p className="error-text">{item.error}</p>
                   )}
                 </div>
                 <button
                   type="button"
                   onClick={() => onReveal("source", item.source_hash)}
                 >
-                  {onDesktop ? "Show original ↗" : "Download original ↓"}
+                  {onDesktop ? "Show original ↗" : <><Icon name="download" size={16} />Download original</>}
                 </button>
               </div>
             </details>
@@ -99,8 +100,7 @@ export function ArchiveDialog({ data, onReveal, onOpenSnapshot, onClose }) {
     <Sv2Dialog title="Archive" onClose={onClose} wide>
       <div className="sv2-archive-intro">
         <p>
-          One current snapshot per account, per month. Older saves stay as audit
-          files.
+          The current snapshot for each account and month. Earlier versions are kept too.
         </p>
         {onDesktop && (
           <button type="button" onClick={() => onReveal("archive")}>
@@ -143,7 +143,7 @@ export function ArchiveDialog({ data, onReveal, onOpenSnapshot, onClose }) {
                   aria-label={`Snapshot file for ${account.name}, ${monthLabel(month)}`}
                   onClick={() => onReveal("snapshot-file", saved.id)}
                 >
-                  {onDesktop ? "Show file ↗" : "Download ↓"}
+                  {onDesktop ? "Show file ↗" : <><Icon name="download" size={16} />Download</>}
                 </button>
               </div>
             );
@@ -158,7 +158,7 @@ export function ArchiveDialog({ data, onReveal, onOpenSnapshot, onClose }) {
         <input
           className="sv2-search"
           aria-label="Search archived originals"
-          placeholder="Find an original file…"
+          placeholder="Find an original file"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -170,7 +170,7 @@ export function ArchiveDialog({ data, onReveal, onOpenSnapshot, onClose }) {
               {plural(source.uploads, "upload", "uploads")}
             </small>
             <button type="button" onClick={() => onReveal("source", source.hash)}>
-              {onDesktop ? "Show original ↗" : "Download ↓"}
+              {onDesktop ? "Show original ↗" : <><Icon name="download" size={16} />Download</>}
             </button>
           </div>
         ))}

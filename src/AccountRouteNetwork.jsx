@@ -203,20 +203,20 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
       }}
     >
       <div className="arn-tools">
-        <p>
-          Drag accounts to arrange them. Drag a <b>＋</b> connector onto another
-          account to allow that direction. You can also click a connector, then
-          a destination.
+        <p className="form-help">
+          Drag from an account's plus onto another account, or click the plus and then the account.
+          Drag the accounts themselves to tidy the picture.
         </p>
         <button
           type="button"
+          className="sm ghost"
           disabled={disabled}
           onClick={() => {
             setPositions({});
             cancel();
           }}
         >
-          Arrange nodes
+          Tidy layout
         </button>
       </div>
       <div
@@ -318,9 +318,9 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
                 disabled={disabled}
                 aria-label={`Connect to ${a.name}`}
                 onClick={() => connect(connecting, a.id)}
-                title="Receive connection"
+                title="Connect here"
               >
-                ●
+                <Icon name="circle-dashed" size={16} />
               </button>
               <button
                 type="button"
@@ -389,37 +389,38 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
                   setConnecting((c) => (c === a.id ? "" : a.id));
                   setSelected(null);
                 }}
-                title="Draw an outgoing connection"
+                title="Draw a direction from here"
               >
-                ＋
+                <Icon name="plus" size={16} />
               </button>
             </div>
           );
         })}
         {!accounts.length && (
           <p className="arn-empty">
-            Add accounts in Organize to draw your routes.
+            Your accounts appear here once you've imported from them.
           </p>
         )}
         <div className="arn-canvas-note">
           {connecting
-            ? `Connecting from ${accountName(connecting)} · Escape cancels`
-            : "Arrows show allowed directions, not recorded transfers."}
+            ? `From ${accountName(connecting)} to… (Escape cancels)`
+            : "Arrows are directions money may move, not transfers that happened."}
         </div>
       </div>
       {selected && (
         <div className="arn-selection">
           <strong>
-            {accountName(selected.from)} → {accountName(selected.to)}
+            {accountName(selected.from)} to {accountName(selected.to)}
           </strong>
           <button
             type="button"
+            className="sm danger"
             disabled={disabled}
             onClick={() => remove(selected)}
           >
-            Remove connection
+            Remove this direction
           </button>
-          <button type="button" onClick={() => setSelected(null)}>
+          <button type="button" className="sm" onClick={() => setSelected(null)}>
             Done
           </button>
         </div>
@@ -428,20 +429,20 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
         {routes.map((r) => (
           <button
             type="button"
+            className="sm"
             disabled={disabled}
             key={`${r.from}-${r.to}`}
             aria-label={`Remove route ${accountName(r.from)} to ${accountName(r.to)}`}
             onClick={() => remove(r)}
           >
-            {accountName(r.from)} <span aria-hidden="true">→</span>{" "}
-            {accountName(r.to)} <Icon name="x" size={14} style={{ display: "inline-block", verticalAlign: "-2px" }} />
+            {accountName(r.from)} <Icon name="arrow-right" size={16} /> {accountName(r.to)} <Icon name="x" size={16} />
           </button>
         ))}
-        {!routes.length && <small>No directions connected yet.</small>}
+        {!routes.length && <small>No directions yet, so Organize won't suggest transfers.</small>}
       </div>
       <p className="arn-notice" role="status">
         {notice ||
-          "Tip: arrow keys move a focused account; select a line to remove its connection."}
+          "With the keyboard, arrow keys move a focused account. Select an arrow to remove it."}
       </p>
     </section>
   );

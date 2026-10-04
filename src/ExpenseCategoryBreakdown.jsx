@@ -3,42 +3,40 @@ import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { vendorGroups } from "./dashboard-model.js";
 
-export function ExpenseCategoryBreakdown({
-  categories,
-  tags,
-  layer,
-  money,
-  onOpen,
-}) {
+// Categories on one shared scale: your cost in the category's color, what was paid back in the same color
+// at lower strength. Hovering (after 300ms, like the package Tooltip) or focusing shows the top vendors;
+// clicking opens the full breakdown, which carries the same information for every input.
+export function ExpenseCategoryBreakdown({ categories, tags, layer, money, onOpen }) {
   const [hover, setHover] = useState(null),
     [position, setPosition] = useState({ left: 0, top: 0 });
   const tip = useRef(null),
-    timer = useRef(null);
+    timer = useRef(null),
+    shown = useRef(false);
   const clear = () => {
     clearTimeout(timer.current);
     setHover(null);
   };
   const leave = () => {
     clearTimeout(timer.current);
-    timer.current = setTimeout(() => setHover(null), 140);
+    timer.current = setTimeout(() => { setHover(null); shown.current = false; }, 120);
   };
-  const show = (event, group) => {
+  const show = (event, group, delay = 300) => {
     clearTimeout(timer.current);
-    setHover({ group, target: event.currentTarget, rect: event.currentTarget.getBoundingClientRect() });
+    const target = event.currentTarget;
+    const open = () => { shown.current = true; setHover({ group, target, rect: target.getBoundingClientRect() }); };
+    // The first card waits 300ms; neighbours open at once while one is showing.
+    if (shown.current || !delay) open();
+    else timer.current = setTimeout(open, delay);
   };
   useEffect(() => () => clearTimeout(timer.current), []);
   useEffect(() => {
     if (!hover) return;
-    const escape = (e) => {
-      if (e.key === "Escape") clear();
-    };
+    const escape = (e) => { if (e.key === "Escape") clear(); };
     const scroll = (e) => {
       if (tip.current?.contains(e.target)) return;
-      // Keyboard focus can scroll a chip into view after its focus event.
       if (document.activeElement === hover.target) {
         const rect = hover.target.getBoundingClientRect();
-        if (rect.bottom > 0 && rect.top < window.innerHeight)
-          setHover((current) => current ? { ...current, rect } : null);
+        if (rect.bottom > 0 && rect.top < window.innerHeight) setHover((current) => (current ? { ...current, rect } : null));
         else clear();
       } else clear();
     };
@@ -53,27 +51,18 @@ export function ExpenseCategoryBreakdown({
   }, [hover]);
   useLayoutEffect(() => {
     if (!hover || !tip.current) return;
-    const r = hover.rect,
-      h = tip.current.offsetHeight,
-      w = tip.current.offsetWidth;
+    const r = hover.rect, h = tip.current.offsetHeight, w = tip.current.offsetWidth;
     setPosition({
       left: Math.max(12, Math.min(r.left, window.innerWidth - w - 12)),
-      top: Math.max(
-        12,
-        r.bottom + h + 10 < window.innerHeight ? r.bottom + 8 : r.top - h - 8,
-      ),
+      top: Math.max(12, r.bottom + h + 8 < window.innerHeight ? r.bottom + 8 : r.top - h - 8),
     });
   }, [hover]);
   const scopedRows = (group) =>
     group.rows
       .map((e) => {
         const ids = group.tagIds || [group.id];
-        const gross = e.grossParts
-            .filter((p) => ids.includes(p.id))
-            .reduce((n, p) => n + p.cents, 0),
-          net = e.netParts
-            .filter((p) => ids.includes(p.id))
-            .reduce((n, p) => n + p.cents, 0);
+        const gross = e.grossParts.filter((p) => ids.includes(p.id)).reduce((n, p) => n + p.cents, 0),
+          net = e.netParts.filter((p) => ids.includes(p.id)).reduce((n, p) => n + p.cents, 0);
         return { ...e, gross, net, repaid: gross - net };
       })
       .filter((e) => e.gross > 0);
@@ -82,84 +71,46 @@ export function ExpenseCategoryBreakdown({
   const events = (group) => ({
     onMouseEnter: (e) => show(e, group),
     onMouseLeave: leave,
-    onFocus: (e) => show(e, group),
+    onFocus: (e) => e.currentTarget.matches(":focus-visible") && show(e, group, 0),
     onBlur: leave,
-    "aria-describedby":
-      hover?.group.id === group.id ? "expense-spend-tooltip" : undefined,
-    onClick: () => {
-      clear();
-      onOpen(group);
-    },
+    onClick: () => { clear(); onOpen(group); },
   });
   return (
     <div className="dash-bars">
       {categories.map((c) => {
         const children =
           layer === "categories"
-            ? tags.filter(
-                (t) =>
-                  t.parentId === c.id ||
-                  (c.id === "dashboard:ungrouped" &&
-                    !categories.some((category) => category.id === t.parentId) &&
-                    t.flowType !== "income" &&
-                    t.kind === "category"),
-              ).sort(tagOrder)
+            ? tags
+                .filter(
+                  (t) =>
+                    t.parentId === c.id ||
+                    (c.id === "dashboard:ungrouped" && !categories.some((category) => category.id === t.parentId) && t.flowType !== "income" && t.kind === "category"),
+                )
+                .sort(tagOrder)
             : [];
-        const category = {
-          ...c,
-          tagIds: children.length ? children.map((t) => t.id) : [c.id],
-        };
+        const category = { ...c, tagIds: children.length ? children.map((t) => t.id) : [c.id] };
         return (
-          <article className="dash-category-breakdown" key={c.id}>
+          <article className="dash-category-breakdown" key={c.id} style={{ "--c": c.color }}>
             <button className="dash-bar" {...events(category)}>
               <span className="dash-between">
-                <span>
-                  <i style={{ background: c.color }} />
-                  {c.name}
-                </span>
-                <strong>{money(c.net)}</strong>
+                <span><i style={{ background: c.color }} />{c.name}</span>
+                <strong className="tabular">{money(c.net)}</strong>
               </span>
               <span className="dash-track" aria-hidden="true">
-                <span
-                  className="dash-net"
-                  style={{ width: `${(100 * c.net) / max}%` }}
-                />
-                <span
-                  className="dash-repaid"
-                  style={{ width: `${(100 * c.repaid) / max}%` }}
-                />
+                <span className="dash-net" style={{ width: `${(100 * c.net) / max}%` }} />
+                <span className="dash-repaid" style={{ width: `${(100 * c.repaid) / max}%` }} />
               </span>
-              <small>
-                {money(c.gross)} paid · {money(c.repaid)} repaid
-              </small>
+              <small className="tabular">{money(c.gross)} spent{c.repaid ? ` · ${money(c.repaid)} paid back` : ""}</small>
             </button>
             {children.length > 0 && (
-              <div
-                className="dash-category-tags"
-                aria-label={`Tags in ${c.name}`}
-              >
-                <div className="dash-tag-stack" aria-hidden="true">
-                  {children
-                    .filter((t) => t.net > 0)
-                    .map((t) => (
-                      <span
-                        key={t.id}
-                        style={{
-                          background: t.color,
-                          width: `${(100 * t.net) / Math.max(1, c.net)}%`,
-                        }}
-                      />
-                    ))}
-                </div>
-                <div className="dash-tag-chips">
-                  {children.map((t) => (
-                    <button className="dash-tag-chip" key={t.id} {...events(t)}>
-                      <i style={{ background: t.color }} />
-                      <span>{t.name}</span>
-                      <strong>{money(t.net)}</strong>
-                    </button>
-                  ))}
-                </div>
+              <div className="dash-tag-chips" aria-label={`Tags in ${c.name}`}>
+                {children.map((t) => (
+                  <button className="dash-tag-chip" key={t.id} {...events(t)}>
+                    <i style={{ background: t.color }} />
+                    <span>{t.name}</span>
+                    <strong className="tabular">{money(t.net)}</strong>
+                  </button>
+                ))}
               </div>
             )}
           </article>
@@ -167,30 +118,17 @@ export function ExpenseCategoryBreakdown({
       })}
       {hover &&
         createPortal(
-          <aside
-            id="expense-spend-tooltip"
-            className="dash-spend-tooltip"
-            role="tooltip"
-            ref={tip}
-            style={position}
-            onMouseEnter={() => clearTimeout(timer.current)}
-            onMouseLeave={leave}
-          >
+          <aside className="dash-spend-tooltip" ref={tip} style={position} onMouseEnter={() => clearTimeout(timer.current)} onMouseLeave={leave}>
             <div className="dash-between">
               <strong>{hover.group.name}</strong>
-              <strong>{money(hover.group.net)}</strong>
+              <strong className="tabular">{money(hover.group.net)}</strong>
             </div>
-            <small>
-              After repayments · {money(hover.group.gross)} paid ·{" "}
-              {money(hover.group.repaid)} repaid
-            </small>
-            <h4>Top 3 vendors</h4>
-            {top.map((vendor, i) => (
+            <small className="tabular">Your cost · {money(hover.group.gross)} spent{hover.group.repaid ? ` · ${money(hover.group.repaid)} paid back` : ""}</small>
+            <h4>Top vendors</h4>
+            {top.map((vendor) => (
               <div className="dash-tooltip-vendor" key={vendor.key}>
-                <span>
-                  {i + 1}. {vendor.name}
-                </span>
-                <strong>{money(vendor.net)}</strong>
+                <span>{vendor.name}</span>
+                <strong className="tabular">{money(vendor.net)}</strong>
               </div>
             ))}
             {!top.length && <p>No spending in this selection.</p>}

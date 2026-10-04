@@ -1,0 +1,209 @@
+/* Patterns shared by every page: status notes, dialogs, toasts, form help and the person picker.
+   Tokens only; see docs/design-system.md. */
+
+/* Status at low volume: subtle fill, matching line, colored icon, message in ink. */
+.alert {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  margin: 0 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--danger-subtle);
+  box-shadow: 0 0 0 0.5px var(--danger-line);
+  color: var(--ink);
+  font-size: var(--type-small-size);
+  line-height: var(--type-small-leading);
+  --alert-mark: var(--danger);
+  --alert-icon: var(--icon-circle-alert);
+}
+.alert::before {
+  content: "";
+  flex: none;
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+  background: var(--alert-mark);
+  mask: var(--alert-icon) center / contain no-repeat;
+}
+.alert > :is(.alert-body, span:first-child) { flex: 1; min-width: 0; }
+.alert strong { display: block; }
+.alert p { margin: 0; color: var(--ink); }
+.alert > button { margin: -6px -8px -6px auto; flex: none; }
+.alert.warning { background: var(--warning-subtle); box-shadow: 0 0 0 0.5px var(--warning-line); --alert-mark: var(--warning); --alert-icon: var(--icon-triangle-alert); }
+.alert.info { background: var(--info-subtle); box-shadow: 0 0 0 0.5px var(--info-line); --alert-mark: var(--info); --alert-icon: var(--icon-info); }
+.alert.success { background: var(--accent-subtle); box-shadow: 0 0 0 0.5px var(--accent-line); --alert-mark: var(--accent-strong); --alert-icon: var(--icon-circle-check); }
+.alert.neutral { background: var(--sunk); box-shadow: none; --alert-mark: var(--ink-tertiary); --alert-icon: var(--icon-info); }
+
+/* Dialogs follow the Dialog spec on the native <dialog> (top layer, so dialogs can stack):
+   surface, 18px radius, overlay shadow over the scrim, 24px padding, subheading title, rises 8px from 0.96. */
+.workspace-dialog {
+  width: min(720px, calc(100vw - var(--space-6)));
+  max-height: min(86vh, calc(100dvh - var(--space-6)));
+  padding: var(--space-5) var(--space-3) var(--space-5) var(--space-5);
+  border: 0;
+  border-radius: var(--radius-xl);
+  background: var(--surface);
+  color: var(--ink);
+  box-shadow: var(--shadow-overlay);
+  overflow: hidden;
+  opacity: 1;
+  transform: none;
+  transition: opacity var(--duration-base) var(--ease-out), transform var(--duration-base) var(--ease-out), overlay var(--duration-base) allow-discrete, display var(--duration-base) allow-discrete;
+}
+@starting-style { .workspace-dialog[open] { opacity: 0; transform: translateY(8px) scale(0.96); } }
+.workspace-dialog.is-narrow { width: min(480px, calc(100vw - var(--space-6))); }
+.workspace-dialog.is-wide { width: min(960px, calc(100vw - var(--space-6))); }
+.workspace-dialog[open] { display: flex; flex-direction: column; }
+.workspace-dialog::backdrop { background: var(--scrim); transition: opacity var(--duration-base) var(--ease-out); }
+@starting-style { .workspace-dialog[open]::backdrop { opacity: 0; } }
+.workspace-dialog > header {
+  flex: none;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin: 0 var(--space-2) var(--space-4) 0;
+}
+.workspace-dialog > header h2 { margin: 0; padding-top: var(--space-1); font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
+.workspace-dialog > header > button { margin: calc(var(--space-1) * -1) calc(var(--space-2) * -1) 0 0; }
+.workspace-dialog-scroll {
+  overflow: auto;
+  min-height: 0;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-1);
+  margin-left: calc(var(--space-1) * -1);
+}
+.workspace-dialog-footer {
+  flex: none;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-4) var(--space-2) 0 0;
+}
+.workspace-dialog-footer > .footer-start { margin-right: auto; display: flex; gap: var(--space-2); align-items: center; }
+.workspace-dialog-scroll::-webkit-scrollbar { width: 8px; }
+.workspace-dialog-scroll::-webkit-scrollbar-thumb { background: var(--data-neutral); border-radius: var(--radius-sm); }
+.workspace-dialog-scroll::-webkit-scrollbar-track { background: transparent; }
+.workspace-dialog p { font-size: var(--type-small-size); }
+.workspace-dialog summary { cursor: pointer; padding: var(--space-2) 0; border-radius: var(--radius-xs); }
+.confirm-dialog .workspace-dialog-scroll p { color: var(--ink); margin: 0 0 var(--space-3); }
+.confirm-dialog .workspace-dialog-scroll p.form-help { color: var(--ink-secondary); }
+
+/* Bottom-left of the page area: the app's resolving actions sit on the right, so toasts don't cover them. */
+.toast-region {
+  position: fixed;
+  left: calc(var(--sidebar-width, 0px) + var(--space-5));
+  bottom: var(--space-5);
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  max-width: calc(100vw - var(--space-6));
+  pointer-events: none;
+}
+.toast-region > * { pointer-events: auto; }
+
+/* Form help, section titles and actions shared by editors. */
+.form-help { font-size: var(--type-caption-size); line-height: var(--type-caption-leading); color: var(--ink-secondary); margin: var(--space-2) 0 var(--space-3); max-width: var(--measure); }
+.section-title { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); margin: var(--space-4) 0 var(--space-3); }
+.section-title :is(h3, p) { margin: 0; }
+.section-title > button { flex-shrink: 0; }
+.dialog-actions { display: flex; justify-content: flex-end; gap: var(--space-2); padding-top: var(--space-5); }
+.entity-form > label { display: grid; gap: var(--space-2); margin-bottom: var(--space-4); font: var(--font-label); color: var(--ink-secondary); }
+.entity-form > label > :is(input, select, textarea) { font: var(--font-small); color: var(--ink); }
+.entity-form > fieldset { border: 0; padding: 0; margin: 0 0 var(--space-4); display: grid; gap: var(--space-2); }
+.entity-form > fieldset > legend { font: var(--font-label); color: var(--ink-secondary); padding: 0; margin-bottom: var(--space-2); }
+.field-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-3); margin-bottom: var(--space-4); }
+.field-row > label { display: grid; gap: var(--space-2); font: var(--font-label); color: var(--ink-secondary); }
+.field-row > label > :is(input, select) { font: var(--font-small); color: var(--ink); }
+
+/* Colour swatches for user identity colours (accounts, events, people, categories). */
+.swatches { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.swatches > button {
+  width: var(--control-sm);
+  min-height: var(--control-sm);
+  padding: 0;
+  border-radius: var(--radius-full);
+  background: var(--swatch);
+  box-shadow: inset 0 0 0 0.5px var(--image-outline);
+  display: grid;
+  place-items: center;
+}
+.swatches > button:hover:not(:disabled) { background: var(--swatch); }
+.swatches > button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--surface), 0 0 0 3.5px var(--ink); }
+.swatches > label { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-caption-size); color: var(--ink-secondary); }
+.swatches input[type="color"] { width: var(--control-sm); height: var(--control-sm); }
+
+/* People picker: Avatar initials, accent tint and a check when chosen. */
+.person-picker { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.person-picker > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: var(--control-md);
+  padding: 0 var(--space-3) 0 var(--space-1);
+  border-radius: var(--radius-full);
+}
+.person-picker > button > .person-dot { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--person); flex: none; }
+.person-picker > button[aria-pressed="true"] > svg { color: var(--accent-strong); }
+
+/* Page headings: one title style for every page, a quiet lede and actions on the right. */
+.page-heading { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-5); flex-wrap: wrap; margin-bottom: var(--space-5); }
+.page-heading h1 { margin: 0; }
+.page-heading p { margin: var(--space-2) 0 0; max-width: var(--measure); }
+.page-heading-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; }
+
+/* Tabs and segmented controls from the package scroll sideways instead of wrapping on narrow screens. */
+.tabs-scroll { overflow-x: auto; scrollbar-width: none; margin-bottom: var(--space-5); }
+.tabs-scroll::-webkit-scrollbar { display: none; }
+.tabs-scroll > [role="tablist"] { min-width: max-content; }
+
+/* Headline figures: the package Stat in a row of 2–4, separated by space, not boxes. */
+.stat-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: var(--space-5); margin: 0 0 var(--space-6); }
+.stat-row > * { min-width: 0; }
+.stat-row button.stat-button { display: block; min-height: 0; padding: var(--space-2); margin: calc(var(--space-2) * -1); text-align: left; background: transparent; box-shadow: none; border-radius: var(--radius-md); font-weight: inherit; }
+.stat-row button.stat-button:hover { background: var(--sunk); }
+
+/* Empty states: frameless, left-aligned, one sentence and at most one action. */
+.empty-state { display: grid; gap: var(--space-3); justify-items: start; padding: var(--space-7) 0; max-width: var(--measure); }
+.empty-state > svg { color: var(--ink-tertiary); }
+.empty-state h2 { margin: 0; font: var(--font-heading); letter-spacing: var(--tracking-heading); }
+.empty-state p { margin: 0; }
+
+/* Plain-language recognition (recognize.jsx): the sentence, then the names it was checked against. */
+.recognize { display: grid; gap: var(--space-2); }
+.recognize-sentence { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.recognize-sentence > span { color: var(--ink-secondary); }
+.recognize-sentence > input { flex: 1 1 160px; }
+.recognize-sentence > input.is-pattern { font-family: var(--font-mono); font-size: var(--type-caption-size); }
+.recognize-custom { font-size: var(--type-caption-size); color: var(--ink-secondary); }
+.recognize-proof { display: grid; gap: var(--space-2); }
+.recognize-proof > small { display: flex; align-items: flex-start; gap: var(--space-2); color: var(--ink-secondary); }
+.recognize-proof > small.is-warn { color: var(--ink); }
+.recognize-proof > small.is-warn > svg { color: var(--warning); flex: none; margin-top: 1px; }
+.recognize-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.recognize-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-2) 0 var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--sunk);
+  color: var(--ink-tertiary);
+  font: var(--font-label);
+  font-weight: var(--weight-regular);
+  overflow-wrap: anywhere;
+}
+.recognize-chip.is-on { background: var(--accent-subtle); color: var(--accent-text); box-shadow: inset 0 0 0 0.5px var(--accent-line); }
+.recognize-chip.is-stray { background: var(--warning-subtle); color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--warning-line); }
+.recognize-chip.is-stray > svg { color: var(--warning); }
+
+/* Text for screen readers only. */
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }

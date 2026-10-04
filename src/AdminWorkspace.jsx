@@ -1,174 +1,32 @@
-import {AdminResetWorkspace} from './AdminResetWorkspace.jsx';
-import React, { useEffect, useState, useRef } from "react";
-import { WorkspaceModal } from "./WorkspaceModal.jsx";
-import "./admin-workspace.css";
+import React from "react";
+import { AdminAction, useAdminAction } from "./admin-action.jsx";
+import { AdminResetWorkspace } from "./AdminResetWorkspace.jsx";
 import { AdminUnlinkTransfers } from "./AdminUnlinkTransfers.jsx";
 import { AdminClearShares } from "./AdminClearShares.jsx";
+import { Alert, ConfirmDialog } from "./ui.jsx";
+import { plural } from "./format.js";
+import "./admin-workspace.css";
 const api = window.urbanomics;
+
+// Workspace-wide changes, least to most sweeping. Each previews what it touches and saves a recovery copy.
 export function AdminWorkspace({ data, act, busy }) {
-  const [preview, setPreview] = useState(null),
-    [confirmation, setConfirmation] = useState(null),
-    [error, setError] = useState(""),
-    [result, setResult] = useState(null),
-    [working, setWorking] = useState(false);
-  const saving = useRef(false);
-  useEffect(() => {
-    let live = true;
-    api
-      .previewUntagAll()
-      .then((p) => {
-        if (live) setPreview(p);
-      })
-      .catch((e) => {
-        if (live) setError(e.message);
-      });
-    return () => {
-      live = false;
-    };
-  }, [data]);
-  async function open() {
-    setError("");
-    setWorking(true);
-    try {
-      const p = await api.previewUntagAll();
-      setPreview(p);
-      setConfirmation(p);
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setWorking(false);
-    }
-  }
-  const close = () => {
-    if (!saving.current) {
-      setConfirmation(null);
-      setError("");
-    }
-  };
-  async function confirm() {
-    if (saving.current || busy) return;
-    saving.current = true;
-    setWorking(true);
-    setError("");
-    try {
-      const value = await act(async () => {
-        try {
-          return await api.untagAll(confirmation.token);
-        } catch (e) {
-          setError(e.message);
-          throw e;
-        }
-      });
-      if (value !== false) {
-        setResult(value);
-        setConfirmation(null);
-        setPreview(await api.previewUntagAll());
-      }
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      saving.current = false;
-      setWorking(false);
-    }
-  }
+  const tags = useAdminAction({ data, act, busy, preview: () => api.previewUntagAll(), run: (c) => api.untagAll(c.token) });
   return (
-    <section className="admin-workspace" aria-label="Admin actions">
-      <header>
-        <h2>Admin</h2>
-        <p>Workspace maintenance. Preview each action before confirming.</p>
-      </header>
-      <article className="admin-action">
-        <div>
-          <span className="admin-action-label">Transaction organization</span>
-          <h3>Reset transaction tags</h3><p>Restores automatic Other tags. Transfer and Deduction tags continue to follow their links.</p>
-          <p>
-            Clear every expense and income tag assignment across all months and
-            accounts, including archived accounts and cash receipts.
-          </p>
-          <small>
-            {preview
-              ? `${preview.count} tagged transaction${preview.count === 1 ? "" : "s"}`
-              : "Checking transactions…"}
-          </small>
-        </div>
-        <button
-          className="danger"
-          disabled={busy || working || !preview?.count}
-          onClick={open}
-        >
-          Reset transaction tags
-        </button>
-      </article>
-      <AdminResetWorkspace act={act} busy={busy || working} />
-      <AdminUnlinkTransfers data={data} act={act} busy={busy || working} />
-      <AdminClearShares data={data} act={act} busy={busy || working} />
-      {error && !confirmation && (
-        <p role="alert" className="dr-error-text">
-          {error}
-        </p>
-      )}
-      {result && (
-        <div className="admin-result" role="status">
-          <strong>
-            {result.count} transaction{result.count === 1 ? "" : "s"} reset to automatic defaults.
-          </strong>
-          <p>
-            {result.backup
-              ? "A recovery copy of the previous assignments was saved in your local workspace’s backups/admin folder."
-              : "There were no tags to remove."}
-          </p>
-        </div>
-      )}
-      {confirmation && (
-        <WorkspaceModal
-          title="Reset transaction tags?"
-          onClose={close}
-          footer={
-            <div className="admin-confirm-buttons">
-              <button disabled={working} onClick={close}>
-                Cancel
-              </button>
-              <button
-                className="danger"
-                disabled={working || busy || !confirmation.count}
-                onClick={confirm}
-              >
-                {working ? "Resetting tags…" : "Confirm reset tags"}
-              </button>
-            </div>
-          }
-        >
-          <div className="admin-confirm">
-            <p>
-              Remove all tag assignments and their split amounts from{" "}
-              <strong>
-                {confirmation.count} transaction
-                {confirmation.count === 1 ? "" : "s"}
-              </strong>
-              ?
-            </p>
-            <p>
-              This covers all imported months, including {confirmation.archived}{" "}
-              transaction{confirmation.archived === 1 ? "" : "s"} in archived
-              accounts and {confirmation.cash} cash receipt
-              {confirmation.cash === 1 ? "" : "s"}.
-            </p>
-            <p>
-              Your tag and category definitions, events, income sources,
-              deductions, transfer links, aliases and rules will be kept.
-              Original transactions, snapshots and archived files stay intact.
-            </p>
-            <p>
-              A local recovery copy is saved before any tags are removed. This
-              action has no automatic undo.
-            </p>
-            {error && (
-              <p role="alert" className="dr-error-text">
-                {error}
-              </p>
-            )}
-          </div>
-        </WorkspaceModal>
+    <section className="admin-workspace" aria-label="Maintenance">
+      <AdminAction title="Reset every tag" count={tags.preview ? `${plural(tags.preview.count, "tagged transaction")} now` : "Counting…"} action="Reset tags…" onOpen={tags.open} disabled={busy || tags.working || !tags.preview?.count}>
+        Takes the tags off every transaction, in every month and account, so you can sort from the start. Untagged money shows as Other again.
+      </AdminAction>
+      {tags.error && !tags.confirmation && <Alert>{tags.error}</Alert>}
+      {tags.result && <Alert tone="success" title={`Reset the tags on ${plural(tags.result.count, "transaction")}`} onDismiss={() => tags.setResult(null)}>{tags.result.backup ? "A recovery copy of the old tags is in your workspace's backups/admin folder." : "There were no tags to remove."}</Alert>}
+      <AdminClearShares data={data} act={act} busy={busy || tags.working} />
+      <AdminUnlinkTransfers data={data} act={act} busy={busy || tags.working} />
+      <AdminResetWorkspace act={act} busy={busy || tags.working} />
+      {tags.confirmation && (
+        <ConfirmDialog title={`Reset the tags on ${plural(tags.confirmation.count, "transaction")}?`} confirmLabel={tags.working ? "Resetting…" : "Reset tags"} busy={tags.working || busy} disabled={!tags.confirmation.count} error={tags.error} onClose={tags.close} onConfirm={() => tags.confirm()}>
+          <p>Every tag and its split amount comes off, across all months{tags.confirmation.archived ? `, ${plural(tags.confirmation.archived, "transaction")} in deleted accounts` : ""}{tags.confirmation.cash ? ` and ${plural(tags.confirmation.cash, "cash receipt")}` : ""}.</p>
+          <p>Your tags and categories, events, people, repayments, transfer links, aliases and rules stay, and so do the original files.</p>
+          <p className="form-help">A recovery copy is saved first. There's no undo button.</p>
+        </ConfirmDialog>
       )}
     </section>
   );

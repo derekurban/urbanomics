@@ -1,14 +1,14 @@
-import React, { useState } from "react";
+import React, { useId, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
+import { Alert, ConfirmDialog } from "./ui.jsx";
 
+// Cash someone handed you (recorded in CAD). It stays apart from bank totals and snapshots; after saving,
+// the Organize desk says what it was for: a tag, or a person settling what they owe.
 export function CashReceiptEditor({ row, act, onClose, onSaved, error }) {
+  const formId = useId();
   const [description, setDescription] = useState(row?.description || "");
-  const [date, setDate] = useState(
-    row?.date || new Date().toLocaleDateString("en-CA"),
-  );
-  const [amount, setAmount] = useState(
-    row ? (row.amountCents / 100).toFixed(2) : "",
-  );
+  const [date, setDate] = useState(row?.date || new Date().toLocaleDateString("en-CA"));
+  const [amount, setAmount] = useState(row ? (row.amountCents / 100).toFixed(2) : "");
   const [saving, setSaving] = useState(false),
     [confirm, setConfirm] = useState(false);
   async function save(e) {
@@ -17,115 +17,57 @@ export function CashReceiptEditor({ row, act, onClose, onSaved, error }) {
     setSaving(true);
     try {
       const id = await act(() =>
-        window.urbanomics.saveCash({
-          id: row?.id,
-          version: row?.version,
-          description,
-          date,
-          currency: "CAD",
-          amountCents: Math.round(Number(amount) * 100),
-        }),
+        window.urbanomics.saveCash({ id: row?.id, version: row?.version, description, date, currency: "CAD", amountCents: Math.round(Number(amount) * 100) }),
       );
       if (id !== false) onSaved(id);
     } finally {
       setSaving(false);
     }
   }
+  async function remove() {
+    setSaving(true);
+    try {
+      if ((await act(() => window.urbanomics.voidCash(row.id, row.version))) !== false) onClose();
+    } finally {
+      setSaving(false);
+    }
+  }
   return (
     <WorkspaceModal
-      title={row ? "Edit cash receipt" : "Add cash received"}
+      title={row ? "Edit cash receipt" : "Cash received"}
+      size="narrow"
       onClose={() => !saving && onClose()}
+      footer={
+        <>
+          {row && <span className="footer-start"><button type="button" className="danger" disabled={saving} onClick={() => setConfirm(true)}>Remove receipt</button></span>}
+          <button type="button" disabled={saving} onClick={onClose}>Cancel</button>
+          <button className="primary" form={formId} disabled={saving}>{row ? "Save receipt" : "Save and organize"}</button>
+        </>
+      }
     >
-      <form className="rv-entity-form" onSubmit={save}>
-        <p className="rv-help">
-          Record physical cash once, then allocate it to expenses. This stays
-          outside your bank activity and snapshots.
-        </p>
+      <form id={formId} className="entity-form" onSubmit={save}>
+        <p className="form-help">Cash someone handed you. It stays apart from your bank totals. After saving, say what it was for on the Organize desk, such as who it was from.</p>
         <label>
           Description
-          <input
-            required
-            maxLength={160}
-            value={description}
-            placeholder="Cash for our dates"
-            onChange={(e) => setDescription(e.target.value)}
-          />
+          <input required maxLength={160} value={description} placeholder="Cash from a friend for dinner" onChange={(e) => setDescription(e.target.value)} />
         </label>
-        <div className="event-date-inputs">
+        <div className="field-row">
           <label>
             Received on
-            <input
-              required
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
+            <input required type="date" value={date} onChange={(e) => setDate(e.target.value)} />
           </label>
           <label>
             Amount (CAD)
-            <input
-              required
-              type="number"
-              min="0.01"
-              step="0.01"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-            />
+            <input required type="number" min="0.01" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} />
           </label>
         </div>
-        {error && (
-          <p role="alert" className="dr-error-text">
-            {error}
-          </p>
-        )}
-        <footer>
-          {row && (
-            <button
-              type="button"
-              disabled={saving}
-              onClick={() => setConfirm(true)}
-            >
-              Remove receipt
-            </button>
-          )}
-          <button type="button" disabled={saving} onClick={onClose}>
-            Cancel
-          </button>
-          <button className="primary" disabled={saving}>
-            {row ? "Save receipt" : "Continue to allocation"}
-          </button>
-        </footer>
-        {confirm && (
-          <div className="rv-confirm">
-            <p>
-              Remove this cash receipt and undo its deductions? Your original
-              expenses stay intact.
-            </p>
-            <button
-              type="button"
-              disabled={saving}
-              onClick={async () => {
-                setSaving(true);
-                try {
-                  if (
-                    (await act(() =>
-                      window.urbanomics.voidCash(row.id, row.version),
-                    )) !== false
-                  )
-                    onClose();
-                } finally {
-                  setSaving(false);
-                }
-              }}
-            >
-              Confirm removal
-            </button>
-            <button type="button" onClick={() => setConfirm(false)}>
-              Keep receipt
-            </button>
-          </div>
-        )}
+        {error && <Alert>{error}</Alert>}
       </form>
+      {confirm && (
+        <ConfirmDialog title="Remove this cash receipt?" confirmLabel="Remove receipt" busy={saving} onClose={() => setConfirm(false)} onConfirm={remove}>
+          <p>Anything it paid back is undone. The expenses themselves stay as they are.</p>
+        </ConfirmDialog>
+      )}
     </WorkspaceModal>
   );
 }

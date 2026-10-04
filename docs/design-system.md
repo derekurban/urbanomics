@@ -45,8 +45,14 @@ The project skill in `.claude/skills/design-system/SKILL.md` points agents to th
 - **Account, category, tag and event colors** are user data. They stay independent of the interface palette and keep their meaning in both themes. Guidance requested in [design-system#7](https://github.com/derekurban/design-system/issues/7).
 - **Monospace** for regular expressions and raw values uses a local stack until the system has a token ([design-system#5](https://github.com/derekurban/design-system/issues/5)).
 - **Native elements** are styled in `src/design-system.css` to the component specs, because the components are inline-styled React and the app's existing markup is native ([design-system#3](https://github.com/derekurban/design-system/issues/3)). When a system component is used inside app markup, wrap it in `.du-host` so native element defaults don't leak into it.
-- **Typographic arrows** in some labels (`→`, `↗`) remain text. The system allows `↗` for external links; `→` in button labels can move to `Icon` when those screens are next touched.
-- Retired screens that are no longer bundled (Review, Experimental, the orbit sorter and Rolodex) had their tokens migrated but were not visually redesigned.
+- **Dialogs** use the app's `WorkspaceModal` on the native `<dialog>` element, restyled to the Dialog spec (subheading title, 24px padding, `--shadow-overlay` over `--scrim`, rise on open, resolving action last), because confirmations stack over editors and long forms scroll inside with the footer fixed. Sizes: narrow, default, wide. `ConfirmDialog` in `src/ui.jsx` is the one confirmation pattern ([design-system#14](https://github.com/derekurban/design-system/issues/14)).
+- **Charts.** The year charts (`src/DashboardCharts.jsx`, also on Accounts) are bespoke until BarChart can stack, group, select and show missing months ([design-system#10](https://github.com/derekurban/design-system/issues/10)). They follow the data rules: neutral series, dashed gridlines, a hairline baseline, 3px bar tops, the accent only on the selected month.
+- **Interactive stats** wrap the package `Stat` in a native button (`StatRow` items with `onClick`) ([design-system#11](https://github.com/derekurban/design-system/issues/11)).
+- **Tag chips with identity dots** are drawn by the app ([design-system#12](https://github.com/derekurban/design-system/issues/12)). The hatched pattern for the unsorted part of an Organize strip is a deliberate data pattern, not decoration.
+- **InfoDot and the category hover card** are local popovers on `--shadow-float` until the system has a Popover ([design-system#13](https://github.com/derekurban/design-system/issues/13)).
+- **Text on user colours.** Labels drawn on account or category colours (the Organize strip) use ink chosen for contrast against the user's colour, since those colours aren't system tokens (#7).
+- **Shared compositions** live in `src/ui.jsx`: `Alert`, `ConfirmDialog`, `Segmented`, `PageTabs`, `StatRow`, `PersonAvatar`, `PersonPicker`, `Swatches`, `FloatingMenu`. Transient confirmations go through `notify()` and the package Toast (`src/toast.jsx`), bottom-left of the content area. Plain-language recognition (`src/recognize.jsx`) replaces regex fields for filenames, aliases and rules; a stored pattern that isn't a plain sentence shows as a custom pattern.
+- Retired screens that are no longer bundled (Review, Experimental, the orbit sorter and Rolodex) were removed from the source along with their stylesheets.
 
 ## Requesting changes
 
@@ -60,7 +66,12 @@ Open requests from adopting it:
 
 | Request | Issue |
 | --- | --- |
-| Windows install fails (`rm -rf` in build) | [#2](https://github.com/derekurban/design-system/issues/2), fix in [#9](https://github.com/derekurban/design-system/pull/9) |
+| Windows install fails (`rm -rf` in build) | [#2](https://github.com/derekurban/design-system/issues/2) (closed), fix in [#9](https://github.com/derekurban/design-system/pull/9) |
+| BarChart: stacked and grouped series, selection, missing values | [#10](https://github.com/derekurban/design-system/issues/10) |
+| Stat: interactive variant | [#11](https://github.com/derekurban/design-system/issues/11) |
+| Tag: identity colour dot | [#12](https://github.com/derekurban/design-system/issues/12) |
+| Popover component | [#13](https://github.com/derekurban/design-system/issues/13) |
+| Dialog: top layer, scrollable body, sizes | [#14](https://github.com/derekurban/design-system/issues/14) |
 | Class-based styles for native buttons, inputs and selects | [#3](https://github.com/derekurban/design-system/issues/3) |
 | Icon without a `window.lucide` global | [#4](https://github.com/derekurban/design-system/issues/4) |
 | Monospace font token | [#5](https://github.com/derekurban/design-system/issues/5) |
