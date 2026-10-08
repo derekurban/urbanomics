@@ -180,7 +180,7 @@ function AliasEditor({ rule, unaliased, act, onClose }) {
   );
 }
 
-export function AliasesWorkspace({ data, run, busy }) {
+export function AliasesWorkspace({ data, run, busy, onSuggest }) {
   const [state, setState] = useState(null), [editing, setEditing] = useState(null), [error, setError] = useState(""), [query, setQuery] = useState("");
   useEffect(() => {
     let live = true;
@@ -209,6 +209,7 @@ export function AliasesWorkspace({ data, run, busy }) {
       <div className="og-toolbar">
         {all.length > 6 && <input type="search" aria-label="Search aliases" placeholder="Find an alias" value={query} onChange={(e) => setQuery(e.target.value)} />}
         {state && <span className="og-stat">{plural(state.unaliased?.length || 0, "transaction")} without one</span>}
+        {onSuggest && <button disabled={busy || !state} onClick={onSuggest}><Icon name="sparkles" size={16} />Suggest aliases</button>}
         <button className="primary" disabled={busy || !state} onClick={() => setEditing({})}><Icon name="plus" size={16} />New alias</button>
       </div>
       {error && <Alert>{error}</Alert>}

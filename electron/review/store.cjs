@@ -485,6 +485,49 @@ class ReviewStore {
       this.db.prepare("DELETE FROM review_entities WHERE id=?").run(id);
     });
   }
+  /* Fold one tag into another: every portion (bank and cash, archived accounts too) and every rule that
+     names the first tag moves to the second, then the first is deleted. One transaction, with a private
+     recovery copy of the rows it rewrites under backups/admin. */
+  mergeTags(sourceId, targetId) {
+    const entities = this.entities();
+    const source = entities.find((e) => e.id === sourceId && e.kind === "category"), target = entities.find((e) => e.id === targetId && e.kind === "category");
+    if (!source || !target || source.id === target.id) throw new Error("Choose two different tags to merge.");
+    if (source.systemRole || target.systemRole) throw new Error("System tags can't be merged.");
+    if (tagType(source) !== tagType(target)) throw new Error("Merge expense tags into expense tags and income tags into income tags.");
+    return this.atomic(() => {
+      const rows = this.records().filter((r) => r.review.tags.some((p) => p.id === source.id));
+      const rules = this.imports.transactionRules?.rules().filter((r) => r.categoryId === source.id || r.template?.tags.some((p) => p.id === source.id)) || [];
+      let backup = null;
+      if (rows.length || rules.length) {
+        const fs = require("node:fs"), path = require("node:path");
+        const directory = path.join(this.imports.root, "backups", "admin");
+        fs.mkdirSync(directory, { recursive: true });
+        backup = path.join(directory, "before-merge-tags-" + randomUUID() + ".json");
+        fs.writeFileSync(backup, JSON.stringify({ action: "merge-tags", created: this.imports.now().toISOString(), source: { id: source.id, name: source.name }, target: { id: target.id, name: target.name },
+          records: rows.map(({ id, version, review, manual }) => ({ id, version, review, manual: !!manual })), rules }, null, 2), { flag: "wx" });
+      }
+      for (const row of rows) {
+        const tags = [];
+        for (const p of row.review.tags) {
+          const id = p.id === source.id ? target.id : p.id, same = tags.find((t) => t.id === id);
+          if (same) same.cents += p.cents; else tags.push({ id, cents: p.cents });
+        }
+        this.write(row.id, { ...row.review, tags }, row.version);
+      }
+      for (const rule of rules) {
+        let template = rule.template;
+        if (template) {
+          const tags = [];
+          for (const p of template.tags) { const id = p.id === source.id ? target.id : p.id, same = tags.find((t) => t.id === id); if (same) same.weight += p.weight; else tags.push({ ...p, id }); }
+          template = { ...template, tags };
+        }
+        this.db.prepare("UPDATE transaction_rules SET categoryId=?, template=?, version=version+1 WHERE id=?")
+          .run(rule.categoryId === source.id ? target.id : rule.categoryId, template ? JSON.stringify(template) : null, rule.id);
+      }
+      this.db.prepare("DELETE FROM review_entities WHERE id=?").run(source.id);
+      return { moved: rows.length, rules: rules.length, backup };
+    });
+  }
   saveCash(values) {
     return this.atomic(() => {
       const previous = values.id

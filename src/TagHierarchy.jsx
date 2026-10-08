@@ -3,15 +3,16 @@ import React, { useState } from "react";
 import { Icon } from "@derekurban/design-system";
 import "./tag-hierarchy.css";
 import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
-import { Alert, Segmented } from "./ui.jsx";
+import { Alert, Segmented, FloatingMenu } from "./ui.jsx";
 import { palette } from "./snapshots-v2-atoms.jsx";
 import { plural } from "./format.js";
 const api = window.urbanomics;
 
 // Expense tags grouped into categories (drag or Space/Enter to move and reorder), income tags in their own
 // list, and the system tags, which can only be renamed. Category palettes colour their tags.
-export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
+export function TagHierarchy({ entities, usage, edit, act, busy, error, onSuggest }) {
   const [lens, setLens] = useState("expense");
+  const [suggestMenu, setSuggestMenu] = useState(null);
   const [lifted, setLifted] = useState("");
   const [query, setQuery] = useState(""),
     [over, setOver] = useState(null);
@@ -49,6 +50,9 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
         )}
         {lens !== "system" && (
           <div className="th-actions">
+            {onSuggest && <button disabled={busy} aria-haspopup="menu" aria-expanded={!!suggestMenu} onClick={(e) => setSuggestMenu(suggestMenu ? null : e.currentTarget)}><Icon name="sparkles" size={16} />Suggest<Icon name="chevron-down" size={16} /></button>}
+            {suggestMenu && <FloatingMenu anchor={suggestMenu} label="Codex suggestions" width={240} onClose={() => setSuggestMenu(null)} onSelect={(value) => onSuggest(value)}
+              items={[{ value: "missing", label: "Suggest missing tags" }, { value: "restructure", label: "Suggest a restructure" }]} />}
             {lens === "expense" && <button disabled={busy} onClick={() => edit({ kind: "bucket", color: palette[buckets.length % palette.length] })}><Icon name="plus" size={16} />New category</button>}
             <button className="primary" disabled={busy} onClick={() => edit({ kind: "category", flowType: lens })}><Icon name="plus" size={16} />New tag</button>
           </div>
@@ -75,8 +79,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error }) {
         <div className="empty-state">
           <Icon name="tags" size={24} />
           <h2>No categories yet.</h2>
-          <p>Make your own, or start with Food and Personal and their usual tags. You can rename, move or delete any of them later.</p>
-          <button disabled={busy} onClick={() => act(() => api.starterHierarchy())}>Start with Food and Personal</button>
+          <p>Make your own, let Codex propose categories and tags from your transactions, or start with Food and Personal and their usual tags. You can rename, move or delete any of them later.</p>
+          <div className="empty-state-actions">{onSuggest && <button className="primary" disabled={busy} onClick={() => onSuggest("restructure")}><Icon name="sparkles" size={16} />Suggest a structure from my transactions</button>}<button disabled={busy} onClick={() => act(() => api.starterHierarchy())}>Start with Food and Personal</button></div>
         </div>
       ) : (
         <>

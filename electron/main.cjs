@@ -134,6 +134,11 @@ else {
         },
         platform: {
           updates,
+          // Codex sign-in opens ChatGPT in the person's own browser.
+          openExternal: (url) => {
+            if (!/^https:\/\//.test(url)) throw new Error("Codex returned an unexpected sign-in address.");
+            return shell.openExternal(url);
+          },
           choose: async (folder) => {
             const response = await dialog.showOpenDialog(window, {
               title: folder
@@ -221,7 +226,8 @@ else {
           if (
             event.sender !== window?.webContents ||
             event.senderFrame !== event.sender.mainFrame ||
-            event.senderFrame.url !== appURL
+            // The address carries the page (#settings/rules); the document itself must be the app.
+            event.senderFrame.url.split("#")[0] !== appURL
           )
             throw new Error("Untrusted application frame.");
           return service.invoke(channel, ...args);
@@ -297,6 +303,7 @@ else {
       closing.close().finally(() => app.quit());
       return;
     }
+    service?.dispose?.();
     store?.close();
     store = null;
   });

@@ -26,6 +26,10 @@ October 2, 2026. Organize is now one page: the ledger itself, across every accou
 - **Focus.** Opening a row with an unsorted gap focuses the describe box. Opening a sorted row does not, so browsing does not steal the keyboard.
 - **Undo.** Every save shows a toast with Undo; Ctrl+Z also works. Undo replays the previous parts through the same versioned saves, including relinking or unlinking a transfer.
 
+## Smart organizing (October 4, 2026)
+
+With Smart organizing on (Settings → Codex, or the switch in the heading), opening an unsorted row asks Codex what it is and shows the answer above the describe box: tags with amounts, a new tag when none fits, a transfer twin, a person settling up, people to share with, a payee and an event, each with a reason and a checkbox. Apply runs the same gestures as the describe box, so saves, Undo and the move to the next unsorted row behave as usual. Suggest for all unsorted, in the heading, asks about every unsorted row in the background; a star on each unsorted row shows grey (no suggestion), pulsing (asking) or filled (a suggestion is waiting), and the Suggested filter lists the waiting ones. A load overtaken by a newer one now waits for it, so a queued save never reads an older version than the ledger already on screen. See [Codex suggestions](codex.md).
+
 ## Semantics that did not change
 
 Saves go through `saveAllocation`, `saveFinancial` (shares only), `followEventSplit`, `linkTransfer`, `unlinkTransfer` and `organize` with the row's current version; a stale version fails visibly and the ledger reloads. The model in `src/allocation-model.js` still owns exact-cent conservation, repayment caps, transfer eligibility and the unallocated remainder. Rules applied with manual review show "Suggested by a rule" and a Confirm button that files the decision. Legacy full-receipt tags on receipts with deductions keep their proportional note. Transfer eligibility still uses `pendingTransfers`: rows with shares or repayment reservations are never offered as twins.

@@ -171,7 +171,7 @@ async function startWebServer({
         );
         if (
           !Object.hasOwn(channels, method) ||
-          ["drop", "choose", "stageDrop", "stageChoose", "checkForUpdates", "installUpdate", ...(shared ? ["reveal"] : [])].includes(method) ||
+          ["drop", "choose", "stageDrop", "stageChoose", "checkForUpdates", "installUpdate", ...(shared ? ["reveal", "installCodex", "signInCodex", "cancelCodexSignIn", "signOutCodex"] : [])].includes(method) ||
           !Array.isArray(args) ||
           args.length > 16
         )
@@ -251,6 +251,7 @@ async function startWebServer({
     async close() {
       unsubscribe();
       for (const res of clients) res.end();
+      if (!shared) service.dispose?.();
       server.closeIdleConnections();
       await new Promise((resolve) => server.close(resolve));
       if (!shared) { store.close(); fs.unlinkSync(lock); }

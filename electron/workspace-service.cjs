@@ -1,12 +1,28 @@
 const { exportConfiguration } = require("./configuration.cjs");
+const { createCodex } = require("./ai/codex.cjs");
+const { createAssistant } = require("./ai/assistant.cjs");
 function createWorkspaceService({
   store,
+  privateRoot,
   configurationDir,
   platform,
   emit: platformEmit = () => {},
   onIdle = () => {},
 }) {
   let processing = false;
+  // Codex runs only read the workspace; approved suggestions are saved through the usual channels.
+  // Codex failures go to a private log (the reason only, never the prompt) so a slow or failed run can be traced.
+  const codexLog = (status, details) => {
+    if (!privateRoot) return;
+    try {
+      const dir = require("node:path").join(privateRoot, "logs"), fs = require("node:fs"), file = require("node:path").join(dir, "codex.log");
+      fs.mkdirSync(dir, { recursive: true });
+      if (fs.existsSync(file) && fs.statSync(file).size > 512 * 1024) fs.renameSync(file, file + ".previous");
+      fs.appendFileSync(file, JSON.stringify({ time: new Date().toISOString(), status, ...details }) + "\n");
+    } catch {}
+  };
+  const codex = platform.codex || createCodex({ env: process.env, log: codexLog });
+  const assistant = createAssistant({ store, codex });
   const subscribers = new Set();
   const emit = (event, value) => {
     platformEmit(event, value);
@@ -44,6 +60,7 @@ function createWorkspaceService({
     "review:tag-order",
     "review:hierarchy-starter",
     "review:entity-remove",
+    "review:merge-tags",
     "workspace:account",
     "workspace:account-update",
     "workspace:account-delete",
@@ -103,6 +120,24 @@ function createWorkspaceService({
   handle("review:hierarchy-starter", () => store.review.starterHierarchy());
   handle("review:entity-remove", (id) => store.review.removeEntity(id));
   handle("review:organize", (changes) => store.review.organize(changes));
+  handle("review:merge-tags", (sourceId, targetId) => store.review.mergeTags(sourceId, targetId));
+  handle("ai:state", (refresh) => assistant.state(refresh));
+  handle("ai:models", () => assistant.models());
+  handle("ai:settings", (values) => assistant.saveSettings(values));
+  handle("ai:install", () => codex.installCli());
+  handle("ai:login", async () => {
+    const { authUrl } = await codex.startLogin();
+    let opened = false;
+    if (platform.openExternal) { await platform.openExternal(authUrl); opened = true; }
+    return { authUrl, opened };
+  });
+  handle("ai:login-cancel", () => codex.cancelLogin());
+  handle("ai:logout", () => codex.logout());
+  handle("ai:test", () => assistant.test());
+  handle("ai:suggest-tags", (mode) => assistant.suggestTags(mode === "restructure" ? "restructure" : "missing"));
+  handle("ai:suggest-aliases", () => assistant.suggestAliases());
+  handle("ai:suggest-organize", (context) => assistant.suggestOrganize(context));
+  handle("ai:suggest-organize-batch", (contexts) => assistant.suggestOrganizeBatch(contexts));
   handle("review:cash-save", (values) => store.review.saveCash(values));
   handle("review:cash-void", (id, version) =>
     store.review.voidCash(id, version),
@@ -213,12 +248,14 @@ function createWorkspaceService({
       return processing;
     },
     syncConfiguration,
+    dispose: () => codex.dispose(),
     async invoke(channel, ...args) {
       try {
         if (!handlers.has(channel))
           throw new Error("Unknown workspace operation.");
         if (
           processing &&
+          !channel.startsWith("ai:") &&
           ![
             "workspace:state",
             "review:state",
@@ -240,7 +277,7 @@ function createWorkspaceService({
           throw new Error("Wait for Dropbox processing to finish.");
         const value = await handlers.get(channel)(...args);
         if (configurationChanges.has(channel)) syncConfiguration();
-        if (!readOnly.has(channel)) emit("changed");
+        if (!readOnly.has(channel) && !channel.startsWith("ai:")) emit("changed");
         return { ok: true, value };
       } catch (error) {
         return { ok: false, error: error.message };

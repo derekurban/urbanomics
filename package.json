@@ -24,6 +24,7 @@
     "test:orbit": "node scripts/smoke-orbit.cjs",
     "test:organize": "node scripts/smoke-organize.cjs",
     "test:organize-desk": "node scripts/smoke-organize-desk.cjs",
+    "test:codex": "node --test tests/desktop/codex.test.cjs && node scripts/smoke-codex.cjs",
     "test:rules": "node scripts/smoke-rules.cjs",
     "test:aliases": "node scripts/smoke-aliases.cjs",
     "test:transfer-lab": "node scripts/smoke-transfer-lab.cjs",

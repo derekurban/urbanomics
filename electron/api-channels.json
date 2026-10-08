@@ -68,5 +68,18 @@
   "processImportBatch": "imports:process",
   "updatesState": "updates:state",
   "checkForUpdates": "updates:check",
-  "installUpdate": "updates:install"
+  "installUpdate": "updates:install",
+  "mergeTags": "review:merge-tags",
+  "codexState": "ai:state",
+  "codexModels": "ai:models",
+  "saveCodexSettings": "ai:settings",
+  "installCodex": "ai:install",
+  "signInCodex": "ai:login",
+  "cancelCodexSignIn": "ai:login-cancel",
+  "signOutCodex": "ai:logout",
+  "testCodex": "ai:test",
+  "suggestTags": "ai:suggest-tags",
+  "suggestAliases": "ai:suggest-aliases",
+  "suggestOrganize": "ai:suggest-organize",
+  "suggestOrganizeBatch": "ai:suggest-organize-batch"
 }

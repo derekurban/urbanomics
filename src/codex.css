@@ -1,0 +1,98 @@
+/* Settings → Codex, the Codex suggestion dialogs and the Organize card's suggestions. System tokens only. */
+.codex-workspace { display: grid; gap: var(--space-6); max-width: 880px; }
+.cx-block { display: grid; gap: var(--space-3); justify-items: start; }
+.cx-block > * { max-width: 100%; }
+.cx-block h2 { margin: 0; font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
+.cx-block p { margin: 0; max-width: var(--measure); color: var(--ink-secondary); }
+.cx-block-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); width: 100%; }
+.cx-note { font-size: var(--type-caption-size); color: var(--ink-tertiary) !important; }
+.cx-note code { font-size: var(--type-caption-size); }
+.cx-status { display: flex; align-items: center; gap: var(--space-3); width: 100%; padding: var(--space-3) var(--space-4); border-radius: var(--radius-md); background: var(--surface); box-shadow: var(--shadow-rest); }
+.cx-status > svg { flex: none; color: var(--ink-tertiary); }
+.cx-status.is-ok > svg { color: var(--accent); }
+.cx-status > div { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.cx-status small { color: var(--ink-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-spin { animation: cx-spin calc(var(--duration-slow) * 3) linear infinite; }
+@keyframes cx-spin { to { transform: rotate(360deg); } }
+.cx-consent { display: flex; gap: var(--space-3); align-items: flex-start; max-width: var(--measure); cursor: pointer; }
+.cx-consent input { margin-top: 3px; flex: none; }
+.cx-consent span { display: grid; gap: var(--space-1); }
+.cx-consent small { color: var(--ink-tertiary); }
+.cx-features { display: grid; width: 100%; }
+.cx-feature { display: grid; grid-template-columns: minmax(0, 1fr) 230px 170px; gap: var(--space-4); align-items: start; padding: var(--space-4) 0; box-shadow: inset 0 -0.5px 0 var(--line); }
+.cx-feature:first-child { box-shadow: inset 0 0.5px 0 var(--line), inset 0 -0.5px 0 var(--line); }
+.cx-feature-text { display: grid; gap: var(--space-1); justify-items: start; }
+.cx-feature h3 { margin: 0; font: var(--font-body); font-weight: var(--weight-medium); }
+.cx-feature small { color: var(--ink-tertiary); }
+.cx-switch { margin-top: var(--space-2); display: grid; gap: var(--space-2); }
+.cx-select { display: grid; gap: var(--space-1); font-size: var(--type-caption-size); color: var(--ink-secondary); }
+.cx-select select { width: 100%; }
+.cx-slots { display: flex; flex-wrap: wrap; gap: var(--space-3); }
+.cx-slots .cx-select { width: 160px; }
+.od-batch-slots { color: var(--ink-tertiary); }
+@media (max-width: 720px) {
+  .cx-feature { grid-template-columns: 1fr 1fr; }
+  .cx-feature-text { grid-column: 1 / -1; }
+}
+
+/* Suggestion dialogs */
+.cx-run { display: flex; align-items: center; gap: var(--space-2); color: var(--ink-tertiary); font-size: var(--type-caption-size); }
+.cx-thinking { display: grid; justify-items: center; gap: var(--space-3); padding: var(--space-8) var(--space-4); text-align: center; color: var(--ink-secondary); }
+.cx-thinking > svg { color: var(--accent); }
+.cx-thinking small { color: var(--ink-tertiary); max-width: var(--measure); }
+.cx-summary { margin: 0 0 var(--space-3); color: var(--ink-secondary); max-width: var(--measure); }
+.cx-list { display: grid; }
+.cx-item { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: var(--space-3); padding: var(--space-3) var(--space-1); box-shadow: inset 0 -0.5px 0 var(--line); }
+.cx-item > input[type="checkbox"] { margin-top: 4px; }
+.cx-item.is-off .cx-item-body { opacity: 0.6; }
+.cx-item.is-done .cx-item-body { opacity: 0.7; }
+.cx-item-body { display: grid; gap: var(--space-2); min-width: 0; }
+.cx-item-head { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.cx-item-head input[type="text"] { flex: 1 1 200px; min-width: 0; font-weight: var(--weight-medium); }
+.cx-item-head b { font-weight: var(--weight-medium); }
+.cx-item-head select { width: auto; max-width: 240px; }
+.cx-kind { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-full); background: var(--sunk); color: var(--ink-secondary); font-size: var(--type-caption-size); line-height: 20px; white-space: nowrap; }
+.cx-reason { margin: 0; color: var(--ink-secondary); }
+.cx-meta { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-2); color: var(--ink-tertiary); font-size: var(--type-caption-size); }
+.cx-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.cx-chip { display: inline-flex; align-items: center; gap: var(--space-1); padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--sunk); font-size: var(--type-caption-size); line-height: 22px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-check { display: inline-flex; align-items: center; gap: var(--space-2); font-size: var(--type-caption-size); color: var(--ink-secondary); }
+.cx-outcome { display: inline-flex; align-items: center; gap: var(--space-1); font-size: var(--type-caption-size); }
+.cx-outcome.is-ok { color: var(--accent); }
+.cx-outcome.is-error { color: var(--danger); }
+.cx-group-title { margin: var(--space-4) 0 var(--space-1); font-size: var(--type-caption-size); color: var(--ink-tertiary); font-weight: var(--weight-medium); }
+.cx-group-title:first-child { margin-top: 0; }
+.cx-footer-note { margin-right: auto; color: var(--ink-tertiary); font-size: var(--type-caption-size); }
+
+/* Organize: suggestions on the open card */
+.od-suggest { display: grid; gap: var(--space-2); padding: var(--space-3); border-radius: var(--radius-md); background: var(--sunk); }
+.od-suggest-head { display: flex; align-items: center; gap: var(--space-2); }
+.od-suggest-head > svg { color: var(--accent); flex: none; }
+.od-suggest-head b { font-weight: var(--weight-medium); }
+.od-suggest-head small { color: var(--ink-tertiary); margin-left: auto; white-space: nowrap; }
+.od-suggest-summary { margin: 0; color: var(--ink-secondary); }
+.od-suggest-list { display: grid; gap: 2px; }
+.od-suggest-item { display: grid; grid-template-columns: auto auto minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); padding: var(--space-1) 0; }
+.od-suggest-item input[type="checkbox"] { margin: 0; }
+.od-suggest-item i { width: 8px; height: 8px; border-radius: 50%; background: var(--part, var(--data-neutral)); }
+.od-suggest-item > span { display: grid; min-width: 0; }
+.od-suggest-item > span b { font-weight: var(--weight-medium); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.od-suggest-item > span small { color: var(--ink-tertiary); }
+.od-suggest-item .num { font-variant-numeric: tabular-nums; color: var(--ink-secondary); }
+.od-suggest-item.is-applied > span b { color: var(--ink-secondary); }
+.od-suggest-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.od-suggest-actions small { color: var(--ink-tertiary); }
+.od-suggest.is-loading .od-suggest-head > svg { animation: cx-spin calc(var(--duration-slow) * 3) linear infinite; }
+.od-smart { display: inline-flex; align-items: center; }
+/* Batch suggestions: the run in the heading and a star per unsorted row. */
+.od-batch-run { display: inline-flex; align-items: center; gap: var(--space-2); color: var(--ink-secondary); font-size: var(--type-caption-size); font-variant-numeric: tabular-nums; }
+.od-batch-run > svg { color: var(--accent); }
+.od-star-slot { display: inline-flex; width: 16px; flex: none; justify-content: center; }
+.od-star { display: inline-flex; transition: color var(--duration-base) var(--ease-out); }
+.od-star.is-idle { color: var(--line-strong); }
+.od-star.is-loading { color: var(--ink-tertiary); animation: od-star-pulse calc(var(--duration-slow) * 2) var(--ease-in-out) infinite alternate; }
+.od-star.is-ready { color: var(--accent); }
+.od-star.is-ready svg { fill: currentColor; }
+.od-star-pulse { animation: od-star-pulse calc(var(--duration-slow) * 2) var(--ease-in-out) infinite alternate; }
+@keyframes od-star-pulse { from { opacity: 1; } to { opacity: 0.3; } }
+@media (prefers-reduced-motion: reduce) { .cx-spin, .od-suggest.is-loading .od-suggest-head > svg, .od-star.is-loading, .od-star-pulse { animation: none; } }

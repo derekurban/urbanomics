@@ -9,6 +9,11 @@ import { EntityEditor } from "./EntityEditor.jsx";
 import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
 import { RulesWorkspace } from "./RulesWorkspace.jsx";
 import { TransferLab } from "./TransferLab.jsx";
+import { CodexWorkspace } from "./CodexWorkspace.jsx";
+import { TagSuggestions } from "./CodexTagSuggestions.jsx";
+import { AliasSuggestions } from "./CodexAliasSuggestions.jsx";
+import { useCodex, readiness } from "./codex.js";
+import { notify } from "./toast.jsx";
 import { palette } from "./snapshots-v2-atoms.jsx";
 import { Alert, PageTabs, PersonAvatar } from "./ui.jsx";
 import { plural } from "./format.js";
@@ -22,6 +27,7 @@ const sections = [
   ["aliases", "Aliases", "Readable names for bank descriptions. They change how transactions are shown, never the original records."],
   ["rules", "Rules", "Tags and people applied to new imports whose bank description matches. Transactions you already have change only when you apply a rule to them."],
   ["transfers", "Transfers", "How Organize finds the other half of a transfer between your accounts. It offers matches within these settings; nothing links without you."],
+  ["codex", "Codex", "Suggestions from your ChatGPT subscription through the Codex CLI. Codex reads only what a feature needs, and nothing changes until you approve it."],
   ["appearance", "Appearance", "Light, dark, or the same as this device."],
   ["about", "About", "Which version this is and how it updates."],
   ["admin", "Maintenance", "Changes across the whole workspace, for starting over. Each one shows what it touches first and keeps a recovery copy."],
@@ -43,6 +49,7 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
     [unusedOnly, setUnusedOnly] = useState(false),
     [editing, setEditing] = useState(null),
     [error, setError] = useState("");
+  const [suggesting, setSuggesting] = useState(null), codex = useCodex();
   const [extras, setExtras] = useState(null),
     [extrasError, setExtrasError] = useState("");
   useEffect(() => {
@@ -104,6 +111,12 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
     setUnusedOnly(false);
     setError("");
   }
+  // Codex suggestions need the CLI, a sign-in and consent; otherwise point to the Codex section.
+  function suggest(mode) {
+    const ready = readiness(codex.state);
+    if (!ready.ok) { notify({ id: "codex-setup", title: "Codex isn't ready", description: ready.reason, tone: "warning", action: { label: "Set up Codex", onClick: () => go("codex") } }); return; }
+    setSuggesting(mode);
+  }
   function edit(entity) {
     setError("");
     setEditing(entity);
@@ -129,10 +142,10 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
         <p>{current[2]}</p>
       </div>
       {extrasError && <Alert>{extrasError}</Alert>}
-      {section === "about" ? <AboutWorkspace /> : section === "appearance" ? <AppearanceWorkspace /> : section === "admin" ? (
+      {section === "codex" ? <CodexWorkspace /> : section === "about" ? <AboutWorkspace /> : section === "appearance" ? <AppearanceWorkspace /> : section === "admin" ? (
         <AdminWorkspace data={data} act={act} busy={busy} />
       ) : section === "aliases" ? (
-        <AliasesWorkspace data={data} run={run} busy={busy} onAccounts={() => go("accounts")} />
+        <AliasesWorkspace data={data} run={run} busy={busy} onAccounts={() => go("accounts")} onSuggest={() => suggest("aliases")} />
       ) : section === "transfers" ? (
         <TransferLab records={records} act={act} busy={busy || !state} onSource={onSource || (() => {})} />
       ) : section === "rules" ? (
@@ -180,8 +193,10 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
           )}
         </section>
       ) : (
-        <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} />
+        <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} onSuggest={suggest} />
       )}
+      {(suggesting === "missing" || suggesting === "restructure") && <TagSuggestions mode={suggesting} entities={entities} onClose={() => setSuggesting(null)} />}
+      {suggesting === "aliases" && <AliasSuggestions onClose={() => setSuggesting(null)} />}
       {editing && (
         <EntityEditor
           key={editing.id || editing.kind}
