@@ -77,7 +77,7 @@ export function ConfirmDialog({ title, children, confirmLabel, tone = "danger", 
       onClose={onClose}
       footer={
         <>
-          <button type="button" disabled={busy} onClick={onClose}>{cancelLabel}</button>
+          <button type="button" disabled={busy} onClick={onClose} data-autofocus={tone === "danger" ? "" : undefined}>{cancelLabel}</button>
           <button type="button" className={tone === "danger" ? "danger" : "primary"} disabled={busy || disabled} onClick={onConfirm}>
             {confirmLabel}
           </button>

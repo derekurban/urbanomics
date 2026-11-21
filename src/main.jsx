@@ -50,11 +50,16 @@ function App() {
   const go = (next, section = next === "settings" ? organizeSection : "") => {
     const hash = "#" + next + (next === "settings" && section ? "/" + section : "");
     if (location.hash !== hash) history.pushState(null, "", hash);
+    // A new page or Settings section starts at its top, not at the previous page's scroll position.
+    if (next !== page || (next === "settings" && section !== organizeSection)) window.scrollTo(0, 0);
     setPageState(next);
   };
   useEffect(() => {
     const sync = () => {
       const { page: next, section } = readLocation();
+      // An address that names no page opens the default page, and the address says so.
+      const head = location.hash.slice(1).split("/")[0];
+      if (!pages.includes(head)) history.replaceState(null, "", "#" + next + (next === "settings" ? "/" + (section || "category") : ""));
       setPageState(next);
       if (section) setOrganizeSection(section);
     };
@@ -291,13 +296,12 @@ function App() {
         <button
           type="button"
           className="sidebar-pin"
-          aria-pressed={pinned}
-          aria-label="Keep sidebar open"
-          title="Keep sidebar open"
+          aria-label={pinned ? "Let sidebar close" : "Keep sidebar open"}
+          title={pinned ? "Let sidebar close" : "Keep sidebar open"}
           onClick={togglePinned}
         >
           <span aria-hidden="true"><Icon name={pinned ? "pin-off" : "pin"} size={18} /></span>
-          <span className="sidebar-label">Keep sidebar open</span>
+          <span className="sidebar-label">{pinned ? "Let sidebar close" : "Keep sidebar open"}</span>
         </button>
       </aside>
       <div className="workspace">

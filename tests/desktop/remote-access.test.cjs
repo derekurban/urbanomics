@@ -33,6 +33,7 @@ test('Tailscale proxy checks owner, origin and CSRF before reads/writes; HTTP an
   assert.ok((await (await call('reviewState')).json()).value.entities.some(e=>e.id===desktop.value));assert.equal(changed,2);off();
   assert.equal((await (await call('drop',[['C:/private.csv']])).json()).ok,false);
   assert.equal((await (await call('reveal',['private'])).json()).ok,false);
+  assert.equal((await (await call('reveal',['backups'])).json()).ok,false,'phone access cannot open the backups folder');
   assert.equal((await fetch(server.origin+'/api/session',{headers:{...trusted,Origin:'https://evil.example'}})).status,403);
   assert.equal((await fetch(server.origin+'/api/call',{method:'POST',headers:{...headers,'X-Urbanomics-Token':'wrong'},body:'{}'})).status,403);
   await server.close();assert.equal(store.review.entities().filter(e=>!e.systemRole).length,2);

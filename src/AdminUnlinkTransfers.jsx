@@ -17,7 +17,7 @@ export function AdminUnlinkTransfers({ data, act, busy }) {
         <ConfirmDialog title={`Unlink ${plural(a.confirmation.pairs, "transfer")}?`} confirmLabel={a.working ? "Unlinking…" : "Unlink transfers"} busy={a.working || busy} disabled={!a.confirmation.count} error={a.error} onClose={a.close} onConfirm={() => a.confirm()}>
           <p>Both halves of each transfer ({plural(a.confirmation.count, "transaction")}{a.confirmation.archived ? `, ${a.confirmation.archived} in deleted accounts` : ""}) become ordinary money in and out{a.confirmation.unpaired ? `, and ${plural(a.confirmation.unpaired, "half-finished link")} ${a.confirmation.unpaired === 1 ? "is" : "are"} cleared` : ""}. Recorded fees and extra received go too, so spending and income totals change until they're linked again.</p>
           <p>Amounts, tags, events, people, rules and the original files stay.</p>
-          <p className="form-help">A recovery copy is saved first. There's no undo button.</p>
+          <p className="form-help">A recovery copy is saved first, in the backups/admin folder of your workspace. There's no undo button.</p>
         </ConfirmDialog>
       )}
     </>

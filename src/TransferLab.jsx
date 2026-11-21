@@ -147,7 +147,7 @@ export function TransferLab({ records, act, busy, onSource }) {
     <section className="transfer-lab" aria-label="Transfer settings">
       <fieldset disabled={locked} className="tl-panel">
         <legend><h3>Where money moves</h3></legend>
-        <p className="form-help">Connect two accounts in the direction money goes between them, for example chequing to a credit card for its payments. The reverse direction is separate.</p>
+        <p className="form-help">Connect two accounts in the direction money moves, for example chequing to a credit card for its payments; the reverse is a separate direction.</p>
         <AccountRouteNetwork accounts={state.accounts} routes={draft.routes} onChange={(routes) => change({ routes })} disabled={locked} />
         <div className="tl-controls">
           <label>Days apart, at most<span className="tl-unit"><input aria-label="Days apart, at most" type="number" min="0" max="31" step="1" value={draft.maxDays} onChange={(e) => change({ maxDays: e.target.value })} /><span>days</span></span></label>

@@ -43,3 +43,15 @@
 }
 .aliases-workspace { max-width: 880px; }
 .aliases-workspace .og-toolbar .og-stat { margin-left: 0; margin-right: auto; }
+
+/* The page's own list of descriptions without an alias. */
+.al-page-unaliased { display: grid; gap: var(--space-2); margin-top: var(--space-4); padding: var(--space-4); border-radius: var(--radius-lg); background: var(--sunk); }
+.al-page-unaliased:focus-visible { outline: none; box-shadow: var(--ring-focus); }
+.al-page-unaliased-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-2) var(--space-3); }
+.al-page-unaliased h2 { margin: 0; font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
+.al-page-unaliased input[type="search"] { width: 280px; max-width: 100%; }
+.al-page-unaliased .form-help { margin: 0; }
+.al-page-unaliased .al-unaliased-list button { grid-template-columns: minmax(0, 1fr) auto; }
+.aliases-workspace .empty-state { margin-bottom: 0; }
+button.link.og-stat { font-size: var(--type-caption-size); }
+.al-lede { margin: var(--space-2) 0 0; max-width: var(--measure); color: var(--ink-secondary); }

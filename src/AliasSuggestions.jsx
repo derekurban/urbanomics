@@ -6,6 +6,7 @@ import { Icon } from "@derekurban/design-system";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { Alert } from "./ui.jsx";
 import { notify } from "./toast.jsx";
+import { SelectAll } from "./TagSuggestions.jsx";
 import { plural } from "./format.js";
 import { compileTextRule, ruleModes } from "./import-analysis.mjs";
 import { Thinking, RunNote } from "./TagSuggestions.jsx";
@@ -31,13 +32,13 @@ export function AliasSuggestions({ onClose, onApplied }) {
 
   async function apply() {
     setApplying(true);
-    let done = 0, failed = 0;
+    let done = 0, failed = 0, renamed = 0;
     for (const item of chosen) {
-      try { await api.saveAlias({ name: item.name.trim(), pattern: compileTextRule({ mode: item.mode, text: item.text }) }); update(item.key, { outcome: { ok: true, message: "Saved" } }); done++; }
+      try { await api.saveAlias({ name: item.name.trim(), pattern: compileTextRule({ mode: item.mode, text: item.text }) }); update(item.key, { outcome: { ok: true, message: "Saved" } }); done++; renamed += Number(item.check?.matches) || 0; }
       catch (e) { update(item.key, { outcome: { ok: false, message: e.message } }); failed++; }
     }
     setApplying(false); setApplied(true);
-    notify({ title: failed ? `${plural(done, "alias", "aliases")} saved, ${failed} didn't` : `${plural(done, "alias", "aliases")} saved`, tone: failed ? "warning" : "success" });
+    notify({ title: [failed ? `${plural(done, "alias", "aliases")} saved, ${failed} didn't` : `${plural(done, "alias", "aliases")} saved`, renamed ? `${plural(renamed, "transaction")} renamed` : ""].filter(Boolean).join(" · "), tone: failed ? "warning" : "success" });
     onApplied?.();
   }
   return (
@@ -53,6 +54,7 @@ export function AliasSuggestions({ onClose, onApplied }) {
         : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>No aliases to suggest.</h2><p>Claude didn't find descriptions that would read better under another name.</p></div>
         : <>
             <p className="cx-summary">Each alias renames every description its sentence matches, in every account. Edit the name or the sentence before saving; the count updates as you type.</p>
+            {items.length > 6 && !applied && <SelectAll onAll={() => setItems((list) => list.map((x) => (x.outcome?.ok ? x : { ...x, on: true })))} onNone={() => setItems((list) => list.map((x) => (x.outcome?.ok ? x : { ...x, on: false })))} />}
             <div className="cx-list">{items.map((item) => <AliasItem key={item.key} item={item} onChange={(change) => update(item.key, change)} locked={applying || item.outcome?.ok} />)}</div>
           </>}
     </WorkspaceModal>

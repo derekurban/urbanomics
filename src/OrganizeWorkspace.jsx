@@ -12,6 +12,7 @@ import { TransferLab } from "./TransferLab.jsx";
 import { AssistantWorkspace } from "./AssistantWorkspace.jsx";
 import { TagSuggestions } from "./TagSuggestions.jsx";
 import { AliasSuggestions } from "./AliasSuggestions.jsx";
+import { SetupChecklist } from "./SetupChecklist.jsx";
 import { useAssistant, readiness } from "./assistant.js";
 import { notify } from "./toast.jsx";
 import { palette } from "./snapshots-v2-atoms.jsx";
@@ -30,7 +31,7 @@ const sections = [
   ["assistant", "Assistant", "Suggestions from Claude, through your own Anthropic API key. Claude reads only what a feature needs, and nothing changes until you approve it."],
   ["appearance", "Appearance", "Light, dark, or the same as this device."],
   ["about", "About", "Which version this is and how it updates."],
-  ["admin", "Maintenance", "Changes across the whole workspace, for starting over. Each one shows what it touches first and keeps a recovery copy."],
+  ["admin", "Maintenance", "A backup of the whole workspace, and changes across all of it for starting over. Each change shows what it touches first and keeps a recovery copy."],
 ];
 
 /* Resolves a promise-returning call so a missing or throwing API surfaces as
@@ -137,7 +138,14 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
   return (
     <div className="organize-workspace settings-workspace workspace-page">
       <div className="page-heading"><div><h1>Settings</h1></div></div>
+      <SetupChecklist steps={state && assistant.state ? [
+        { id: "import", label: "Import a bank export", done: records.length > 0, go: () => onNavigate("snapshots") },
+        { id: "people", label: "Add people you share with", done: people.length > 0, go: () => go("person") },
+        { id: "tags", label: "Name your tags", done: entities.some((e) => e.kind === "category" && !e.systemRole), go: () => go("category") },
+        { id: "claude", label: "Connect Claude", done: !!assistant.state.claude?.ok, go: () => go("assistant") },
+      ] : null} />
       <PageTabs label="Settings sections" value={current[0]} onChange={go} items={sections.map(([value, label]) => ({ value, label }))} />
+      <div className="settings-body">
       <div className="settings-intro">
         <p>{current[2]}</p>
       </div>
@@ -195,6 +203,7 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
       ) : (
         <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} onSuggest={suggest} />
       )}
+      </div>
       {(suggesting === "missing" || suggesting === "restructure") && <TagSuggestions mode={suggesting} entities={entities} onClose={() => setSuggesting(null)} />}
       {suggesting === "aliases" && <AliasSuggestions onClose={() => setSuggesting(null)} />}
       {editing && (

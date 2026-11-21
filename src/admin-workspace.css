@@ -11,3 +11,19 @@
 @media (max-width: 720px) {
   .admin-action { flex-direction: column; align-items: stretch; }
 }
+
+/* Back up the workspace: the one row that changes nothing, then every copy kept so far. */
+.admin-backup-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); flex: none; }
+.admin-copies { padding-bottom: var(--space-3); box-shadow: inset 0 -0.5px 0 var(--line); }
+.admin-copies summary { cursor: pointer; color: var(--ink-secondary); font: var(--font-small); padding: var(--space-1) 0; }
+.admin-copies ul { list-style: none; margin: var(--space-2) 0; padding: 0; display: grid; }
+.admin-copies li { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2) 0; box-shadow: inset 0 -0.5px 0 var(--line); }
+.admin-copies li > span { display: grid; gap: 2px; min-width: 0; }
+.admin-copies li strong { font-weight: var(--weight-medium); }
+.admin-copies li small { color: var(--ink-tertiary); overflow-wrap: anywhere; }
+.admin-copies time { flex: none; color: var(--ink-secondary); font: var(--font-small); }
+.admin-copies .form-help { margin: 0; max-width: var(--measure); }
+@media (max-width: 720px) {
+  .admin-backup-actions > button { flex: 1; }
+  .admin-copies li { flex-direction: column; align-items: flex-start; gap: var(--space-1); }
+}

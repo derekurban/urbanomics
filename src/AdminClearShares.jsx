@@ -19,7 +19,7 @@ export function AdminClearShares({ data, act, busy }) {
         <ConfirmDialog title="Clear every split and repayment?" confirmLabel={a.working ? "Clearing…" : "Clear splits and repayments"} busy={a.working || busy} disabled={!a.confirmation.count} error={a.error} onClose={a.close} onConfirm={() => a.confirm()}>
           <p>{summary(a.confirmation)}, on {plural(a.confirmation.count, "transaction")}{a.confirmation.archived ? ` (${a.confirmation.archived} in deleted accounts)` : ""}, go back to ordinary money in and out. Repayments become income where they have an income tag, and unsorted otherwise.</p>
           <p>What you're owed and your cost after repayments change on the Dashboard until you record them again. Tags, events and their people, transfers, rules and the original files stay.</p>
-          <p className="form-help">A recovery copy is saved first. There's no undo button.</p>
+          <p className="form-help">A recovery copy is saved first, in the backups/admin folder of your workspace. There's no undo button.</p>
         </ConfirmDialog>
       )}
     </>

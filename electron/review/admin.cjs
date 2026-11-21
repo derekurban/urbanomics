@@ -6,6 +6,8 @@ class AdminStore {
     this.imports = imports;
   }
   previewReset(){return require('./admin-reset.cjs').previewReset(this.imports);}
+  backup(){return require('./admin-backup.cjs').backupWorkspace(this.imports);}
+  backups(){return require('./admin-backup.cjs').listBackups(this.imports);}
   resetWorkspace(token,confirmation){return require('./admin-reset.cjs').resetWorkspace(this.imports,token,confirmation);}
   tagged() {
     return this.imports.review

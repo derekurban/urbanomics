@@ -99,3 +99,4 @@
 .od-star-pulse { animation: od-star-pulse calc(var(--duration-slow) * 2) var(--ease-in-out) infinite alternate; }
 @keyframes od-star-pulse { from { opacity: 1; } to { opacity: 0.3; } }
 @media (prefers-reduced-motion: reduce) { .cx-spin, .od-suggest.is-loading .od-suggest-head > svg, .od-star.is-loading, .od-star-pulse { animation: none; } }
+.cx-select-all { display: flex; gap: var(--space-1); margin: 0 0 var(--space-2); }
