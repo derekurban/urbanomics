@@ -2,11 +2,14 @@ import React from "react";
 import { YearChart } from "./DashboardCharts.jsx";
 import { StatRow } from "./ui.jsx";
 import { plural } from "./format.js";
+import { UNCATEGORIZED } from "./dashboard-model.js";
+import { shareOf } from "./ExpenseCategoryBreakdown.jsx";
 
 // Money in: what it was (its saved purpose) leads; tags describe it underneath. One name per figure.
-export function IncomeDashboard({ model, months, currency, selectedMonth, onMonth, year, money, onOpen, partialFrom }) {
+export function IncomeDashboard({ model, months, currency, selectedMonth, onMonth, year, money, onOpen, partialFrom, onOrganizeUnsorted }) {
   const purposes = model.cashGroups.slice(0, 4);
   const max = Math.max(1, ...model.incomeBreakdown.map((g) => g.cents));
+  const whole = model.incomeBreakdown.reduce((n, g) => n + g.cents, 0);
   return (
     <div className="dash-income-view">
       <StatRow items={[
@@ -29,17 +32,21 @@ export function IncomeDashboard({ model, months, currency, selectedMonth, onMont
         </div>
         <div className="dash-bars">
           {model.incomeBreakdown.map((g) => (
-            <article className="dash-category-breakdown" key={g.id} style={{ "--c": g.color }}>
-              <button className="dash-bar" onClick={() => onOpen(g.name, g.rows)}>
-                <span className="dash-between">
-                  <span><i style={{ background: g.color }} />{g.name}</span>
+            <article className={`dash-category-breakdown${g.id === UNCATEGORIZED ? " is-unsorted" : ""}`} key={g.id} style={{ "--c": g.color }}>
+              <div className="dash-line">
+                <button className="dash-bar" onClick={() => onOpen(g.name, g.rows, g.id)} aria-label={`${g.name}: ${money(g.cents)}, ${plural(g.rows.length, "payment", "payments")}`}>
+                  <span className="dash-bar-name">
+                    {g.id === UNCATEGORIZED ? <i className="dash-hatch" aria-hidden="true" /> : <i style={{ background: g.color }} />}
+                    <span>{g.name}<small> · {plural(g.rows.length, "payment", "payments")}</small></span>
+                  </span>
+                  <span className="dash-track" aria-hidden="true">
+                    <span className="dash-net" style={{ width: `${(100 * g.cents) / max}%` }} />
+                  </span>
                   <strong className="tabular">{money(g.cents)}</strong>
-                </span>
-                <span className="dash-track" aria-hidden="true">
-                  <span className="dash-net" style={{ width: `${(100 * g.cents) / max}%` }} />
-                </span>
-                <small>{plural(g.rows.length, "payment", "payments")}</small>
-              </button>
+                  <small className="tabular dash-share">{shareOf(g.cents, whole)}</small>
+                </button>
+                {g.id === UNCATEGORIZED && onOrganizeUnsorted && <button className="sm dash-organize-these" onClick={onOrganizeUnsorted}>Organize these</button>}
+              </div>
             </article>
           ))}
         </div>

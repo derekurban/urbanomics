@@ -1,5 +1,9 @@
 import { accountOverview, endOfMonth } from "./dashboard-model.js";
 
+// A card or credit line reads its flows as charged and paid off, judged from the account's own type.
+export const isCardAccount=(account)=>/\b(card|credit)\b/i.test(account?.kind||"");
+// The latest month of the selected year with any activity, for a card without an exported balance.
+export const latestMonth=(account)=>[...(account?.months||[])].reverse().find(m=>m.count>0)||null;
 // Keep the complete ledger available to resolve counterparts outside the selected period.
 export function accountsModel(records, accounts, {year,currency}) {
   const activeIds=new Set(accounts.map(a=>a.id));

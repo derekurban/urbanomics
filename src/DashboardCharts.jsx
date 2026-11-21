@@ -1,11 +1,8 @@
 import React, { useState } from "react";
 import { AccountNetwork } from "./AccountNetwork.jsx";
 import { money as currencyMoney, dayLabel } from "./format.js";
+import { chartSeries } from "./dashboard-model.js";
 
-// Bespoke because the package BarChart can't stack series, pair them or open a month yet
-// (requested upstream; see docs/design-system.md). It follows the system's data rules: neutral series
-// (identity colors only for user categories), dashed gridlines, a hairline baseline, 3px bar tops,
-// the accent only on the selected month, and bars that settle in on first render.
 const shortMonth = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-CA", { month: "short", timeZone: "UTC" });
 const fullMonth = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-CA", { month: "long", year: "numeric", timeZone: "UTC" });
 const compact = (n, currency) =>
@@ -19,15 +16,19 @@ export function YearChart({ months, currency, kind, selectedMonth, onMonth, cost
   const groups = (m) => (incoming ? m.model?.incomeBreakdown || [] : m.model?.categories || []);
   const value = (m) => (incoming ? m.model.cashIn : m.model[cost]);
   const partValue = (c) => (incoming ? c.cents : c[cost]);
-  const maxValue = Math.max(1, ...months.map((m) => (!m.model ? 0 : stacked ? value(m) : Math.max(m.model.cashIn, m.model.cashOut))));
+  const highest = Math.max(0, ...months.map((m) => (!m.model ? 0 : stacked ? value(m) : Math.max(m.model.cashIn, m.model.cashOut))));
+  // A year with nothing in it gets one $0 line rather than three.
+  const empty = !highest && months.some((m) => m.model);
+  const maxValue = Math.max(1, highest);
   const magnitude = 10 ** Math.floor(Math.log10(maxValue));
   const max = Math.ceil(maxValue / magnitude) * magnitude;
   const point = months.find((m) => m.month === hover);
-  const categoryDefinitions = new Map(months.flatMap(groups).map((c) => [c.id, c]));
-  const categoryIds = [...categoryDefinitions.keys()].sort((a, b) =>
-    categoryDefinitions.get(a).name.localeCompare(categoryDefinitions.get(b).name, undefined, { sensitivity: "base" }),
-  );
-  const color = (id) => categoryDefinitions.get(id)?.color || "var(--data-neutral)";
+  const series = stacked ? chartSeries(months, groups, partValue) : [];
+  const segments = (m) =>
+    series
+      .map((s) => ({ ...s, cents: groups(m).filter((c) => s.ids.includes(c.id)).reduce((n, c) => n + partValue(c), 0) }))
+      .filter((s) => s.cents > 0);
+  const swatch = (s) => (s.hatch ? { className: "dash-hatch" } : { style: { background: s.color } });
   const partial = (m) => partialFrom && m.month > partialFrom;
   const label = (m) =>
     !m.model
@@ -42,7 +43,7 @@ export function YearChart({ months, currency, kind, selectedMonth, onMonth, cost
     <div className="dash-chart-wrap">
       <div className="dash-year-chart" role="group" aria-label={incoming ? "Money in by month" : expense ? "Spending by month" : "Money in and out by month"}>
         <div className="dash-axis" aria-hidden="true">
-          {[1, 0.5, 0].map((n) => <span key={n}>{compact(max * n, currency)}</span>)}
+          {empty ? <span className="dash-axis-zero">{compact(0, currency)}</span> : [1, 0.5, 0].map((n) => <span key={n}>{compact(max * n, currency)}</span>)}
         </div>
         <div className="dash-plot">
           <div className="dash-gridlines" aria-hidden="true"><i /><i /><i /></div>
@@ -63,12 +64,9 @@ export function YearChart({ months, currency, kind, selectedMonth, onMonth, cost
               <span className="dash-columns" aria-hidden="true">
                 {!m.available ? null : stacked ? (
                   <span className="dash-column dash-expense-column" style={{ height: `${(100 * value(m)) / max}%` }}>
-                    {categoryIds
-                      .map((id) => groups(m).find((c) => c.id === id))
-                      .filter(Boolean)
-                      .map((c) => (
-                        <i key={c.id} style={{ height: `${(100 * partValue(c)) / Math.max(1, value(m))}%`, background: color(c.id) }} />
-                      ))}
+                    {segments(m).map((s) => (
+                      <i key={s.id} {...swatch(s)} style={{ ...swatch(s).style, height: `${(100 * s.cents) / Math.max(1, value(m))}%` }} />
+                    ))}
                   </span>
                 ) : (
                   <>
@@ -80,15 +78,27 @@ export function YearChart({ months, currency, kind, selectedMonth, onMonth, cost
               <span className="dash-month-label"><span className="dash-month-long">{shortMonth(m.month)}</span><span className="dash-month-initial" aria-hidden="true">{shortMonth(m.month)[0]}</span>{partial(m) && m.available ? <small>so far</small> : null}</span>
             </button>
           ))}
+          {stacked && point?.model && segments(point).length > 0 && (
+            <div
+              className={`dash-chart-card${months.indexOf(point) > 8 ? " is-end" : months.indexOf(point) < 3 ? " is-start" : ""}`}
+              style={{ "--at": `${((months.indexOf(point) + 0.5) / months.length) * 100}%` }}
+              aria-hidden="true"
+            >
+              <strong>{fullMonth(point.month)}</strong>
+              {[...segments(point)].reverse().map((s) => (
+                <span key={s.id}><i {...swatch(s)} />{s.name}<b className="tabular">{currencyMoney(s.cents, currency)}</b></span>
+              ))}
+            </div>
+          )}
         </div>
       </div>
       <p className="dash-chart-readout">
-        {point ? label(point) : "Select a month to open it. Months with nothing imported are left blank."}
+        {point ? label(point) : empty ? `Nothing matches in ${months[0]?.month.slice(0, 4)}.` : "Select a month to open it. Months with nothing imported are left blank."}
       </p>
       {stacked ? (
         <div className="dash-chart-key">
-          {categoryIds.map((id) => (
-            <span key={id}><i style={{ background: color(id) }} />{categoryDefinitions.get(id).name}</span>
+          {series.map((s) => (
+            <span key={s.id}><i {...swatch(s)} />{s.name}</span>
           ))}
         </div>
       ) : (
@@ -128,7 +138,7 @@ export function AccountFlow({ overview, money, onCash, onTransfer }) {
                     : "These exports have no balance column"}
                 </small>
               </button>
-              <button className="dash-account-movement" onClick={() => onCash(a.name, a.rows)}>
+              <button className="dash-account-movement" onClick={() => onCash(a.name, a.rows, "cash", a.id)}>
                 <span>In <b className="tabular">{money(a.cashIn)}</b></span>
                 <span className="dash-mini-track"><i className="dash-in" style={{ width: `${(a.cashIn / max) * 100}%` }} /></span>
                 <span>Out <b className="tabular">{money(a.cashOut)}</b></span>

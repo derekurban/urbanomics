@@ -1,6 +1,7 @@
 import { orderedTags as alphabetical, tagType } from "../electron/review/tag-model.mjs";
 import { categoryColors } from "./category-colors.js";
 import { systemPalette } from "../electron/review/palette.mjs";
+import { pendingTransfers, withinBand } from "../electron/review/transfer-model.mjs";
 export const UNCATEGORIZED = "dashboard:uncategorized";
 export const UNGROUPED = "dashboard:ungrouped";
 export const TRANSFER_FEES = "dashboard:transfer-fees";
@@ -40,6 +41,70 @@ export function boundaryEntry(row, byId) {
     excess,
     parts,
     cents: sum(parts, (p) => p.cents),
+  };
+}
+
+// Largest first by the person's cost; Unsorted always last so what is still unknown sits apart.
+export function byCost(list, value) {
+  return [...list].sort(
+    (a, b) =>
+      (a.id === UNCATEGORIZED) - (b.id === UNCATEGORIZED) ||
+      value(b) - value(a) ||
+      String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base" }),
+  );
+}
+
+// The year chart keeps the largest few series in their own colours; the rest share one neutral
+// "Everything else" so neighbouring colours never have to be told apart.
+const TOP = 5;
+export const REST = "dashboard:everything-else";
+export function chartSeries(months, groups, partValue) {
+  const totals = new Map(), names = new Map();
+  for (const m of months) for (const c of groups(m)) {
+    totals.set(c.id, (totals.get(c.id) || 0) + partValue(c));
+    names.set(c.id, c);
+  }
+  const ranked = [...totals.keys()].filter((id) => id !== UNCATEGORIZED && totals.get(id) > 0)
+    .sort((a, b) => totals.get(b) - totals.get(a) || String(names.get(a).name).localeCompare(String(names.get(b).name)));
+  const keep = ranked.length > TOP + 1 ? ranked.slice(0, TOP) : ranked;
+  const series = keep.map((id) => ({ id, name: names.get(id).name, color: names.get(id).color || "var(--data-neutral)", ids: [id] }));
+  const rest = ranked.filter((id) => !keep.includes(id));
+  if (rest.length) series.push({ id: REST, name: "Everything else", color: "var(--data-neutral)", ids: rest });
+  if (totals.get(UNCATEGORIZED) > 0) series.push({ id: UNCATEGORIZED, name: "Unsorted", hatch: true, ids: [UNCATEGORIZED] });
+  return series;
+}
+
+// Bespoke because the package BarChart can't stack series, pair them or open a month yet
+// (requested upstream; see docs/design-system.md). It follows the system's data rules: neutral series
+// (identity colors only for user categories), dashed gridlines, a hairline baseline, 3px bar tops,
+// the accent only on the selected month, and bars that settle in on first render.
+
+const dayNumber = (date) => Date.parse(date + "T00:00:00Z") / 86400000;
+// Unlinked moves between the person's own accounts: an outgoing and an incoming row in different accounts
+// that the saved transfer settings would offer as a pair on the Organize desk (same currency, amount within
+// the band, dates within the day limit, both still free to link). Disclosure only: nothing is linked here.
+export function likelyMoves(records, { basisPoints = 0, maxDays = 1 } = {}, { from, through, currency = "CAD" }) {
+  const open = pendingTransfers(records).filter((t) => t.currency === currency && t.amountCents !== 0);
+  const outgoing = open.filter((t) => t.amountCents < 0),
+    incoming = open.filter((t) => t.amountCents > 0);
+  const pairs = [];
+  for (const out of outgoing)
+    for (const inc of incoming)
+      if (
+        inc.accountId !== out.accountId &&
+        withinBand(out.amountCents, inc.amountCents, basisPoints) &&
+        Math.abs(dayNumber(inc.date) - dayNumber(out.date)) <= maxDays
+      )
+        pairs.push({ out, inc });
+  const inPeriod = (t) => t.date >= from && t.date <= through;
+  const outIds = new Set(pairs.filter((p) => inPeriod(p.out)).map((p) => p.out.id));
+  const inIds = new Set(pairs.filter((p) => inPeriod(p.inc)).map((p) => p.inc.id));
+  const byId = new Map(open.map((t) => [t.id, t]));
+  return {
+    outIds,
+    inIds,
+    out: sum([...outIds], (id) => -byId.get(id).amountCents),
+    in: sum([...inIds], (id) => byId.get(id).amountCents),
   };
 }
 
@@ -225,7 +290,10 @@ export function apportion(cents, parts) {
   return split.map(({ id, cents }) => ({ id, cents }));
 }
 
+// A row nobody has tagged yet is Unsorted, even though the ledger shows it with the grey Other default.
+// Only an Other that was saved on purpose counts under that tag.
 function categoryParts(row) {
+  if (row.tagsAutomatic) return [{ id: UNCATEGORIZED, cents: Math.abs(row.amountCents) }];
   if(row.review.allocationMode==='layers'){
     const parts=row.review.tags.map(p=>({...p}));
     const repayment=row.amountCents>0&&row.review.kind==='repayment'?sum(row.review.allocations,p=>p.cents):0;
@@ -494,10 +562,7 @@ export function dashboard(
     .map((t) => ({ row: t, other: byId.get(t.review.transferId) }));
   return {
     expenses,
-    categories:
-      layer === "tags"
-        ? alphabetical([...categoryMap.values()])
-        : [...categoryMap.values()].sort((a, b) => b.net - a.net),
+    categories: byCost([...categoryMap.values()], (c) => c.net),
     categoryOptions: alphabetical(
       [
         ...new Set([
@@ -521,7 +586,7 @@ export function dashboard(
         ]),
       ].map((id) => definition(id, "income")),
     ),
-    incomeBreakdown: alphabetical([...incomeMap.values()]),
+    incomeBreakdown: byCost([...incomeMap.values()], (g) => g.cents),
     incomeReceived: sum(incomeRows,t=>t.cents),
     repaymentReceived: sum(repaymentRows,t=>t.cents),
     otherReceived: sum(unassignedRows,t=>t.cents)+sum(inflow.filter(t=>t.excess),t=>t.cents),
