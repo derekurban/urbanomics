@@ -476,14 +476,20 @@ class ImportStore {
       throw new Error("Drop up to 250 files at a time.");
     const files = [];
     let skipped = 0;
+    // What was skipped and why, by name, so the page can say "notes.txt was skipped: it isn't a CSV."
+    const skippedFiles = [];
+    const skip = (name, reason) => {
+      skipped++;
+      if (skippedFiles.length < 50) skippedFiles.push({ name: String(name || ""), reason });
+    };
     for (const candidate of paths) {
       if (typeof candidate !== "string" || !path.isAbsolute(candidate)) {
-        skipped++;
+        skip("", "unreadable");
         continue;
       }
       const stat = fs.lstatSync(candidate);
       if (stat.isSymbolicLink()) {
-        skipped++;
+        skip(path.basename(candidate), "shortcut");
         continue;
       }
       if (stat.isDirectory()) {
@@ -492,11 +498,11 @@ class ImportStore {
         })) {
           if (entry.isFile() && /\.csv$/i.test(entry.name))
             files.push(path.join(candidate, entry.name));
-          else skipped++;
+          else skip(entry.name, entry.isDirectory() ? "folder" : "not-csv");
         }
       } else if (stat.isFile() && /\.csv$/i.test(candidate))
         files.push(candidate);
-      else skipped++;
+      else skip(path.basename(candidate), stat.isDirectory() ? "folder" : "not-csv");
     }
     if (files.length > 250)
       throw new Error(
@@ -505,7 +511,7 @@ class ImportStore {
     const ids = [];
     for (const file of files) {
       if (fs.statSync(file).size > 20 * 1024 * 1024) {
-        skipped++;
+        skip(path.basename(file), "too-large");
         continue;
       }
       const bytes = fs.readFileSync(file);
@@ -587,7 +593,7 @@ class ImportStore {
       if (stagedName) this.trackStaged(stagedName, sourceHash, id);
       if (accountId && !error && process) this.process(id);
     }
-    return { ids, skipped };
+    return { ids, skipped, skippedFiles };
   }
   trackStaged(filename, sourceHash, jobId) {
     this.db
@@ -1074,7 +1080,7 @@ class ImportStore {
       ),
       accounts: this.db
         .prepare(
-          "SELECT a.*,(SELECT COUNT(*) FROM transactions t WHERE t.account_id=a.id) AS transactionCount FROM accounts a WHERE deletedAt IS NULL ORDER BY a.rowid",
+          "SELECT a.*,(SELECT COUNT(*) FROM transactions t WHERE t.account_id=a.id) AS transactionCount,(SELECT MAX(date) FROM transactions t WHERE t.account_id=a.id) AS lastDate FROM accounts a WHERE deletedAt IS NULL ORDER BY a.rowid",
         )
         .all(),
       deletedAccounts: this.db

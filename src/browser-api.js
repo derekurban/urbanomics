@@ -38,7 +38,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
   const drop = async (files, stage = false) => {
     if (files.length > 250)
       throw new Error("Choose up to 250 CSV files at a time.");
-    const received = { ids: [], skipped: 0 };
+    const received = { ids: [], skipped: 0, skippedFiles: [] };
     for (const file of files) {
       if (
         !/\.csv$/i.test(file.name) ||
@@ -46,6 +46,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
         file.webkitRelativePath?.split("/").length > 2
       ) {
         received.skipped++;
+        received.skippedFiles.push({ name: file.name, reason: !/\.csv$/i.test(file.name) ? "not-csv" : file.size > 20 * 1024 * 1024 ? "too-large" : "folder" });
         continue;
       }
       const value = await response(
@@ -62,6 +63,7 @@ if (!window.urbanomics && ["http:", "https:"].includes(location.protocol)) {
       );
       received.ids.push(...value.ids);
       received.skipped += value.skipped || 0;
+      received.skippedFiles.push(...(value.skippedFiles || []));
       if (value.result) {
         const prior = received.result;
         received.result = { ...value.result };

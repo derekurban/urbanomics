@@ -9,17 +9,27 @@ import {
   InfoDot,
   monthLabel,
   plural,
+  skippedSentence,
   SnapshotScene,
   Sv2Dialog,
   whenLabel,
 } from "./snapshots-v2-atoms.jsx";
-import { notify } from "./toast.jsx";
+import { dismissToast, notify } from "./toast.jsx";
 import { Alert, ConfirmDialog, StatRow } from "./ui.jsx";
 import { LayoutEditor, LayoutLibrary } from "./snapshots-v2-layout.jsx";
 import { GuidedSetup } from "./snapshots-v2-guided.jsx";
 import { GuideDialog } from "./snapshots-v2-guide.jsx";
 import { ArchiveDialog, HistoryDialog } from "./snapshots-v2-archive.jsx";
-import { dropKind, skippedNote, splitCsvFiles } from "./drop-kind.js";
+import { dropKind, isCsvName } from "./drop-kind.js";
+
+/* Where the next export should start, for an account whose newest transaction is on `iso`:
+   { short: "Next export from Sep 28", full: "Last row Sep 27. Next export from Sep 28." } */
+function nextExport(iso) {
+  if (!iso) return null;
+  const day = (d) => d.toLocaleDateString("en-CA", { month: "short", day: "numeric", timeZone: "UTC" });
+  const last = new Date(`${iso}T00:00:00Z`), next = new Date(last.getTime() + 86400000);
+  return { short: `Next export from ${day(next)}`, full: `Last row ${day(last)}. Next export from ${day(next)}.` };
+}
 
 
 function rollingMonths(end) {
@@ -46,6 +56,8 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     [dragging, setDragging] = useState(null);
   const [templates, setTemplates] = useState([]);
   const working = useRef(false);
+  // Confirmations shown during the setup ("3 files ready for …"); they are cleared once the import finishes.
+  const setupToasts = useRef([]);
   // On the full-height landing an inline alert would push the page into scrolling; errors there are toasts.
   const onLanding = useRef(false);
 
@@ -59,8 +71,9 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     try {
       const value = await work();
       await onRefresh?.();
-      const text = message && (typeof message === "function" ? message(value) : message);
-      if (text) notify({ title: text, tone: "success" });
+      const said = message && (typeof message === "function" ? message(value) : message);
+      const toast = typeof said === "string" ? { title: said, tone: "success" } : said;
+      if (toast?.title) setupToasts.current.push(notify(toast));
       return value;
     } catch (issue) {
       await onRefresh?.().catch(()=>{});
@@ -101,29 +114,28 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
     };
   }, [step, jobsKey]);
 
-  const stage = (work, filtered = 0) =>
+  const stage = (work, filtered = []) =>
     run(async () => {
       const value = await work();
       if (value?.ids?.length) setStep("setup");
       return value;
     }, (value) => {
-      const added = value?.ids?.length || 0;
-      const left = value?.skipped
-        ? ` ${plural(value.skipped, "item was", "items were")} skipped: not a CSV, a subfolder, or too large.`
-        : "";
-      const dropped = filtered ? ` ${skippedNote(filtered)}` : "";
-      // Cancelling the file picker isn't news; only say something when files were added or skipped.
-      return added
-        ? `${plural(added, "file", "files")} added.${left}${dropped}`
-        : left || dropped ? `Nothing added.${left || dropped}` : "";
+      // Added files open the setup, which says how many there are; a toast would only repeat it (and cover Back).
+      // What was skipped is news: name the files and the reason.
+      const entries = [...filtered, ...(value?.skippedFiles || [])];
+      const unnamed = Math.max(0, (value?.skipped || 0) - (value?.skippedFiles?.length || 0));
+      for (let i = 0; i < unnamed; i++) entries.push({ name: "", reason: "unreadable" });
+      if (!entries.length) return null;
+      return { title: skippedSentence(entries), description: value?.ids?.length ? "" : "Nothing was added.", tone: "warning", duration: 8000 };
     });
 
   // Dropped files are filtered by name first: only CSV exports reach the server.
   const dropFiles = (list) => {
     const files = Array.from(list || []);
-    const { csv, skipped: filtered } = splitCsvFiles(files);
+    const csv = files.filter((file) => isCsvName(file.name));
+    const filtered = files.filter((file) => !isCsvName(file.name)).map((file) => ({ name: file.name, reason: "not-csv" }));
     if (!csv.length) {
-      if (filtered) notify({ title: "Nothing added", description: skippedNote(filtered), tone: "warning" });
+      if (filtered.length) notify({ title: skippedSentence(filtered), description: "Nothing was added.", tone: "warning", duration: 8000 });
       return;
     }
     stage(() => api.stageDrop(csv), filtered);
@@ -315,8 +327,11 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
                       style={{ "--sv2-account": account.color, "--r": row }}
                     >
                       <th scope="row">
-                        <AccountDot color={account.color} />
-                        {account.name}
+                        <span className="sv2-grid-name">
+                          <AccountDot color={account.color} />
+                          {account.name}
+                        </span>
+                        {account.lastDate && <small className="sv2-grid-next" title={nextExport(account.lastDate).full}><span className="visually-hidden">{nextExport(account.lastDate).full}</span><span aria-hidden="true">{nextExport(account.lastDate).short}</span></small>}
                       </th>
                       {months.map((month, index) => {
                         const saved = snapshots
@@ -429,15 +444,38 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
           busy={busy}
           progress={progress}
           settled={settled}
-          onImported={(value) => { setProgress(null); setResults(value); setStep("done"); }}
+          onImported={(value) => {
+            // The setup's confirmations are out of date once the import is done.
+            for (const id of setupToasts.current.splice(0)) dismissToast(id);
+            setProgress(null); setResults(value); setStep("done");
+          }}
           onBack={() => setStep(null)}
           onRemoveAll={() => setModal("clear")}
           onGuide={() => setModal("guide")}
         />
       )}
 
-      {step === "done" && results && (
-        <section className="sv2-panel sv2-results">
+      {step === "done" && results && (results.added || 0) === 0 && !results.remaining && (
+        <section className="sv2-panel sv2-results" aria-label="Import results">
+          <h2>Nothing new in these files</h2>
+          <p className="sv2-quiet">
+            {!results.matched
+              ? "There were no rows to add."
+              : results.matched === 1
+              ? "Its one row was already recorded, so nothing was added."
+              : `All ${(results.matched || 0).toLocaleString("en-CA")} rows were already recorded, so nothing was added.`}
+            {" "}The {countOf(results.files) === 1 ? "file is" : "files are"} kept in the archive all the same.
+          </p>
+          <footer className="sv2-panel-foot">
+            <button type="button" className="primary" onClick={() => { setResults(null); setStep(null); }}>
+              Back to snapshots
+            </button>
+          </footer>
+        </section>
+      )}
+
+      {step === "done" && results && ((results.added || 0) > 0 || results.remaining > 0) && (
+        <section className="sv2-panel sv2-results" aria-label="Import results">
           <h2>
             {results.remaining
               ? `${results.completed} of ${plural(results.attempted, "file", "files")} imported`
@@ -482,7 +520,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
               Back to snapshots
             </button>
             {onReview && (
-              <button type="button" className="primary" onClick={onReview}>
+              <button type="button" className="primary" onClick={() => onReview()}>
                 Organize these transactions
                 <Icon name="arrow-right" size={16} />
               </button>
@@ -526,6 +564,7 @@ export function SnapshotsWorkspace({ data, onRefresh, onOpenSnapshot, onReview }
       {modal === "layouts" && (
         <LayoutLibrary
           jobs={included}
+          accounts={accounts}
           onClose={() => setModal(null)}
           onEdit={(template, jobId) => {
             setModal(null);

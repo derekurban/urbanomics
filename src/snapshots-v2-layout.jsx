@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import { api, InfoDot, plural, Sv2Dialog } from "./snapshots-v2-atoms.jsx";
 import { DateAssistant } from "./snapshots-v2-date.jsx";
 import { Recognize } from "./recognize.jsx";
-import { compileRule, decompileRule, describeRule, fileStem } from "./import-analysis.mjs";
+import { compileRule, decompileRule, describeLayoutRule, fileStem, listJoin } from "./import-analysis.mjs";
 import { money, dayLabel } from "./format.js";
 import { Alert, ConfirmDialog, Segmented } from "./ui.jsx";
 
@@ -24,8 +24,6 @@ export function describeMapping(template) {
   if (mapping.balance != null) parts.push(`balance in ${column(mapping.balance)}`);
   return parts.join(" · ");
 }
-/** The recognition sentence for a stored layout pattern. */
-const ruleSentence = (pattern) => (pattern ? `Files whose name ${describeRule(decompileRule(pattern))}` : "Chosen by hand for each file");
 
 export function PreviewTable({ rows, rowCount, caption }) {
   if (!rows?.length)
@@ -139,7 +137,7 @@ export function LayoutEditor({ job, template, busy, run, onApplied, onCancelEdit
   </div>;
 }
 
-export function LayoutLibrary({ jobs, onEdit, onChooseExample, onClose }) {
+export function LayoutLibrary({ jobs, accounts = [], onEdit, onChooseExample, onClose }) {
   const [templates, setTemplates] = useState(null),
     [error, setError] = useState(""),
     [note, setNote] = useState(""),
@@ -191,7 +189,8 @@ export function LayoutLibrary({ jobs, onEdit, onChooseExample, onClose }) {
                 {template.inUse && <span className="sv2-quiet">In use</span>}
               </div>
               <p className="sv2-template-map">{describeMapping(template)}</p>
-              <p className="sv2-quiet sv2-template-headers">{ruleSentence(template.prefixRegex)}</p>
+              <p className="sv2-quiet sv2-template-headers">{describeLayoutRule(template.prefixRegex, accounts)}</p>
+              {(() => { const serves = accounts.filter((a) => a.schema === `custom:${template.id}`); return serves.length > 1 ? <p className="sv2-quiet sv2-template-headers">Used by {listJoin(serves.map((a) => a.name))}</p> : null; })()}
               <div className="sv2-template-actions">
                 {jobs.length > 0 ? (
                   <>

@@ -19,6 +19,25 @@ export const palette = [
 ];
 
 export const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+/** "A", "A and B", "A, B and C". */
+export const listJoin = (items) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+const skipReasons = {
+  "not-csv": ["it isn't a CSV", "they aren't CSV files"],
+  "too-large": ["it's larger than 20 MB", "they're larger than 20 MB"],
+  folder: ["it's a folder", "they're folders"],
+  shortcut: ["it's a shortcut", "they're shortcuts"],
+  unreadable: ["it couldn't be opened", "they couldn't be opened"],
+};
+/** "notes.txt was skipped: it isn't a CSV." One sentence per reason, naming up to three files. `entries` is [{name, reason}]. */
+export function skippedSentence(entries = []) {
+  const by = new Map();
+  for (const e of entries) { const r = skipReasons[e.reason] ? e.reason : "unreadable"; if (!by.has(r)) by.set(r, []); by.get(r).push(e.name); }
+  return [...by].map(([reason, names]) => {
+    const named = names.filter(Boolean), shown = named.slice(0, 3), more = names.length - shown.length;
+    const who = shown.length ? listJoin(more ? [...shown, `${more} more`] : shown) : plural(names.length, "file", "files");
+    return `${who} ${names.length === 1 ? "was" : "were"} skipped: ${skipReasons[reason][names.length === 1 ? 0 : 1]}.`;
+  }).join(" ");
+}
 export const countOf = (value) =>
   Array.isArray(value) ? value.length : value || 0;
 export const money = formatMoney;
