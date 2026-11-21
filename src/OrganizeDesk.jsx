@@ -16,8 +16,8 @@ import {TransactionTemplateEditor} from './TransactionTemplateEditor.jsx';
 import {notify} from './toast.jsx';
 import {Alert} from './ui.jsx';
 import {dayLabel, rangeLabel, plural as count} from './format.js';
-import {useCodex, readiness, saveCodexSettings, seconds} from './codex.js';
-import './codex.css';
+import {useAssistant, readiness, saveAssistantSettings, seconds, modelLabel} from './assistant.js';
+import './assistant.css';
 import './organize-desk.css';
 
 const api = () => window.urbanomics;
@@ -33,7 +33,7 @@ const clone = state => state.map(cloneRow);
 const isLinked = row => !!row && (row.raw.review.kind === 'transfer' || row.layers.some(l => l.kind === 'transfer'));
 const unsorted = row => !isLinked(row) && (rest(row) > 0 || row.raw.review.templateReview === 'pending');
 const sharedWith = row => Object.entries(row.shares || {}).filter(([id, cents]) => id !== 'me' && cents > 0).map(([id]) => id);
-/* Whether a Codex suggestion is already on the row (so it is shown as applied, and doesn't keep a row's star green). */
+/* Whether a Claude suggestion is already on the row (so it is shown as applied, and doesn't keep a row's star green). */
 const suggestionApplied = (row, s) => s.kind === 'new-tag' ? row.layers.some(l => l.kind === 'tag' && l.name.toLowerCase() === s.name.toLowerCase()) : s.kind === 'tag' ? row.layers.some(l => l.id === 'tag:' + s.id) : s.kind === 'twin' ? isLinked(row) : s.kind === 'event' ? row.groups.includes(s.id) : s.kind === 'share' ? sharedWith(row).includes(s.id) : s.kind === 'payee' ? row.raw.review.assignedPersonId === s.id : s.kind === 'settle' ? row.person === s.id && row.layers.some(l => l.kind === 'expense') : false;
 const natureOf = (row, l) => l.kind === 'tag' ? (row.amount > 0 ? 'Receive' : 'Spend') : l.kind === 'expense' ? 'Offset' : l.kind === 'transfer' || l.kind === 'principal' ? 'Move' : l.kind === 'fee' ? 'Fee' : l.kind === 'excess' ? 'Extra' : '';
 
@@ -113,23 +113,23 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const serverRows = useRef([]), pendingDesired = useRef(new Map()), queue = useRef(Promise.resolve());
   stateRef.current = state;
   const busy = saving > 0;
-  // Smart organizing: Codex suggestions per row, kept for the session and fetched when a row opens.
-  const codex = useCodex(), smart = !!codex.state?.settings.smartOrganize && readiness(codex.state).ok;
+  // Smart organizing: Claude suggestions per row, kept for the session and fetched when a row opens.
+  const assistant = useAssistant(), smart = !!assistant.state?.settings.smartOrganize && readiness(assistant.state).ok;
   const suggestions = useRef(new Map()), [suggestTick, setSuggestTick] = useState(0);
   const [batch, setBatch] = useState(null), batchRun = useRef(null);
-  const autoApply = !!codex.state?.settings.autoApply, autoApplied = useRef(new Set()), createdTags = useRef(new Map()), quiet = useRef(0);
-  // What Codex applies without review: everything it isn't unsure about.
+  const autoApply = !!assistant.state?.settings.autoApply, autoApplied = useRef(new Set()), createdTags = useRef(new Map()), quiet = useRef(0);
+  // What Claude applies without review: everything it isn't unsure about.
   const trusted = result => (result?.suggestions || []).filter(s => s.confidence !== 'low');
-  const batchLabel = b => b.waitUntil > Date.now() ? `Codex is busy, retrying in ${Math.ceil((b.waitUntil - Date.now()) / 1000)} s · ${b.done} of ${b.total} done` : b.auto ? `Organizing ${b.done} of ${b.total} · ${b.counts.applied} applied` : `Suggesting ${b.done} of ${b.total} · ${b.counts.review} ready`;
-  const codexReady = readiness(codex.state).ok;
+  const batchLabel = b => b.waitUntil > Date.now() ? `Claude is busy, retrying in ${Math.ceil((b.waitUntil - Date.now()) / 1000)} s · ${b.done} of ${b.total} done` : b.auto ? `Organizing ${b.done} of ${b.total} · ${b.counts.applied} applied` : `Suggesting ${b.done} of ${b.total} · ${b.counts.review} ready`;
+  const assistantReady = readiness(assistant.state).ok;
   /* A row's star: hidden once it's sorted; otherwise loading, ready (a suggestion is waiting) or idle. */
   const starOf = row => {
     if (!unsorted(row)) return null;
     const s = suggestions.current.get(row.id);
-    if (s?.status === 'loading') return {state: 'loading', label: 'Codex is looking at this transaction'};
-    if (s?.status === 'done' && s.result.suggestions.some(x => !suggestionApplied(row, x))) return {state: 'ready', label: 'Codex has a suggestion. Open the row to review it'};
-    if (s?.status === 'done' && s.result.suggestions.length) return {state: 'idle', label: "Codex's suggestion is applied; part of the amount is still unsorted"};
-    if (s?.status === 'done') return {state: 'idle', label: 'Codex found nothing to suggest'};
+    if (s?.status === 'loading') return {state: 'loading', label: 'Claude is looking at this transaction'};
+    if (s?.status === 'done' && s.result.suggestions.some(x => !suggestionApplied(row, x))) return {state: 'ready', label: 'Claude has a suggestion. Open the row to review it'};
+    if (s?.status === 'done' && s.result.suggestions.length) return {state: 'idle', label: "Claude's suggestion is applied; part of the amount is still unsorted"};
+    if (s?.status === 'done') return {state: 'idle', label: 'Claude found nothing to suggest'};
     if (s?.status === 'error') return {state: 'idle', label: `No suggestion: ${s.error}`};
     if (s?.status === 'dismissed') return {state: 'idle', label: 'Suggestion dismissed'};
     return {state: 'idle', label: 'No suggestion yet'};
@@ -265,14 +265,14 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   useEffect(() => { if (target && !target.id && target.mode === 'transfers') setFilter('transfers'); }, [target?.key]);
   const unsortedCount = useMemo(() => state.filter(r => r.amount !== 0 && unsorted(r)).length, [state]);
   const readyCount = state.filter(r => r.amount !== 0 && starOf(r)?.state === 'ready').length;
-  const starsOn = codexReady && (smart || !!batch || suggestions.current.size > 0);
+  const starsOn = assistantReady && (smart || !!batch || suggestions.current.size > 0);
   const shownRows = visible.slice(0, limit), openRow = open ? find(state, open) : null, twinIds = openRow ? twins(openRow).map(t => t.id) : [];
   const nextUnsorted = openRow ? (visible.slice(visible.findIndex(x => x.id === openRow.id) + 1).find(r => unsorted(r)) || null) : null;
   useEffect(() => {
     if (!smart || !openRow || !unsorted(openRow)) return;
-    askCodex(openRow);
+    askClaude(openRow);
     // One row ahead, so moving on with flow finds its suggestion ready.
-    const timer = setTimeout(() => { if (nextUnsorted) askCodex(nextUnsorted); }, 1500);
+    const timer = setTimeout(() => { if (nextUnsorted) askClaude(nextUnsorted); }, 1500);
     return () => clearTimeout(timer);
   }, [open, smart, state.length > 0]);
   const openAnswer = openRow ? suggestions.current.get(openRow.id) : null;
@@ -369,7 +369,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
       else if (o.kind === 'person') settle(row, o.id);
     };
   }
-  /* What Codex sees for one row: the line, what it can be (the same candidates the describe box offers)
+  /* What Claude sees for one row: the line, what it can be (the same candidates the describe box offers)
      and how similar lines were organized before. Built from the ledger as it is now, not as it was when a
      long batch started. */
   const entitiesRef = useRef(entities); entitiesRef.current = entities;
@@ -398,8 +398,8 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
       history,
     };
   }
-  function askCodex(row, force = false) {
-    if (!row || !readiness(codex.state).ok) return Promise.resolve();
+  function askClaude(row, force = false) {
+    if (!row || !readiness(assistant.state).ok) return Promise.resolve();
     const known = suggestions.current.get(row.id);
     if (known && !force && known.status !== 'error') return known.promise || Promise.resolve();
     const promise = api().suggestOrganize(aiContext(row))
@@ -409,25 +409,24 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     suggestions.current.set(row.id, {status: 'loading', promise}); setSuggestTick(n => n + 1);
     return promise;
   }
-  /* Every unsorted row, newest first, three at a time (the server's limit). Rows sorted meanwhile are skipped;
-     rows already answered keep their answer. Stop leaves the rest unasked. */
-  /* Every unsorted row, newest first, through a pool of slots: each slot sends its next few rows to Codex
+  /* Every unsorted row, newest first, through a pool of slots: each slot sends its next few rows to Claude
      and, the moment its answer is in, takes the next few from the queue, so one slow run never holds the rest.
      A row that has been sorted meanwhile, or that is the other half of a transfer this run just linked, is
      skipped. A failed or skipped answer goes to the back of the queue once more. Every row ends in exactly
      one outcome, so the counts add up to the total. */
   async function suggestAll() {
-    if (!readiness(codex.state).ok) { notify({id: 'codex-setup', title: "Codex isn't ready", description: readiness(codex.state).reason, tone: 'warning'}); return; }
-    const settings = codex.state.settings, slots = settings.organizeSlots || 4, size = settings.organizeBatch || 5;
+    if (!readiness(assistant.state).ok) { notify({id: 'assistant-setup', title: "Claude isn't ready", description: readiness(assistant.state).reason, tone: 'warning'}); return; }
+    const settings = assistant.state.settings, slots = settings.organizeSlots || 16, size = settings.organizeBatch || 1;
     const queued = stateRef.current.filter(r => r.amount !== 0 && unsorted(r) && (!suggestions.current.get(r.id) || ['error', 'dismissed'].includes(suggestions.current.get(r.id).status) || (autoApply && suggestions.current.get(r.id).status === 'done')))
       .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)).map(r => r.id);
     if (!queued.length) { setToast({message: 'Every unsorted row already has a suggestion.'}); return; }
     const run = {stop: false, auto: autoApply, total: queued.length, done: 0, active: 0, slots, counts: {applied: 0, review: 0, nothing: 0, skipped: 0, failed: 0}, claimed: new Set(), retried: new Set(), appliedIds: new Set(), attempts: new Map(), backoff: 0, waitUntil: 0, limit: '', lastError: '', capacity: slots, clean: 0, inFlight: 0};
     const show = () => { if (batchRun.current === run) setBatch({total: run.total, done: run.done, active: run.active, slots, auto: run.auto, counts: {...run.counts}, waitUntil: run.waitUntil, capacity: run.capacity, inFlight: run.inFlight, size}); };
-    // Codex's service sometimes turns runs away under load (403, 429, 5xx, dropped streams); those rows go back
-    // to the front of the queue and every slot pauses, longer each time, before trying again. A usage limit stops the run.
-    const transient = msg => /\b(403|429|5\d\d)\b|reconnecting|rate limit|too many requests|overloaded|temporar|stream (disconnected|error|closed)|took too long|econnreset|network/i.test(msg);
-    const exhausted = msg => /usage limit|limit reached|quota|purchase more credits/i.test(msg);
+    // Anthropic sometimes turns requests away (a rate limit, a busy service, a dropped connection); those rows go
+    // back to the front of the queue and every slot pauses, longer each time, before trying again. An empty credit
+    // balance stops the run. The wording matched here comes from electron/ai/claude.cjs.
+    const transient = msg => /rate limited|service is busy|took too long|Couldn't reach Anthropic/i.test(msg);
+    const exhausted = msg => /credit balance is too low/i.test(msg);
     const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
     const settleRow = (id, outcome) => { run.counts[outcome]++; run.done++; };
     batchRun.current = run; show();
@@ -440,7 +439,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     };
     const slot = async () => {
       while (!run.stop) {
-        // Paused after a refusal, or eased down to fewer slots until Codex has answered cleanly a few times.
+        // Paused after a refusal, or eased down to fewer slots until Claude has answered cleanly a few times.
         while (!run.stop && (Date.now() < run.waitUntil || run.active >= run.capacity)) { show(); await sleep(500); }
         if (run.stop) return;
         const rows = take(); show();
@@ -451,7 +450,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
         let answers;
         try { const view = freshView(run.claimed); answers = await api().suggestOrganizeBatch(rows.map(r => aiContext(r, view))); }
         catch (e) {
-          // A refusal that has nothing to do with load (consent off, signed out, Codex missing) stops the run with its reason.
+          // A refusal that has nothing to do with load (consent off, signed out, Claude missing) stops the run with its reason.
           if (!transient(e.message) && !exhausted(e.message)) { run.fatal = e.message; run.stop = true; run.active--; run.inFlight -= rows.length; for (const r of rows) suggestions.current.delete(r.id); setSuggestTick(n => n + 1); return; }
           answers = rows.map(() => ({failed: e.message}));
         }
@@ -463,8 +462,9 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           setSuggestTick(n => n + 1); show(); return;
         }
         if (error && transient(error)) {
-          run.lastError = error; run.clean = 0; run.capacity = Math.max(1, run.capacity - 1);
-          run.backoff = Math.min(30000, run.backoff ? run.backoff * 2 : 5000); run.waitUntil = Date.now() + run.backoff;
+          // One refusal usually lands on several requests at once: ease off once per pause, by half.
+          run.lastError = error; run.clean = 0;
+          if (Date.now() >= run.waitUntil) { run.capacity = Math.max(1, Math.ceil(run.capacity / 2)); run.backoff = Math.min(30000, run.backoff ? run.backoff * 2 : 2000); run.waitUntil = Date.now() + run.backoff; }
           for (const r of [...rows].reverse()) {
             const tries = (run.attempts.get(r.id) || 0) + 1; run.attempts.set(r.id, tries);
             if (tries < 3) { suggestions.current.delete(r.id); queued.unshift(r.id); }
@@ -472,12 +472,12 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           }
           setSuggestTick(n => n + 1); show(); continue;
         }
-        if (!error) { run.backoff = 0; if (++run.clean >= 3 && run.capacity < slots) { run.capacity++; run.clean = 0; } }
+        if (!error && ++run.clean >= 2) { run.backoff = 0; run.clean = 0; if (run.capacity < slots) run.capacity++; }
         for (const [i, row] of rows.entries()) {
           const answer = answers[i] || {missing: true};
           if (run.stop) { suggestions.current.delete(row.id); continue; }
           if (answer.missing || answer.failed) {
-            const reason = answer.failed || 'Codex skipped this one.';
+            const reason = answer.failed || 'Claude skipped this one.';
             if (!run.retried.has(row.id)) { run.retried.add(row.id); suggestions.current.delete(row.id); queued.push(row.id); continue; }
             suggestions.current.set(row.id, {status: 'error', error: reason}); settleRow(row.id, 'failed'); continue;
           }
@@ -503,22 +503,22 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     batchRun.current = null; setBatch(null);
     const unreached = run.total - run.done;
     if (run.fatal) {
-      notify({id: 'codex-batch', title: "Codex couldn't run", description: `${run.fatal} Nothing was changed for the ${count(run.total - run.done, 'row', 'rows')} not reached.`, tone: 'danger', duration: 15000});
+      notify({id: 'assistant-batch', title: "Claude couldn't run", description: `${run.fatal} Nothing was changed for the ${count(run.total - run.done, 'row', 'rows')} not reached.`, tone: 'danger', duration: 15000});
       return;
     }
     if (run.limit) {
-      notify({id: 'codex-batch', title: 'Codex reached your usage limit', description: `${count(run.counts.applied, 'row', 'rows')} organized before it stopped; ${count(unreached, 'row', 'rows')} not reached yet. Run it again when your limit resets. Codex said: ${run.limit}`, tone: 'warning', duration: 15000, action: run.counts.applied && run.auto ? {label: 'Review them', onClick: () => setFilter('auto')} : undefined});
+      notify({id: 'assistant-batch', title: 'Your Anthropic credit ran out', description: `${count(run.counts.applied, 'row', 'rows')} organized before it stopped; ${count(unreached, 'row', 'rows')} not reached yet. Add credits in the Anthropic Console, then run it again.`, tone: 'warning', duration: 15000, action: run.counts.applied && run.auto ? {label: 'Review them', onClick: () => setFilter('auto')} : undefined});
       return;
     }
     const c = run.counts, partial = [...run.appliedIds].filter(id => { const r = find(stateRef.current, id); return r && unsorted(r); }).length;
     const lines = [c.applied && `${count(c.applied, 'row', 'rows')} organized${run.auto && partial ? ` (${partial} still ${partial === 1 ? 'has an unsorted part' : 'have unsorted parts'})` : ''}`, c.review && `${c.review} ${c.review === 1 ? 'waits' : 'wait'} for review`, c.nothing && `${c.nothing} had nothing to suggest`, c.skipped && `${c.skipped} already sorted or linked`, c.failed && `${c.failed} failed after three tries`].filter(Boolean);
-    notify({id: 'codex-batch', title: run.auto ? `Codex went through ${count(run.total, 'row', 'rows')}` : c.review ? `Suggestions ready for ${count(c.review, 'row', 'rows')}` : 'Codex had nothing to suggest', description: lines.join(' · ') + (c.failed ? `. Run it again to retry them${run.lastError ? ` (Codex said: ${run.lastError.slice(0, 160)})` : ''}.` : '.'), tone: c.failed ? 'warning' : c.applied || c.review ? 'success' : 'neutral', duration: 12000,
+    notify({id: 'assistant-batch', title: run.auto ? `Claude went through ${count(run.total, 'row', 'rows')}` : c.review ? `Suggestions ready for ${count(c.review, 'row', 'rows')}` : 'Claude had nothing to suggest', description: lines.join(' · ') + (c.failed ? `. Run it again to retry them${run.lastError ? ` (Claude said: ${run.lastError.slice(0, 160)})` : ''}.` : '.'), tone: c.failed ? 'warning' : c.applied || c.review ? 'success' : 'neutral', duration: 12000,
       action: run.auto && c.applied ? {label: 'Review them', onClick: () => setFilter('auto')} : !run.auto && c.review ? {label: 'Show them', onClick: () => setFilter('suggested')} : undefined});
   }
   function stopBatch() {
     const run = batchRun.current; if (!run) return;
     run.stop = true; batchRun.current = null; setBatch(null);
-    notify({id: 'codex-batch', title: `Stopped after ${run.done} of ${run.total}`, description: run.auto ? `${count(run.counts.applied, 'row', 'rows')} organized. Rows already answered keep their suggestions.` : 'Rows already answered keep their suggestions.', tone: 'neutral'});
+    notify({id: 'assistant-batch', title: `Stopped after ${run.done} of ${run.total}`, description: run.auto ? `${count(run.counts.applied, 'row', 'rows')} organized. Rows already answered keep their suggestions.` : 'Rows already answered keep their suggestions.', tone: 'neutral'});
   }
   /* Approved suggestions go through the same gestures as the describe box, in an order that keeps cents
      adding up: a move alone, otherwise settling first, then tags over what is left, the event, the split. */
@@ -563,12 +563,12 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     return did;
   }
   function setAutoApply(on) {
-    if (on && !readiness(codex.state).ok) { notify({id: 'codex-setup', title: "Codex isn't ready", description: readiness(codex.state).reason, tone: 'warning'}); return; }
-    saveCodexSettings({autoApply: on}).catch(e => setToast({message: e.message, error: true}));
+    if (on && !readiness(assistant.state).ok) { notify({id: 'assistant-setup', title: "Claude isn't ready", description: readiness(assistant.state).reason, tone: 'warning'}); return; }
+    saveAssistantSettings({autoApply: on}).catch(e => setToast({message: e.message, error: true}));
   }
   function setSmart(on) {
-    if (on && !readiness(codex.state).ok) { notify({id: 'codex-setup', title: "Codex isn't ready", description: readiness(codex.state).reason, tone: 'warning'}); return; }
-    saveCodexSettings({smartOrganize: on}).catch(e => setToast({message: e.message, error: true}));
+    if (on && !readiness(assistant.state).ok) { notify({id: 'assistant-setup', title: "Claude isn't ready", description: readiness(assistant.state).reason, tone: 'warning'}); return; }
+    saveAssistantSettings({smartOrganize: on}).catch(e => setToast({message: e.message, error: true}));
   }
   function captureTemplate(r) {
     try { const portions = templateWeights(total(r), r.layers.filter(l => l.kind === 'tag').map(l => ({id: l.target, cents: l.cents}))); return {sample: r.raw.originalDescription || r.name, name: r.name.slice(0, 70), matchType: r.raw.aliasId ? 'aliases' : 'regex', aliasIds: r.raw.aliasId ? [r.raw.aliasId] : [], pattern: '^' + (r.raw.originalDescription || r.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), direction: r.amount > 0 ? 'in' : 'out', categoryId: '', personId: r.raw.review.assignedPersonId || r.person || '', enabled: true, template: {tags: portions, groups: [], autoReview: false}}; }
@@ -593,13 +593,13 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     <section className="organize-desk workspace-page" data-busy={busy || undefined} onKeyDown={keys}>
       <div className="page-heading"><div><h1>Organize</h1><p>Every account in one list, newest first. Open a row and say what it is: a tag, who settled up or who you paid, an event, or the account it moved to. Each change saves at once, and Undo is always one step away.</p></div>
         <div className="page-heading-actions">{batch
-          ? <span className="od-batch-run" role="status"><Icon name="sparkles" size={16} className="od-star-pulse" />{batchLabel(batch)}<small className="od-batch-slots">{count(batch.inFlight, 'transaction', 'transactions')} with Codex · {count(batch.active, 'run', 'runs')} of up to {batch.size} each{batch.capacity < batch.slots ? ` · eased to ${batch.capacity} of ${batch.slots} runs` : ''}</small><button type="button" className="sm ghost" onClick={stopBatch}>Stop</button></span>
-          : <button type="button" className="sm" disabled={!unsortedCount} onClick={suggestAll} title={autoApply ? 'Ask Codex about every unsorted row and apply what it is sure about.' : 'Ask Codex about every unsorted row. Nothing changes until you apply a suggestion.'}><Icon name="sparkles" size={16} />{autoApply ? 'Organize all unsorted' : 'Suggest for all unsorted'}</button>}
-          <span className="du-host od-smart"><Switch label="Smart organizing" checked={!!codex.state?.settings.smartOrganize} onChange={setSmart} /></span>
-          <span className="du-host od-smart" title="Apply Codex's suggestions as they arrive, without review. Suggestions it is unsure about still wait for you."><Switch label="Apply automatically" checked={autoApply} onChange={setAutoApply} /></span><label className="od-flow"><input type="checkbox" checked={flow} onChange={e => setFlow(e.target.checked)} />Go to the next unsorted row after tagging</label></div></div>
+          ? <span className="od-batch-run" role="status"><Icon name="sparkles" size={16} className="od-star-pulse" />{batchLabel(batch)}<small className="od-batch-slots">{batch.inFlight} with Claude now{batch.capacity < batch.slots ? ` · slowed to ${batch.capacity} of ${batch.slots} requests at once` : ''}</small><button type="button" className="sm ghost" onClick={stopBatch}>Stop</button></span>
+          : <button type="button" className="sm" disabled={!unsortedCount} onClick={suggestAll} title={autoApply ? 'Ask Claude about every unsorted row and apply what it is sure about.' : 'Ask Claude about every unsorted row. Nothing changes until you apply a suggestion.'}><Icon name="sparkles" size={16} />{autoApply ? 'Organize all unsorted' : 'Suggest for all unsorted'}</button>}
+          <span className="du-host od-smart"><Switch label="Smart organizing" checked={!!assistant.state?.settings.smartOrganize} onChange={setSmart} /></span>
+          <span className="du-host od-smart" title="Apply Claude's suggestions as they arrive, without review. Suggestions it is unsure about still wait for you."><Switch label="Apply automatically" checked={autoApply} onChange={setAutoApply} /></span><label className="od-flow"><input type="checkbox" checked={flow} onChange={e => setFlow(e.target.checked)} />Go to the next unsorted row after tagging</label></div></div>
       <div className="od-filters">
         <div className="od-chips" role="group" aria-label="Show">
-          {[['all', 'All'], ['unsorted', 'Unsorted'], ...(readyCount || filter === 'suggested' ? [['suggested', 'Suggested']] : []), ...(autoApplied.current.size || filter === 'auto' ? [['auto', 'Auto-applied']] : []), ['in', 'Money in'], ['out', 'Money out'], ['transfers', 'Transfers']].map(([id, label]) => <button key={id} type="button" className="sm" aria-pressed={filter === id} onClick={() => setFilter(id)}>{id === 'suggested' && <Icon name="sparkles" size={16} />}{label}{id === 'unsorted' && <span className="od-count" aria-label={`${unsortedCount} unsorted`}>{unsortedCount}</span>}{id === 'suggested' && <span className="od-count" aria-label={`${readyCount} with a suggestion`}>{readyCount}</span>}{id === 'auto' && <span className="od-count" aria-label={`${autoApplied.current.size} applied by Codex`}>{autoApplied.current.size}</span>}</button>)}
+          {[['all', 'All'], ['unsorted', 'Unsorted'], ...(readyCount || filter === 'suggested' ? [['suggested', 'Suggested']] : []), ...(autoApplied.current.size || filter === 'auto' ? [['auto', 'Auto-applied']] : []), ['in', 'Money in'], ['out', 'Money out'], ['transfers', 'Transfers']].map(([id, label]) => <button key={id} type="button" className="sm" aria-pressed={filter === id} onClick={() => setFilter(id)}>{id === 'suggested' && <Icon name="sparkles" size={16} />}{label}{id === 'unsorted' && <span className="od-count" aria-label={`${unsortedCount} unsorted`}>{unsortedCount}</span>}{id === 'suggested' && <span className="od-count" aria-label={`${readyCount} with a suggestion`}>{readyCount}</span>}{id === 'auto' && <span className="od-count" aria-label={`${autoApplied.current.size} applied by Claude`}>{autoApplied.current.size}</span>}</button>)}
         </div>
         {accounts.length > 1 && <div className="od-chips" role="group" aria-label="Accounts">
           {accounts.map(a => <button key={a.id} type="button" className="sm" aria-pressed={accountFilter.includes(a.id)} onClick={() => setAccountFilter(f => f.includes(a.id) ? f.filter(x => x !== a.id) : [...f, a.id])}><i className="od-dot" style={{background: a.color}} />{a.name}</button>)}
@@ -632,7 +632,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
                     capture={() => captureTemplate(r)} onTemplate={setTemplate} ruleRevision={ruleRevision}
-                    smart={codexReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askCodex(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
+                    smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
           </li>
@@ -708,14 +708,14 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
   );
 }
 
-/* Smart organizing on the open card: what Codex suggests, each with its reason and a checkbox, applied
+/* Smart organizing on the open card: what Claude suggests, each with its reason and a checkbox, applied
    together with one button. Suggestions already on the row show as applied. */
 function Suggestions({row, state, entities, people, events, busy, suggestion, onAsk, onApply, onDismiss}) {
   const [off, setOff] = useState({});
   useEffect(() => setOff({}), [suggestion?.result]);
-  if (!suggestion) return unsorted(row) ? null : <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Codex what this is</button></div>;
-  if (suggestion.status === 'dismissed') return <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Codex again</button></div>;
-  if (suggestion.status === 'loading') return <div className="od-suggest is-loading" role="status"><div className="od-suggest-head"><Icon name="loader-circle" size={16} /><b>Codex is looking at this transaction…</b></div></div>;
+  if (!suggestion) return unsorted(row) ? null : <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Claude what this is</button></div>;
+  if (suggestion.status === 'dismissed') return <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Claude again</button></div>;
+  if (suggestion.status === 'loading') return <div className="od-suggest is-loading" role="status"><div className="od-suggest-head"><Icon name="loader-circle" size={16} /><b>Claude is looking at this transaction…</b></div></div>;
   if (suggestion.status === 'error') return <div className="od-suggest" role="alert"><div className="od-suggest-head"><Icon name="circle-alert" size={16} /><b>No suggestion this time.</b></div><p className="od-suggest-summary">{suggestion.error}</p><div className="od-suggest-actions"><button type="button" className="sm" onClick={onAsk}>Try again</button></div></div>;
   const {result} = suggestion, person = id => people.find(p => p.id === id), entity = id => entities.find(e => e.id === id);
   const applied = s => suggestionApplied(row, s);
@@ -734,8 +734,8 @@ function Suggestions({row, state, entities, people, events, busy, suggestion, on
   const keyOf = s => s.kind + (s.id || s.name);
   const pending = list.filter(s => !applied(s)), chosen = pending.filter(s => !(off[keyOf(s)] ?? s.confidence === 'low'));
   return (
-    <div className="od-suggest" aria-label="Codex suggestions">
-      <div className="od-suggest-head"><Icon name="sparkles" size={16} /><b>{list.length ? 'Suggested' : 'Nothing to suggest'}</b><small>{result.run?.model || 'Codex'}{result.cached ? '' : ` · ${seconds(result.run?.ms || 0)}`}</small></div>
+    <div className="od-suggest" aria-label="Claude suggestions">
+      <div className="od-suggest-head"><Icon name="sparkles" size={16} /><b>{list.length ? 'Suggested' : 'Nothing to suggest'}</b><small>{modelLabel(result.run?.model)}{result.cached ? '' : ` · ${seconds(result.run?.ms || 0)}`}</small></div>
       {result.summary && <p className="od-suggest-summary">{result.summary}</p>}
       {list.length > 0 && <div className="od-suggest-list">
         {list.map(s => { const d = describe(s), done = applied(s), key = keyOf(s), on = done || !(off[key] ?? s.confidence === 'low'); return (

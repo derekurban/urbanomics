@@ -1,4 +1,4 @@
-// Codex suggestions for categories and tags, reviewed before anything changes. "missing" proposes new
+// Claude suggestions for categories and tags, reviewed before anything changes. "missing" proposes new
 // tags (and categories) with the transactions they fit; "restructure" proposes renames, moves, merges,
 // new categories and deletions. Each suggestion has its own checkbox; approved ones are applied in order
 // through the usual entity, organize and merge saves, and the dialog reports what happened to each.
@@ -9,12 +9,12 @@ import { Alert } from "./ui.jsx";
 import { notify } from "./toast.jsx";
 import { palette } from "./snapshots-v2-atoms.jsx";
 import { plural } from "./format.js";
-import { seconds, effortLabels } from "./codex.js";
-import "./codex.css";
+import { seconds, effortLabels, modelLabel } from "./assistant.js";
+import "./assistant.css";
 
 const api = window.urbanomics;
 
-/** While Codex works: what it is doing, and how long it has been. */
+/** While Claude works: what it is doing, and how long it has been. */
 export function Thinking({ title, detail }) {
   const [elapsed, setElapsed] = useState(0), started = useRef(Date.now());
   useEffect(() => { const t = setInterval(() => setElapsed(Date.now() - started.current), 500); return () => clearInterval(t); }, []);
@@ -29,7 +29,7 @@ export function Thinking({ title, detail }) {
 }
 export function RunNote({ run }) {
   if (!run) return null;
-  return <span className="cx-run"><Icon name="sparkles" size={16} />{run.model || "Codex default"} · {run.effort ? effortLabels[run.effort] || run.effort : "default reasoning"} · {seconds(run.ms)}</span>;
+  return <span className="cx-run"><Icon name="sparkles" size={16} />{modelLabel(run.model)} · {run.effort ? effortLabels[run.effort] || run.effort : "default reasoning level"} · {seconds(run.ms)}</span>;
 }
 function Outcome({ value }) {
   if (!value) return null;
@@ -82,9 +82,9 @@ export function TagSuggestions({ mode, entities, onClose, onApplied }) {
         <button type="button" disabled={applying} onClick={onClose}>{applied ? "Close" : "Cancel"}</button>
         {result && chosen.length > 0 && <button type="button" className="primary" disabled={applying} onClick={apply}>{applying ? "Applying…" : mode === "restructure" ? `Apply ${plural(chosen.length, "change")}` : `Create ${plural(chosen.length, "tag")}`}</button>}
       </>}>
-      {error ? <Alert title="Codex couldn't make suggestions.">{error}</Alert>
-        : !result ? <Thinking title={mode === "restructure" ? "Codex is reading your categories and tags…" : "Codex is reading your transactions…"} detail={mode === "restructure" ? "It looks for duplicates, tags in the wrong place and vague categories. Nothing changes until you approve it." : "It looks for spending and income your tags don't cover yet. Nothing changes until you approve it."} />
-        : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>{mode === "restructure" ? "Your structure already reads well." : "Nothing is missing."}</h2><p>{mode === "restructure" ? "Codex didn't find a change worth making." : "Codex thinks your tags already cover your transactions."}</p></div>
+      {error ? <Alert title="Claude couldn't make suggestions.">{error}</Alert>
+        : !result ? <Thinking title={mode === "restructure" ? "Claude is reading your categories and tags…" : "Claude is reading your transactions…"} detail={mode === "restructure" ? "It looks for duplicates, tags in the wrong place and vague categories. Nothing changes until you approve it." : "It looks for spending and income your tags don't cover yet. Nothing changes until you approve it."} />
+        : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>{mode === "restructure" ? "Your structure already reads well." : "Nothing is missing."}</h2><p>{mode === "restructure" ? "Claude didn't find a change worth making." : "Claude thinks your tags already cover your transactions."}</p></div>
         : mode === "restructure" ? <Restructure result={result} picked={picked} setPicked={setPicked} blocked={blocked} outcomes={outcomes} applied={applied} edits={edits} setEdits={setEdits} />
         : <Missing items={items} buckets={buckets} picked={picked} setPicked={setPicked} edits={edits} setEdits={setEdits} outcomes={outcomes} applied={applied} />}
     </WorkspaceModal>

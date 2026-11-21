@@ -1,5 +1,5 @@
-/* Settings → Codex, the Codex suggestion dialogs and the Organize card's suggestions. System tokens only. */
-.codex-workspace { display: grid; gap: var(--space-6); max-width: 880px; }
+/* Settings → Assistant, the suggestion dialogs and the Organize card's suggestions. System tokens only. */
+.assistant-workspace { display: grid; gap: var(--space-6); max-width: 880px; }
 .cx-block { display: grid; gap: var(--space-3); justify-items: start; }
 .cx-block > * { max-width: 100%; }
 .cx-block h2 { margin: 0; font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
@@ -14,6 +14,9 @@
 .cx-status small { color: var(--ink-tertiary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cx-spin { animation: cx-spin calc(var(--duration-slow) * 3) linear infinite; }
 @keyframes cx-spin { to { transform: rotate(360deg); } }
+.cx-key { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-3); width: 100%; max-width: 640px; }
+.cx-key label { display: grid; gap: var(--space-1); flex: 1 1 320px; font-size: var(--type-caption-size); color: var(--ink-secondary); }
+.cx-key input { width: 100%; }
 .cx-consent { display: flex; gap: var(--space-3); align-items: flex-start; max-width: var(--measure); cursor: pointer; }
 .cx-consent input { margin-top: 3px; flex: none; }
 .cx-consent span { display: grid; gap: var(--space-1); }

@@ -6,6 +6,7 @@ const {
   dialog,
   shell,
   session,
+  safeStorage,
 } = require("electron");
 const path = require("node:path");
 const fs = require("node:fs");
@@ -134,11 +135,11 @@ else {
         },
         platform: {
           updates,
-          // Codex sign-in opens ChatGPT in the person's own browser.
-          openExternal: (url) => {
-            if (!/^https:\/\//.test(url)) throw new Error("Codex returned an unexpected sign-in address.");
-            return shell.openExternal(url);
-          },
+          // The Anthropic API key is kept encrypted by the operating system (DPAPI on Windows, the Keychain on macOS).
+          secrets: safeStorage.isEncryptionAvailable() ? {
+            encrypt: (text) => safeStorage.encryptString(text).toString("base64"),
+            decrypt: (cipher) => safeStorage.decryptString(Buffer.from(cipher, "base64")),
+          } : null,
           choose: async (folder) => {
             const response = await dialog.showOpenDialog(window, {
               title: folder

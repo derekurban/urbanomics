@@ -1,5 +1,4 @@
 const { exportConfiguration } = require("./configuration.cjs");
-const { createCodex } = require("./ai/codex.cjs");
 const { createAssistant } = require("./ai/assistant.cjs");
 function createWorkspaceService({
   store,
@@ -10,19 +9,19 @@ function createWorkspaceService({
   onIdle = () => {},
 }) {
   let processing = false;
-  // Codex runs only read the workspace; approved suggestions are saved through the usual channels.
-  // Codex failures go to a private log (the reason only, never the prompt) so a slow or failed run can be traced.
-  const codexLog = (status, details) => {
+  // Claude requests only read the workspace; approved suggestions are saved through the usual channels.
+  // Each request leaves a line in a private log (model, time, token counts or the failure reason; never the
+  // prompt, the answer or the key) so a slow or failed run can be traced.
+  const assistantLog = (status, details) => {
     if (!privateRoot) return;
     try {
-      const dir = require("node:path").join(privateRoot, "logs"), fs = require("node:fs"), file = require("node:path").join(dir, "codex.log");
+      const dir = require("node:path").join(privateRoot, "logs"), fs = require("node:fs"), file = require("node:path").join(dir, "assistant.log");
       fs.mkdirSync(dir, { recursive: true });
       if (fs.existsSync(file) && fs.statSync(file).size > 512 * 1024) fs.renameSync(file, file + ".previous");
       fs.appendFileSync(file, JSON.stringify({ time: new Date().toISOString(), status, ...details }) + "\n");
     } catch {}
   };
-  const codex = platform.codex || createCodex({ env: process.env, log: codexLog });
-  const assistant = createAssistant({ store, codex });
+  const assistant = createAssistant({ store, provider: platform.claude, secrets: platform.secrets || null, log: assistantLog });
   const subscribers = new Set();
   const emit = (event, value) => {
     platformEmit(event, value);
@@ -124,15 +123,8 @@ function createWorkspaceService({
   handle("ai:state", (refresh) => assistant.state(refresh));
   handle("ai:models", () => assistant.models());
   handle("ai:settings", (values) => assistant.saveSettings(values));
-  handle("ai:install", () => codex.installCli());
-  handle("ai:login", async () => {
-    const { authUrl } = await codex.startLogin();
-    let opened = false;
-    if (platform.openExternal) { await platform.openExternal(authUrl); opened = true; }
-    return { authUrl, opened };
-  });
-  handle("ai:login-cancel", () => codex.cancelLogin());
-  handle("ai:logout", () => codex.logout());
+  handle("ai:key-save", (key) => assistant.saveKey(key));
+  handle("ai:key-clear", () => assistant.clearKey());
   handle("ai:test", () => assistant.test());
   handle("ai:suggest-tags", (mode) => assistant.suggestTags(mode === "restructure" ? "restructure" : "missing"));
   handle("ai:suggest-aliases", () => assistant.suggestAliases());
@@ -248,7 +240,7 @@ function createWorkspaceService({
       return processing;
     },
     syncConfiguration,
-    dispose: () => codex.dispose(),
+    dispose: () => assistant.dispose(),
     async invoke(channel, ...args) {
       try {
         if (!handlers.has(channel))

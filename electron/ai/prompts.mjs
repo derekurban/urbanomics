@@ -1,11 +1,11 @@
-// What each Codex feature sends and what it accepts back. Pure functions: the context is built from the
+// What each Claude feature sends and what it accepts back. Pure functions: the context is built from the
 // workspace, the prompt states the task, the schema fixes the answer's shape, and the validator keeps only
 // answers that point at things that exist. Nothing here writes; every suggestion is applied later through
 // the app's usual versioned saves, after the person approves it.
 
 const PREAMBLE = [
   "You help organize a personal finance ledger in a desktop app called Urbanomics.",
-  "Work only from the data in this message. Do not run commands, read files or browse.",
+  "Work only from the data in this message.",
   "Reply with JSON that matches the provided schema exactly. Use plain, short, sentence-case names (\"Coffee shops\", not \"COFFEE SHOPS\").",
   "Write each reason as one short plain sentence a person can check against the data.",
 ].join("\n");
@@ -367,7 +367,7 @@ export function validateOrganize(value, ctx) {
 }
 
 /* ---------- smart organizing, ten transactions per run ---------- */
-// One Codex run per row spends most of its time starting up; a batch shares that cost. Each row keeps its
+// Several rows can share one request, which costs less per row. Each row keeps its
 // own candidates, and each answer is validated against them exactly as a single answer would be.
 const suggestionItem = organizeSchema.properties.suggestions.items;
 export const organizeBatchSchema = strict({

@@ -1,4 +1,4 @@
-// Codex alias suggestions: a readable name and a plain recognition sentence for bank descriptions that
+// Claude alias suggestions: a readable name and a plain recognition sentence for bank descriptions that
 // are the same merchant. Each one is previewed with the alias editor's own check (what it would rename,
 // whether it clashes with an alias you have) and saved only when approved.
 import React, { useEffect, useRef, useState } from "react";
@@ -8,8 +8,8 @@ import { Alert } from "./ui.jsx";
 import { notify } from "./toast.jsx";
 import { plural } from "./format.js";
 import { compileTextRule, ruleModes } from "./import-analysis.mjs";
-import { Thinking, RunNote } from "./CodexTagSuggestions.jsx";
-import "./codex.css";
+import { Thinking, RunNote } from "./TagSuggestions.jsx";
+import "./assistant.css";
 
 const api = window.urbanomics;
 
@@ -48,9 +48,9 @@ export function AliasSuggestions({ onClose, onApplied }) {
         <button type="button" disabled={applying} onClick={onClose}>{applied ? "Close" : "Cancel"}</button>
         {result && chosen.length > 0 && <button type="button" className="primary" disabled={applying} onClick={apply}>{applying ? "Saving…" : `Save ${plural(chosen.length, "alias", "aliases")}`}</button>}
       </>}>
-      {error ? <Alert title="Codex couldn't make suggestions.">{error}</Alert>
-        : !result ? <Thinking title="Codex is reading your bank descriptions…" detail="It groups descriptions that are the same merchant and proposes a readable name for each. Nothing changes until you approve it." />
-        : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>No aliases to suggest.</h2><p>Codex didn't find descriptions that would read better under another name.</p></div>
+      {error ? <Alert title="Claude couldn't make suggestions.">{error}</Alert>
+        : !result ? <Thinking title="Claude is reading your bank descriptions…" detail="It groups descriptions that are the same merchant and proposes a readable name for each. Nothing changes until you approve it." />
+        : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>No aliases to suggest.</h2><p>Claude didn't find descriptions that would read better under another name.</p></div>
         : <>
             <p className="cx-summary">Each alias renames every description its sentence matches, in every account. Edit the name or the sentence before saving; the count updates as you type.</p>
             <div className="cx-list">{items.map((item) => <AliasItem key={item.key} item={item} onChange={(change) => update(item.key, change)} locked={applying || item.outcome?.ok} />)}</div>

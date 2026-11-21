@@ -1,4 +1,4 @@
-// A synthetic workspace for trying the Codex features: three invented accounts, three months of invented
+// A synthetic workspace for trying the Claude features: three invented accounts, three months of invented
 // merchants (July is organized, August and September mostly aren't), two people, an event, transfers and
 // a card payment. Gaps are deliberate: no coffee, subscription, pet, fitness, phone, pharmacy or transit
 // tags yet, and a few duplicate or misplaced tags for a restructure to find. Never use real data here.
@@ -30,7 +30,7 @@ function monthly(m, y = 2026) {
 
 // bare: no categories or tags at all, as after Start from scratch, for a restructure to start from nothing.
 // history: that many earlier untagged months before July 2026, for runs over hundreds of rows.
-function seedCodexDemo(store, root, { bare = false, history = 0 } = {}) {
+function seedAssistantDemo(store, root, { bare = false, history = 0 } = {}) {
   const write = (name, rows) => { const file = path.join(root, name); fs.writeFileSync(file, csv([header, ...rows.map(([d, date, a]) => [d, "SAMPLE", "SAMPLE", date, "12:00 AM", String(a)])])); return file; };
   const chequing = store.addAccount("Everyday chequing", "pc", "chequing", { color: "#658e83" });
   const card = store.addAccount("Rewards card", "pc", "credit card", { color: "#c08a5b" });
@@ -86,4 +86,4 @@ function seedCodexDemo(store, root, { bare = false, history = 0 } = {}) {
   store.review.organize([{ id: cabin.id, version: cabin.version, groups: [store.review.entities().find((x) => x.name === "Lake weekend").id] }]);
   return { accounts: { chequing, card, savings }, tags: t, people: { sam, priya } };
 }
-module.exports = { seedCodexDemo };
+module.exports = { seedAssistantDemo };

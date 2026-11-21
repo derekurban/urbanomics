@@ -31,7 +31,7 @@ const legacy = { allocations: "organize", experimental: "organize", review: "org
 function readLocation() {
   const [head, section] = location.hash.slice(1).split("/");
   const page = legacy[head] || (pages.includes(head) ? head : "snapshots");
-  return { page, section: page === "settings" ? section || "" : "" };
+  return { page, section: page === "settings" ? (section === "codex" ? "assistant" : section || "") : "" };
 }
 const money = (cents, currency = "CAD") =>
   new Intl.NumberFormat("en-CA", { style: "currency", currency }).format(cents / 100);

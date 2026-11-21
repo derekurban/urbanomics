@@ -1,27 +1,28 @@
-// Codex features without calling Codex: what each feature accepts back from the model, the tag merge it
-// can lead to, settings and consent, organize caching and how the CLI is found. Synthetic data only.
+// Claude features without calling Claude: what each feature accepts back from the model, the tag merge it
+// can lead to, settings and consent, the API key, organize caching and how a request is built. Synthetic data only.
 const { test } = require("node:test");
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const os = require("node:os");
 const path = require("node:path");
 const { ImportStore } = require("../../electron/imports/store.cjs");
-const { seedCodexDemo } = require("../../scripts/codex-demo-data.cjs");
+const { seedAssistantDemo } = require("../../scripts/assistant-demo-data.cjs");
 const { createAssistant } = require("../../electron/ai/assistant.cjs");
-const { locate } = require("../../electron/ai/codex.cjs");
+const { createClaude } = require("../../electron/ai/claude.cjs");
 const prompts = require("../../electron/ai/prompts.mjs");
 
 function workspace(t) {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-codex-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-assistant-"));
   const store = new ImportStore(path.join(root, "workspace"), { now: () => new Date("2026-10-01T12:00:00Z") });
-  const seeded = seedCodexDemo(store, root);
+  const seeded = seedAssistantDemo(store, root);
   t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
   return { store, root, ...seeded };
 }
-const fakeCodex = (answers) => {
+const fakeClaude = (answers) => {
   const calls = [];
-  return { calls, setConcurrency: () => {}, status: async () => ({ installed: true, signedIn: true }), listModels: async () => [], exec: async (request) => { calls.push(request); return { value: typeof answers === "function" ? answers(request) : answers, usage: { input_tokens: 10, output_tokens: 5 }, ms: 12 }; } };
+  return { calls, setConcurrency: () => {}, reset: () => {}, check: async () => ({ ok: true, error: "" }), listModels: async () => [], exec: async (request) => { calls.push(request); return { value: typeof answers === "function" ? answers(request) : answers, usage: { input_tokens: 10, output_tokens: 5 }, ms: 12 }; } };
 };
+const savedKey = (store) => { const row = store.db.prepare("SELECT value FROM settings WHERE key='assistantKey'").get(); return row ? JSON.parse(row.value) : null; };
 const name = (store, id) => store.review.entities().find((e) => e.id === id)?.name;
 const recordsOf = (store, re) => store.review.records().filter((r) => re.test(r.description));
 
@@ -135,48 +136,109 @@ test("merging tags moves portions and rules, deletes the source and keeps a reco
   assert.equal(store.transactionRules.rules().find((r) => r.id === rule).categoryId, tags.restaurants);
 });
 
-test("settings, consent and the chosen model reach Codex; organize answers are reused", async (t) => {
+test("settings, consent and the chosen model reach Claude; organize answers are reused", async (t) => {
   const { store, tags } = workspace(t);
-  const codex = fakeCodex((request) => request.prompt.includes("Task: suggest how to organize") ? { summary: "Groceries.", suggestions: [{ kind: "tag", id: tags.groceries, name: "", categoryId: "", cents: 0, reason: "History.", confidence: "high" }] } : { suggestions: [] });
-  const assistant = createAssistant({ store, codex });
-  assert.deepEqual(assistant.settings(), { consent: false, smartOrganize: false, autoApply: false, organizeSlots: 4, organizeBatch: 5, features: { tags: { model: "", effort: "" }, restructure: { model: "", effort: "" }, aliases: { model: "", effort: "" }, organize: { model: "", effort: "" } } });
-  await assert.rejects(assistant.suggestTags("missing"), /Allow Codex to read your transactions/);
+  const claude = fakeClaude((request) => request.prompt.includes("Task: suggest how to organize") ? { summary: "Groceries.", suggestions: [{ kind: "tag", id: tags.groceries, name: "", categoryId: "", cents: 0, reason: "History.", confidence: "high" }] } : { suggestions: [] });
+  const assistant = createAssistant({ store, provider: claude, env: {} });
+  assert.deepEqual(assistant.settings(), { consent: false, smartOrganize: false, autoApply: false, organizeSlots: 16, organizeBatch: 1, features: { tags: { model: "claude-opus-5-5", effort: "" }, restructure: { model: "claude-opus-5-5", effort: "" }, aliases: { model: "claude-opus-5-5", effort: "" }, organize: { model: "claude-haiku-5-5", effort: "medium" } } });
+  await assert.rejects(assistant.suggestTags("missing"), /Allow Claude to read your transactions/);
   assert.throws(() => assistant.saveSettings({ features: { tags: { model: "bad model!", effort: "" } } }), /Choose a model/);
-  assert.throws(() => assistant.saveSettings({ features: { tags: { model: "", effort: "extreme" } } }), /reasoning level/);
-  assert.throws(() => assistant.saveSettings({ features: { other: { model: "", effort: "" } } }), /Unknown Codex feature/);
-  assistant.saveSettings({ consent: true, features: { tags: { model: "gpt-6-luna", effort: "low" }, organize: { model: "gpt-6-luna", effort: "medium" } } });
+  assert.throws(() => assistant.saveSettings({ features: { tags: { model: "claude-opus-5-5", effort: "extreme" } } }), /reasoning level/);
+  assert.throws(() => assistant.saveSettings({ features: { other: { model: "", effort: "" } } }), /Unknown assistant feature/);
+  assistant.saveSettings({ consent: true, features: { tags: { model: "claude-sonnet-5-5", effort: "low" } } });
   const missing = await assistant.suggestTags("missing");
   assert.deepEqual(missing.suggestions, []);
-  assert.equal(codex.calls[0].model, "gpt-6-luna"); assert.equal(codex.calls[0].effort, "low");
-  assert.ok(!codex.calls[0].prompt.includes("system:other"), "the Other fallback is not offered as a tag");
+  assert.equal(claude.calls[0].model, "claude-sonnet-5-5"); assert.equal(claude.calls[0].effort, "low");
+  assert.ok(!claude.calls[0].prompt.includes("system:other"), "the Other fallback is not offered as a tag");
   const context = { transaction: { id: "r", name: "GREEN MARKET #0021", amountCents: -100, currency: "CAD", date: "2026-09-22", account: "Card", unsortedCents: 100, parts: [] }, candidates: { tags: [{ id: tags.groceries, name: "Groceries" }], people: [], events: [], twins: [], categories: [] }, history: [] };
   const first = await assistant.suggestOrganize(context), second = await assistant.suggestOrganize(context);
   assert.deepEqual(first.suggestions, [{ kind: "tag", id: tags.groceries, cents: 100, reason: "History.", confidence: "high" }]);
-  assert.equal(second.cached, true); assert.equal(codex.calls.length, 2, "the same question is asked once");
-  assert.equal(codex.calls[1].effort, "medium");
+  assert.equal(second.cached, true); assert.equal(claude.calls.length, 2, "the same question is asked once");
+  assert.equal(claude.calls[1].model, "claude-haiku-5-5"); assert.equal(claude.calls[1].effort, "medium");
+  // A choice saved for another provider's model falls back to the default; other settings are kept.
+  store.db.prepare("UPDATE settings SET value=? WHERE key='assistant'").run(JSON.stringify({ consent: true, organizeSlots: 4, features: { organize: { model: "gpt-6-luna", effort: "minimal" } } }));
+  assert.deepEqual(assistant.settings().features.organize, { model: "claude-haiku-5-5", effort: "medium" });
+  assert.equal(assistant.settings().organizeSlots, 4);
 });
 
-test("the CLI is found only where an explicit prefix says, through npm's layout", (t) => {
-  const prefix = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-codex-prefix-"));
-  t.after(() => fs.rmSync(prefix, { recursive: true, force: true }));
-  const env = { URBANOMICS_CODEX_PREFIX: prefix, PATH: process.env.PATH };
-  assert.equal(locate(env), null, "an empty prefix has no Codex, even when PATH has one");
-  const win = process.platform === "win32";
-  const bin = win ? prefix : path.join(prefix, "bin"), pkg = win ? path.join(prefix, "node_modules", "@openai", "codex") : path.join(prefix, "lib", "node_modules", "@openai", "codex");
-  const triple = { "win32-x64": "x86_64-pc-windows-msvc", "win32-arm64": "aarch64-pc-windows-msvc", "darwin-x64": "x86_64-apple-darwin", "darwin-arm64": "aarch64-apple-darwin", "linux-x64": "x86_64-unknown-linux-musl", "linux-arm64": "aarch64-unknown-linux-musl" }[`${process.platform}-${process.arch}`];
-  const exe = path.join(pkg, "node_modules", "@openai", `codex-${process.platform}-${process.arch}`, "vendor", triple, "bin", win ? "codex.exe" : "codex");
-  fs.mkdirSync(path.dirname(exe), { recursive: true }); fs.mkdirSync(bin, { recursive: true });
-  fs.writeFileSync(exe, ""); fs.writeFileSync(path.join(bin, win ? "codex.cmd" : "codex"), "");
-  const found = locate(env);
-  assert.equal(found.path, exe, "the native binary, not the Node shim");
-  assert.equal(found.packageRoot, fs.realpathSync(pkg));
+test("the API key is checked before it is kept, stored only encrypted, and never returned", async (t) => {
+  const { store } = workspace(t);
+  const valid = { ok: true, error: "" }, invalid = { ok: false, error: "The Anthropic API key isn't valid. Check it under Settings, Assistant." };
+  const provider = ({ key }) => ({ ...fakeClaude({}), check: async () => (["good-key-1234", "env-key-9876"].includes(key()) ? valid : invalid) });
+  const secrets = { encrypt: (text) => Buffer.from("sealed:" + text).toString("base64"), decrypt: (cipher) => Buffer.from(cipher, "base64").toString().replace(/^sealed:/, "") };
+  const assistant = createAssistant({ store, provider, secrets, env: {} });
+  assert.deepEqual((await assistant.state()).claude, { key: { present: false, source: "", hint: "", canSave: true }, ok: false, error: "" });
+  await assert.rejects(assistant.saveKey("bad-key"), /isn't valid/);
+  assert.equal(savedKey(store), null, "a refused key is not stored");
+  assert.equal((await assistant.state()).claude.key.present, false, "and is not kept for the session either");
+  await assert.rejects(assistant.saveKey("  "), /Paste the API key/);
+  assert.deepEqual(await assistant.saveKey(" good-key-1234 "), { present: true, source: "saved", hint: "1234", canSave: true });
+  assert.ok(!JSON.stringify(savedKey(store)).includes("good-key-1234"), "the settings row holds only the encrypted key");
+  const state = await assistant.state();
+  assert.ok(!JSON.stringify(state).includes("good-key"), "state carries a hint, never the key");
+  assert.equal(state.claude.ok, true);
+  // A new session reads it back. A host that can't decrypt ignores the row and falls back to the environment.
+  assert.equal((await createAssistant({ store, provider, secrets, env: {} }).state()).claude.key.source, "saved");
+  assert.deepEqual((await createAssistant({ store, provider, env: { ANTHROPIC_API_KEY: "env-key-9876" } }).state()).claude, { key: { present: true, source: "environment", hint: "9876", canSave: false }, ok: true, error: "" });
+  // Without encryption a key lasts for the session and is never written.
+  const session = createAssistant({ store: workspace(t).store, provider, env: {} });
+  assert.deepEqual(await session.saveKey("good-key-1234"), { present: true, source: "session", hint: "1234", canSave: false });
+  assert.deepEqual(assistant.clearKey(), { present: false, source: "", hint: "", canSave: true });
+  assert.equal(savedKey(store), null);
+});
+
+test("a request asks for the schema's JSON, reads the answer, and words failures plainly", async () => {
+  const Anthropic = require("@anthropic-ai/sdk");
+  const sent = [];
+  const reply = (text, extra = {}) => ({ model: "claude-haiku-5-5", stop_reason: "end_turn", content: [{ type: "thinking", thinking: "" }, { type: "text", text }], usage: { input_tokens: 40, output_tokens: 9 }, ...extra });
+  let next = () => reply('{"reply":"ready"}');
+  const listed = [
+    { id: "claude-haiku-5-5", display_name: "Claude Haiku 5.5", capabilities: { structured_outputs: { supported: true }, effort: { supported: true, low: { supported: true }, medium: { supported: true }, ultra: { supported: true } } } },
+    { id: "claude-old-1", display_name: "Old", capabilities: { structured_outputs: { supported: false } } },
+  ];
+  const api = {
+    messages: { create: async (request, options) => { sent.push({ request, options, beta: false }); return next(); } },
+    beta: { messages: { create: async (request, options) => { sent.push({ request, options, beta: true }); return next(); } } },
+    models: { list: () => ({ async *[Symbol.asyncIterator]() { yield* listed; } }) },
+  };
+  let key = "";
+  const logged = [], claude = createClaude({ key: () => key, client: () => api, log: (status, details) => logged.push([status, details]) });
+  const schema = { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false };
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /Add your Anthropic API key/);
+  key = "test-key";
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "gpt-6-luna" }), /Choose a model/);
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5", effort: "ultra" }), /reasoning level/);
+  const result = await claude.exec({ prompt: "Reply with the word ready.", schema, model: "claude-haiku-5-5", effort: "medium" });
+  assert.deepEqual(result.value, { reply: "ready" });
+  assert.deepEqual(sent[0].request, { model: "claude-haiku-5-5", max_tokens: 16000, messages: [{ role: "user", content: "Reply with the word ready." }], output_config: { format: { type: "json_schema", schema }, effort: "medium" } });
+  assert.equal(sent[0].beta, false);
+  await claude.exec({ prompt: "p", schema, model: "claude-opus-5-5" });
+  assert.equal(sent[1].beta, true, "models that support it hand a declined request to a fallback");
+  assert.equal(sent[1].request.fallbacks, "default"); assert.equal(sent[1].request.output_config.effort, undefined);
+  assert.deepEqual(await claude.listModels(), [{ id: "claude-haiku-5-5", name: "Claude Haiku 5.5", efforts: ["low", "medium"] }]);
+  assert.deepEqual(await claude.check(), { ok: true, error: "" });
+  next = () => reply("", { stop_reason: "refusal" });
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /declined/);
+  next = () => reply("not json");
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /couldn't read/);
+  const failure = (Type, status, message) => () => { throw new Type(status, { type: "error", error: { type: "x", message } }, message, new Headers()); };
+  next = failure(Anthropic.AuthenticationError, 401, "invalid x-api-key");
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /API key isn't valid/);
+  next = failure(Anthropic.RateLimitError, 429, "slow down");
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /rate limited \(429\)/);
+  next = failure(Anthropic.InternalServerError, 529, "overloaded");
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /service is busy \(529\)/);
+  next = failure(Anthropic.BadRequestError, 400, "Your credit balance is too low to access the Anthropic API.");
+  await assert.rejects(claude.exec({ prompt: "p", schema, model: "claude-haiku-5-5" }), /credit balance is too low/);
+  assert.ok(!JSON.stringify(logged).includes("test-key") && !JSON.stringify(logged).includes("Reply with the word"), "the log never holds the key or the prompt");
+  assert.ok(logged.some(([status]) => status === "request") && logged.some(([status]) => status === "request-failed"));
 });
 
 test("a restructure from nothing creates categories and tags with the transactions they fit", (t) => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-codex-bare-"));
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-assistant-bare-"));
   const store = new ImportStore(path.join(root, "workspace"), { now: () => new Date("2026-10-01T12:00:00Z") });
   t.after(() => { store.close(); fs.rmSync(root, { recursive: true, force: true }); });
-  seedCodexDemo(store, root, { bare: true });
+  seedAssistantDemo(store, root, { bare: true });
   const entities = store.review.entities(), records = store.review.records();
   assert.match(prompts.restructurePrompt(entities, records), /little or no structure yet[\s\S]*GREEN MARKET #0021/, "the prompt asks for a starting structure and lists the transactions");
   const result = prompts.validateRestructure({ summary: "Start.", changes: [
@@ -193,16 +255,16 @@ test("a restructure from nothing creates categories and tags with the transactio
   assert.equal(result.changes[3].unsorted.length, 6);
 });
 
-test("ten rows go to Codex in one run; answers are checked per row and cached; skipped rows come back missing", async (t) => {
+test("ten rows go to Claude in one request; answers are checked per row and cached; skipped rows come back missing", async (t) => {
   const { store, tags } = workspace(t);
-  const codex = fakeCodex((request) => {
+  const claude = fakeClaude((request) => {
     assert.match(request.prompt, /each of these 3 bank transactions/);
     return { results: [
       { transactionId: "a", summary: "Groceries.", suggestions: [{ kind: "tag", id: tags.groceries, name: "", categoryId: "", cents: 0, reason: "", confidence: "high" }] },
       { transactionId: "b", summary: "Wrong direction.", suggestions: [{ kind: "tag", id: tags.groceries, name: "", categoryId: "", cents: 0, reason: "", confidence: "high" }, { kind: "settle", id: "p", name: "", categoryId: "", cents: 900, reason: "", confidence: "high" }] },
     ] };
   });
-  const assistant = createAssistant({ store, codex });
+  const assistant = createAssistant({ store, provider: claude, env: {} });
   assistant.saveSettings({ consent: true });
   const row = (id, amountCents, extra = {}) => ({ transaction: { id, name: id, amountCents, currency: "CAD", date: "2026-09-01", account: "Card", unsortedCents: Math.abs(amountCents), parts: [] }, candidates: { tags: amountCents < 0 ? [{ id: tags.groceries, name: "Groceries" }] : [{ id: tags.paycheck, name: "Paycheck" }], people: [{ id: "p", name: "Sam", owesCents: 500 }], events: [], twins: [], categories: [], ...extra }, history: [] });
   const answers = await assistant.suggestOrganizeBatch([row("a", -1000), row("b", 1000), row("c", -500)]);
@@ -210,11 +272,25 @@ test("ten rows go to Codex in one run; answers are checked per row and cached; s
   assert.deepEqual(answers[1].suggestions.map((s) => [s.kind, s.cents]), [["settle", 500]], "an expense tag on money in is dropped; settling is capped at what is owed");
   assert.deepEqual(answers[2], { transactionId: "c", missing: true });
   const again = await assistant.suggestOrganizeBatch([row("a", -1000)]);
-  assert.equal(again[0].cached, true); assert.equal(codex.calls.length, 1, "answered rows are not asked again");
+  assert.equal(again[0].cached, true); assert.equal(claude.calls.length, 1, "answered rows are not asked again");
   await assert.rejects(assistant.suggestOrganizeBatch(Array.from({ length: 11 }, (_, i) => row("r" + i, -100))), /between 1 and 10/);
   await assert.rejects(assistant.suggestOrganizeBatch([row("a", -1), row("a", -2)]), /its own id/);
   assert.deepEqual(assistant.saveSettings({ autoApply: true }).autoApply, true);
-  assert.throws(() => assistant.saveSettings({ organizeSlots: 9 }), /1 to 8 runs/);
+  assert.throws(() => assistant.saveSettings({ organizeSlots: 33 }), /1 to 32 requests/);
   assert.throws(() => assistant.saveSettings({ organizeBatch: 0 }), /1 to 10 transactions/);
-  assert.equal(assistant.saveSettings({ organizeSlots: 6, organizeBatch: 3 }).organizeSlots, 6);
+  assert.equal(assistant.saveSettings({ organizeSlots: 24, organizeBatch: 3 }).organizeSlots, 24);
+  // One row alone is asked on its own, with the single-transaction prompt.
+  const single = fakeClaude((request) => { assert.match(request.prompt, /organize one bank transaction/); return { summary: "", suggestions: [] }; });
+  const alone = createAssistant({ store, provider: single, env: {} });
+  assert.deepEqual((await alone.suggestOrganizeBatch([row("z", -700)])).map((a) => [a.transactionId, a.suggestions.length]), [["z", 0]]);
+});
+
+test("requests run up to the chosen number at once, never more than 32", async () => {
+  let running = 0, peak = 0;
+  const api = { messages: { create: async () => { running++; peak = Math.max(peak, running); await new Promise((resolve) => setTimeout(resolve, 15)); running--; return { stop_reason: "end_turn", content: [{ type: "text", text: "{}" }], usage: { input_tokens: 1, output_tokens: 1 } }; } } };
+  const claude = createClaude({ key: () => "test-key", client: () => api });
+  const burst = () => Promise.all(Array.from({ length: 80 }, () => claude.exec({ prompt: "p", schema: { type: "object" }, model: "claude-haiku-5-5" })));
+  await burst(); assert.equal(peak, 16, "sixteen at once by default");
+  peak = 0; claude.setConcurrency(4); await burst(); assert.equal(peak, 4);
+  peak = 0; claude.setConcurrency(100); await burst(); assert.equal(peak, 32, "the setting is capped");
 });

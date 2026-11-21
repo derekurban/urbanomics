@@ -171,7 +171,7 @@ async function startWebServer({
         );
         if (
           !Object.hasOwn(channels, method) ||
-          ["drop", "choose", "stageDrop", "stageChoose", "checkForUpdates", "installUpdate", ...(shared ? ["reveal", "installCodex", "signInCodex", "cancelCodexSignIn", "signOutCodex"] : [])].includes(method) ||
+          ["drop", "choose", "stageDrop", "stageChoose", "checkForUpdates", "installUpdate", ...(shared ? ["reveal", "saveAssistantKey", "clearAssistantKey"] : [])].includes(method) ||
           !Array.isArray(args) ||
           args.length > 16
         )

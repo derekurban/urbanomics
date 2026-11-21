@@ -1,23 +1,28 @@
-// Codex features end to end in the real app: connecting the CLI, Smart organizing on the Organize desk,
+// Claude features end to end in the real app: entering the API key, Smart organizing on the Organize desk,
 // Suggest missing tags, Suggest a restructure and Suggest aliases, each approved through its review and
 // checked against the workspace afterwards. Runs against an isolated synthetic workspace
-// (scripts/codex-demo-data.cjs) and the Codex CLI installed and signed in on this computer, so it uses the
-// account's Codex limits and sends only invented data. Records one video per feature under
-// private/validation/codex-<time>/videos (MP4 too when ffmpeg is on PATH).
+// (scripts/assistant-demo-data.cjs) with the Anthropic API key in ANTHROPIC_API_KEY, so it costs a few cents
+// on that account and sends only invented data. Records one video per feature under
+// private/validation/assistant-<time>/videos (MP4 too when ffmpeg is on PATH).
 //
-//   node scripts/smoke-codex.cjs [--model gpt-6-luna] [--install] [--only organize,tags,...]
+//   ANTHROPIC_API_KEY=… node scripts/smoke-assistant.cjs [--model claude-sonnet-5-5] [--only organize,tags,...]
 //
-// --install also records installing Codex with npm into a private prefix inside the validation folder
-// (URBANOMICS_CODEX_PREFIX), leaving the computer's own Codex untouched.
+// Without --model each feature runs on its default (Haiku 5.5 at medium for Smart organizing, Opus 5.5 for
+// the one-off reviews). The key is typed into Settings, Assistant like a person would; the host under test
+// never reads it from the environment.
 const { chromium } = require("playwright"), assert = require("node:assert/strict"), fs = require("node:fs"), path = require("node:path");
-const { spawn, spawnSync } = require("node:child_process");
+const { spawnSync } = require("node:child_process");
 const { startWebServer } = require("../electron/web-server.cjs");
-const { seedCodexDemo } = require("./codex-demo-data.cjs");
+const { seedAssistantDemo } = require("./assistant-demo-data.cjs");
 
 const arg = (name) => { const i = process.argv.indexOf(name); return i > 0 ? process.argv[i + 1] : null; };
-const MODEL = arg("--model") || "gpt-6-luna", ONLY = arg("--only")?.split(","), INSTALL = process.argv.includes("--install");
+const MODEL = arg("--model"), ONLY = arg("--only")?.split(",");
+// Taken out of the environment so the app only has the key once it is entered in Settings.
+const KEY = (process.env.ANTHROPIC_API_KEY || "").trim(); delete process.env.ANTHROPIC_API_KEY;
+if (!KEY) { console.error("Set ANTHROPIC_API_KEY to run the assistant smoke."); process.exit(1); }
+const chosen = MODEL ? { features: Object.fromEntries(["tags", "restructure", "aliases", "organize"].map((f) => [f, { model: MODEL, effort: "" }])) } : {};
 const wanted = (name) => !ONLY || ONLY.includes(name);
-const root = path.resolve("private/validation/codex-" + Date.now()), videos = path.join(root, "videos");
+const root = path.resolve("private/validation/assistant-" + Date.now()), videos = path.join(root, "videos");
 fs.mkdirSync(videos, { recursive: true });
 const log = (...a) => console.log(new Date().toISOString().slice(11, 19), ...a);
 
@@ -36,14 +41,10 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
 
 (async () => {
   const server = await startWebServer({ root: path.join(root, "data"), port: 0, seed: false }), store = server.store;
-  seedCodexDemo(store, root);
+  seedAssistantDemo(store, root);
   const call = async (channel, ...args) => { const r = await server.service.invoke(channel, ...args); if (!r.ok) throw new Error(`${channel}: ${r.error}`); return r.value; };
-  const status = await call("ai:state", true);
-  assert.ok(status.codex.installed, "Codex CLI is installed on this computer");
-  assert.ok(status.codex.signedIn, "Codex is signed in on this computer");
-  const models = await call("ai:models");
-  assert.ok(models.some((m) => m.id === MODEL), `${MODEL} is offered by this account`);
-  log(`Codex ${status.codex.version}, ${models.length} models, testing with ${MODEL}`);
+  assert.equal((await call("ai:state", true)).claude.key.present, false, "the workspace starts without a key");
+  log(MODEL ? `testing every feature with ${MODEL}` : "testing with each feature's default model");
 
   const browser = await chromium.launch({ channel: "chrome", headless: true }), errors = [], results = {};
   async function scene(name, origin, fn) {
@@ -75,49 +76,34 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
   const pause = (page, ms = 1200) => page.waitForTimeout(ms);
   const settle = async (page) => { await page.waitForTimeout(100); await page.waitForFunction(() => !document.querySelector(".organize-desk[data-busy]"), null, { timeout: 30000 }).catch(() => {}); await page.waitForTimeout(250); };
 
+  // Extra workspaces are closed in the end whether or not a scene fails, so a failed run still exits.
+  const extras = [];
   try {
-    if (INSTALL && wanted("install")) {
-      // A second host whose Codex lives only in a private prefix, so installing touches nothing else.
-      // Its own empty CODEX_HOME, too, so it starts signed out and the computer's sign-in is untouched.
-      const prefix = path.join(root, "codex-prefix"), home = path.join(root, "codex-home"); fs.mkdirSync(prefix, { recursive: true }); fs.mkdirSync(home, { recursive: true });
-      const child = spawn(process.execPath, ["-e", `require(${JSON.stringify(path.resolve("electron/web-server.cjs"))}).startWebServer({root:${JSON.stringify(path.join(root, "install-data"))},port:0}).then(s=>console.log("ORIGIN "+s.origin))`], { env: { ...process.env, URBANOMICS_CODEX_PREFIX: prefix, CODEX_HOME: home }, stdio: ["ignore", "pipe", "inherit"] });
-      const origin = await new Promise((resolve, reject) => { child.stdout.on("data", (d) => { const m = String(d).match(/ORIGIN (\S+)/); if (m) resolve(m[1]); }); child.on("exit", () => reject(new Error("Install host stopped."))); });
-      try {
-        await scene("00-install-codex", origin, async (page) => {
-          await page.goto(origin + "/#settings/codex"); await page.getByText("It isn't on this computer yet").waitFor({ timeout: 30000 }); await pause(page, 1500);
-          await click(page, page.getByRole("button", { name: "Install Codex" }));
-          await page.getByText(/Codex [\d.]+ is installed/).waitFor({ timeout: 10 * 60 * 1000 }); await pause(page, 1500);
-          results.install = await page.locator(".cx-status").first().innerText();
-          // Sign-in opens ChatGPT's own page; finishing it needs the person, so the run checks the page and cancels.
-          const signIn = page.getByRole("button", { name: "Sign in with ChatGPT" }); await signIn.waitFor({ timeout: 60000 }); await pause(page, 1500);
-          const popup = page.waitForEvent("popup", { timeout: 30000 });
-          await click(page, signIn);
-          const auth = await popup; await auth.waitForLoadState("domcontentloaded").catch(() => {});
-          results.signInPage = new URL(auth.url()).origin; await auth.close();
-          await page.getByText("Finish signing in with ChatGPT in your browser.").waitFor({ timeout: 30000 }); await pause(page, 2500);
-          await click(page, page.getByRole("button", { name: "Cancel" })); await signIn.waitFor({ timeout: 30000 }); await pause(page, 1500);
-          assert.match(results.signInPage, /^https:\/\/(auth\.openai\.com|chatgpt\.com)/, "sign-in opens OpenAI");
-        });
-      } finally { child.kill(); }
-    }
-
-    if (wanted("connect")) await scene("01-connect-codex", server.origin, async (page, origin) => {
-      await page.goto(origin + "/#settings/codex"); await page.getByText(/Codex [\d.]+ is installed/).waitFor({ timeout: 30000 });
-      await page.getByText(/Signed in with ChatGPT/).waitFor({ timeout: 30000 }); await pause(page, 1500);
-      await click(page, page.getByText("Let Codex read my transactions when I ask for a suggestion")); await page.getByRole("button", { name: "Try the connection" }).waitFor();
+    if (wanted("connect")) await scene("01-connect-claude", server.origin, async (page, origin) => {
+      await page.goto(origin + "/#settings/assistant"); await page.getByText("Urbanomics reaches Claude with your own Anthropic API key.").waitFor({ timeout: 30000 }); await pause(page, 1200);
+      // A key Anthropic refuses is reported and not kept.
+      const field = page.getByLabel("Anthropic API key");
+      await click(page, field); await field.fill("not-a-real-key"); await click(page, page.getByRole("button", { name: "Save key" }));
+      await page.getByText("The Anthropic API key isn't valid.").waitFor({ timeout: 60000 }); await pause(page, 1500);
+      assert.equal((await call("ai:state")).claude.key.present, false, "a refused key is not kept");
+      await click(page, field); await field.fill(KEY); await click(page, page.getByRole("button", { name: "Save key" }));
+      await page.getByText("Connected to Claude.").waitFor({ timeout: 60000 }); await pause(page, 1500);
+      assert.ok(!(await page.content()).includes(KEY), "the key is not shown once saved");
+      await click(page, page.getByText("Let Claude read my transactions when I ask for a suggestion")); await page.getByRole("button", { name: "Try the connection" }).waitFor();
       await pause(page, 800);
-      for (const [feature, effort] of [["Suggest missing tags", "low"], ["Suggest a restructure", "medium"], ["Suggest aliases", "low"], ["Smart organizing", "low"]]) {
-        const model = page.getByLabel("Model for " + feature); await moveTo(page, model); await model.selectOption(MODEL); await pause(page, 500);
-        const reasoning = page.getByLabel("Reasoning for " + feature); await moveTo(page, reasoning); await reasoning.selectOption(effort); await pause(page, 500);
-      }
+      await page.getByLabel("Model for Smart organizing").locator("option").nth(1).waitFor({ state: "attached", timeout: 60000 });
+      results.models = await page.getByLabel("Model for Smart organizing").locator("option").allInnerTexts();
+      if (MODEL) for (const feature of ["Suggest missing tags", "Suggest a restructure", "Suggest aliases", "Smart organizing"]) { const model = page.getByLabel("Model for " + feature); await moveTo(page, model); await model.selectOption(MODEL); await pause(page, 500); }
+      const atOnce = page.getByLabel("Requests at once"); await moveTo(page, atOnce); await atOnce.selectOption("24"); await pause(page, 500); await atOnce.selectOption("16"); await pause(page, 500);
       await click(page, page.getByText("Suggest when I open a transaction")); await pause(page, 800);
       await click(page, page.getByRole("button", { name: "Try the connection" }));
-      await page.locator(".toast-item", { hasText: "Codex answered" }).waitFor({ timeout: 120000 }); await pause(page, 2000);
+      await page.locator(".toast-item", { hasText: "answered in" }).waitFor({ timeout: 120000 }); await pause(page, 2000);
       const s = (await call("ai:state")).settings;
-      assert.equal(s.consent, true); assert.equal(s.smartOrganize, true);
-      assert.deepEqual(s.features.restructure, { model: MODEL, effort: "medium" }); assert.deepEqual(s.features.organize, { model: MODEL, effort: "low" });
+      assert.equal(s.consent, true); assert.equal(s.smartOrganize, true); assert.equal(s.organizeSlots, 16); assert.equal(s.organizeBatch, 1);
+      assert.deepEqual(s.features.organize, MODEL ? { model: MODEL, effort: "" } : { model: "claude-haiku-5-5", effort: "medium" });
+      assert.ok(results.models.includes("Haiku 5.5"), "the account's models are listed: " + results.models.join(", "));
     });
-    else await call("ai:settings", { consent: true, smartOrganize: true, features: Object.fromEntries(["tags", "restructure", "aliases", "organize"].map((f) => [f, { model: MODEL, effort: f === "restructure" ? "medium" : "low" }])) });
+    else { await call("ai:key-save", KEY); await call("ai:settings", { consent: true, smartOrganize: true, ...chosen }); }
 
     if (wanted("organize")) await scene("02-smart-organizing", server.origin, async (page, origin) => {
       await page.goto(origin + "/#organize"); await page.locator(".od-ledger").waitFor(); await pause(page, 1500);
@@ -222,16 +208,14 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
     });
 
     // Fresh workspaces for the next two, so neither starts from what the earlier scenes did.
-    const extras = [];
     async function freshWorkspace(name, options) {
       const extra = await startWebServer({ root: path.join(root, name), port: 0, seed: false }); extras.push(extra);
-      seedCodexDemo(extra.store, root, options);
-      const r = await extra.service.invoke("ai:settings", { consent: true, smartOrganize: false, autoApply: false, features: Object.fromEntries(["tags", "restructure", "aliases", "organize"].map((f) => [f, { model: MODEL, effort: f === "restructure" ? "medium" : "low" }])) });
-      assert.ok(r.ok, r.error);
+      seedAssistantDemo(extra.store, root, options);
+      for (const [channel, value] of [["ai:key-save", KEY], ["ai:settings", { consent: true, smartOrganize: false, autoApply: false, ...chosen }]]) { const r = await extra.service.invoke(channel, value); assert.ok(r.ok, r.error); }
       return extra;
     }
 
-    // Ten earlier months make 313 unsorted rows, the size where batches used to lose rows.
+    // Ten earlier months make 313 unsorted rows: a real backlog, to time the run and check that the counts add up.
     if (wanted("auto")) { const extra = await freshWorkspace("auto-data", { history: 10 }); await scene("07-organize-all-automatically", extra.origin, async (page, origin) => {
       const untagged = () => extra.store.review.records().filter((r) => !r.deleted && r.amountCents !== 0 && !r.review.tags.length && !r.review.transferId && r.review.kind !== "repayment" && !r.review.assignedPersonId).length;
       const before = untagged();
@@ -244,7 +228,7 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       await page.locator(".od-batch-run").waitFor({ state: "detached", timeout: 30 * 60 * 1000 });
       const seconds = Math.round((Date.now() - started) / 1000); await pause(page, 2500);
       // Every row ends in exactly one outcome: the counts in the closing toast add up to the rows queued.
-      const summary = await page.locator(".toast-item", { hasText: "Codex went through" }).innerText();
+      const summary = await page.locator(".toast-item", { hasText: "Claude went through" }).innerText();
       const total = Number(summary.match(/went through (\d+)/)[1]), outcomes = [...summary.matchAll(/(\d+) (?:rows? organized|waits?|had nothing|already sorted|failed)/g)].map((m) => Number(m[1]));
       assert.equal(outcomes.reduce((a, b) => a + b, 0), total, "outcome counts add up to the rows queued: " + summary);
       assert.equal(total, before, "every unsorted row was queued");
@@ -252,7 +236,8 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       const chip = async (name) => Number((await page.getByRole("button", { name: new RegExp("^" + name) }).first().innerText()).match(/(\d+)\s*$/)?.[1] || 0);
       const n = (re) => Number(summary.match(re)?.[1] || 0);
       assert.equal(await chip("Unsorted"), n(/(\d+) waits? for review/) + n(/(\d+) had nothing/) + n(/(\d+) failed/) + n(/\((\d+) still/), "Unsorted chip matches the summary");
-      if (await page.getByRole("button", { name: /^Suggested/ }).count()) assert.equal(await chip("Suggested"), n(/(\d+) waits? for review/), "Suggested chip matches the rows waiting for review");
+      // Suggested lists the rows waiting for review, plus any partly organized row that still has an unsure suggestion left.
+      if (await page.getByRole("button", { name: /^Suggested/ }).count()) { const suggested = await chip("Suggested"), waiting = n(/(\d+) waits? for review/); assert.ok(suggested >= waiting && suggested <= waiting + n(/\((\d+) still/), `Suggested chip (${suggested}) matches the rows waiting for review (${waiting})`); }
       await click(page, page.locator(".toast-item").getByRole("button", { name: "Review them" })); await pause(page, 2500);
       await page.mouse.wheel(0, 600); await pause(page, 2000); await page.mouse.wheel(0, 600); await pause(page, 2000);
       results.auto = { seconds, summary: summary.replace(/\n+/g, " | "), untaggedBefore: before, untaggedAfter: untagged(), linked: extra.store.review.records().filter((r) => r.review.transferId).length, autoApplied: await page.locator(".od-row").count() };
@@ -277,13 +262,13 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       assert.ok(results.scratch.categories >= 3 && results.scratch.tags >= 8, "a structure was created from nothing");
       assert.ok(tagged >= 20, "the new tags were applied to the transactions they fit");
     }); }
-    for (const extra of extras) await extra.close();
 
     assert.deepEqual(errors, [], "no page errors");
     fs.writeFileSync(path.join(root, "results.json"), JSON.stringify(results, null, 2));
-    log("Codex smoke passed. Videos:", videos);
+    log("Assistant smoke passed. Videos:", videos);
   } finally {
     await browser.close();
+    for (const extra of extras) await extra.close().catch(() => {});
     await server.close();
   }
 })().catch((e) => { console.error(e); process.exitCode = 1; });
