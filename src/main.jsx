@@ -31,6 +31,8 @@ const legacy = { allocations: "organize", experimental: "organize", review: "org
 function readLocation() {
   const [head, section] = location.hash.slice(1).split("/");
   const page = legacy[head] || (pages.includes(head) ? head : "snapshots");
+  // The Dashboard keeps its tab and period after the page name (#dashboard/cash/2026-07).
+  if (page === "dashboard") return { page, section: location.hash.slice(1).split("/").slice(1).join("/") };
   return { page, section: page === "settings" ? (section === "codex" ? "assistant" : section || "") : "" };
 }
 const money = (cents, currency = "CAD") =>
@@ -49,14 +51,14 @@ function App() {
   // The address follows the page (and the Settings section), so back, forward and reload work.
   const go = (next, section = next === "settings" ? organizeSection : "") => {
     const hash = "#" + next + (next === "settings" && section ? "/" + section : "");
-    if (location.hash !== hash) history.pushState(null, "", hash);
+    if (location.hash !== hash && !(next === "dashboard" && location.hash.startsWith(hash + "/"))) history.pushState(null, "", hash);
     setPageState(next);
   };
   useEffect(() => {
     const sync = () => {
       const { page: next, section } = readLocation();
       setPageState(next);
-      if (section) setOrganizeSection(section);
+      if (section && next === "settings") setOrganizeSection(section);
     };
     window.addEventListener("popstate", sync);
     window.addEventListener("hashchange", sync);
@@ -69,6 +71,13 @@ function App() {
   const openOrganize = (id = null, mode = "transactions") => {
     setOrganizeTarget({ id, mode, key: Date.now() });
     go("organize");
+  };
+  // Another page hands the ledger a set of filters; the key makes each hand-off apply once.
+  const [ledgerPreset, setLedgerPreset] = useState(null);
+  const openTransactions = (filters = {}) => {
+    setRevision(null);
+    setLedgerPreset({ ...filters, key: Date.now() });
+    go("transactions");
   };
   const [connected, setConnected] = useState(true);
   const [update, setUpdate] = useState(null);
@@ -253,7 +262,7 @@ function App() {
               aria-current={page === id ? "page" : undefined}
               onClick={() => {
                 go(id);
-                if (id === "transactions") { setRevision(null); setAccountFilter(""); setMonth(""); }
+                if (id === "transactions") setRevision(null);
               }}
             >
               <span aria-hidden="true"><Icon name={icon} size={18} /></span>
@@ -313,13 +322,13 @@ function App() {
           {persistent && <Alert title="Part of your workspace needs attention.">{persistent}</Alert>}
           {error && <Alert onDismiss={() => setError("")}>{error}</Alert>}
           {page === "dashboard" && (
-            <Dashboard data={data} onSnapshots={() => go("snapshots")} onSource={openSource} />
+            <Dashboard data={data} onSnapshots={() => go("snapshots")} onSource={openSource} onOrganize={openOrganize} onTransactions={openTransactions} />
           )}
           {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={() => openOrganize()} onOpenSnapshot={async (target) => { try { const saved = await api.snapshot(target.id); setMonth(target.month); setAccountFilter(target.accountId); setRevision(saved); go("transactions"); } catch (e) { setError(e.message); } }} />}
-          {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={() => go("snapshots")} onTransactions={(accountId, month = "") => { setRevision(null); setMonth(month); setAccountFilter(accountId); go("transactions"); }} onSource={openSource} />}
+          {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={() => go("snapshots")} onTransactions={(accountId, month = "") => openTransactions({ account: accountId, month })} onSource={openSource} />}
           {page === "organize" && <OrganizeDesk data={data} run={run} onSource={openSource} target={organizeTarget} onSettings={() => { setOrganizeSection("transfers"); go("settings", "transfers"); }} />}
           {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSettings={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} />}
-          {page === "transactions" && <TransactionsWorkspace key={revision?.id || "current"} data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} snapshot={revision} onCurrent={() => setRevision(null)} onOrganize={openOrganize} onSource={openSource} />}
+          {page === "transactions" && <TransactionsWorkspace key={revision?.id || "current"} data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} preset={ledgerPreset} snapshot={revision} onCurrent={() => setRevision(null)} onOrganize={openOrganize} onSource={openSource} />}
           {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} onNavigate={(target) => { if (["accounts", "events", "transactions", "snapshots"].includes(target)) go(target); else openOrganize(null, target.startsWith("transfers") ? "transfers" : "transactions"); }} />}
         </main>
       </div>
