@@ -186,8 +186,19 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       await call("ai:settings", { smartOrganize: false });
       await page.goto(origin + "/#organize"); await page.locator(".od-ledger").waitFor(); await pause(page, 1500);
       const unsortedBefore = await page.locator(".od-count").first().innerText();
+      await click(page, page.getByRole("button", { name: /^Claude/ })); await pause(page, 600);
       await click(page, page.getByRole("button", { name: "Suggest for all unsorted" }));
       await page.locator(".od-batch-run").waitFor(); await pause(page, 6000);
+      // The run belongs to the session, not the page: leaving Organize and coming back finds it still going, and a second run cannot start.
+      const nav = page.getByRole("navigation", { name: "Main navigation" });
+      await click(page, nav.getByRole("button", { name: "Dashboard" })); await pause(page, 2500);
+      await click(page, nav.getByRole("button", { name: "Organize" })); await page.locator(".od-ledger").waitFor(); await pause(page, 1000);
+      if (await page.locator(".od-batch-run").count()) {
+        await click(page, page.getByRole("button", { name: /^Claude/ })); await pause(page, 600);
+        assert.equal(await page.getByRole("button", { name: "Suggest for all unsorted" }).isDisabled(), true, "a second run cannot start while one is going");
+        await page.keyboard.press("Escape");
+      }
+      assert.ok(await page.locator(".od-star.is-ready, .od-batch-run").count(), "stars and the run survive leaving the page");
       await page.mouse.wheel(0, 400); await pause(page, 4000); await page.mouse.wheel(0, -400);
       await page.locator(".od-batch-run").waitFor({ state: "detached", timeout: 20 * 60 * 1000 }); await pause(page, 2000);
       const ready = await page.locator(".od-star.is-ready").count(), idle = await page.locator(".od-star.is-idle").count();
@@ -220,6 +231,7 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       const untagged = () => extra.store.review.records().filter((r) => !r.deleted && r.amountCents !== 0 && !r.review.tags.length && !r.review.transferId && r.review.kind !== "repayment" && !r.review.assignedPersonId).length;
       const before = untagged();
       await page.goto(origin + "/#organize"); await page.locator(".od-ledger").waitFor(); await pause(page, 1500);
+      await click(page, page.getByRole("button", { name: /^Claude/ })); await pause(page, 600);
       await click(page, page.getByText("Apply automatically")); await page.getByRole("button", { name: "Organize all unsorted" }).waitFor(); await pause(page, 1000);
       const started = Date.now();
       await click(page, page.getByRole("button", { name: "Organize all unsorted" }));

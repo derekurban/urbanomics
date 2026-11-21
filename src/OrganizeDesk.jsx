@@ -3,8 +3,11 @@
 // Spend or Receive part, a person on money in settles what they owe (an Offset part, attributed to
 // their oldest open shares first), an account pairs a Move. Split, event and rule keep fixed slots.
 // Changes apply at once and persist through a serial queue against the row's latest version.
-import React, {useEffect, useMemo, useRef, useState} from 'react';
+import React, {useEffect, useLayoutEffect, useMemo, useRef, useState} from 'react';
 import {Icon, Switch} from '@derekurban/design-system';
+import {orderDescribe, describeSections, splitForAutoApply, mutuallyUnique, nextRow, sameUntouched} from './organize-rules.mjs';
+import {organizeStore, useOrganizeStore, changed as storeChanged, setBatch as setStoreBatch} from './organize-store.js';
+import {InfoDot} from './snapshots-v2-atoms.jsx';
 import {categoryColors} from './category-colors.js';
 import {find, money, total, rest, segments, cap, add, resize, remove, repayment, paired, mapRecords, templateWeights} from './allocation-model.js';
 import {tagType, orderedTags} from '../electron/review/tag-model.mjs';
@@ -13,7 +16,7 @@ import {pendingTransfers, withinBand, transferPairBand} from '../electron/review
 import {splitShares} from '../electron/review/share-model.mjs';
 import {TransactionRuleReuse} from './TransactionRuleReuse.jsx';
 import {TransactionTemplateEditor} from './TransactionTemplateEditor.jsx';
-import {notify} from './toast.jsx';
+import {notify, notify as showToast, dismissToast} from './toast.jsx';
 import {Alert} from './ui.jsx';
 import {dayLabel, rangeLabel, plural as count} from './format.js';
 import {useAssistant, readiness, saveAssistantSettings, seconds, modelLabel} from './assistant.js';
@@ -21,6 +24,8 @@ import './assistant.css';
 import './organize-desk.css';
 
 const api = () => window.urbanomics;
+/* What Apply automatically may do on its own (organize-rules.mjs, canApplyUnreviewed). */
+export const AUTO_APPLY_NOTE = 'Adds tags you already have, links a transfer with one clear match and adds events without a split as answers arrive. Shares, settlements, payments to people, new tags and anything Claude is unsure about wait for you.';
 const PAGE = 150;
 const plain = cents => (Math.abs(cents) / 100).toFixed(2);
 const signed = (cents, currency) => (cents < 0 ? '−' : '+') + money(Math.abs(cents), currency);
@@ -29,12 +34,21 @@ const dayGap = (a, b) => Math.abs(Date.parse(a + 'T00:00:00Z') - Date.parse(b + 
 const luminance = color => { if (!/^#[0-9a-f]{6}$/i.test(color || '')) return 0.5; const n = parseInt(color.slice(1), 16); return (0.2126 * (n >> 16 & 255) + 0.7152 * (n >> 8 & 255) + 0.0722 * (n & 255)) / 255; };
 const cloneRow = row => ({...row, layers: row.layers.map(l => ({...l})), groups: [...row.groups], shares: row.shares ? {...row.shares} : row.shares});
 const clone = state => state.map(cloneRow);
+/* The list's order: newest first, then by account. */
+const listOrder = (a, b) => b.date.localeCompare(a.date) || a.account.localeCompare(b.account) || a.id.localeCompare(b.id);
 
 const isLinked = row => !!row && (row.raw.review.kind === 'transfer' || row.layers.some(l => l.kind === 'transfer'));
 const unsorted = row => !isLinked(row) && (rest(row) > 0 || row.raw.review.templateReview === 'pending');
 const sharedWith = row => Object.entries(row.shares || {}).filter(([id, cents]) => id !== 'me' && cents > 0).map(([id]) => id);
 /* Whether a Claude suggestion is already on the row (so it is shown as applied, and doesn't keep a row's star green). */
 const suggestionApplied = (row, s) => s.kind === 'new-tag' ? row.layers.some(l => l.kind === 'tag' && l.name.toLowerCase() === s.name.toLowerCase()) : s.kind === 'tag' ? row.layers.some(l => l.id === 'tag:' + s.id) : s.kind === 'twin' ? isLinked(row) : s.kind === 'event' ? row.groups.includes(s.id) : s.kind === 'share' ? sharedWith(row).includes(s.id) : s.kind === 'payee' ? row.raw.review.assignedPersonId === s.id : s.kind === 'settle' ? row.person === s.id && row.layers.some(l => l.kind === 'expense') : false;
+/* A suggestion as the card shows it: events that still exist, a suggested new tag that has since been created offered as that tag. */
+function suggestionList(result, entities, events) {
+  const named = name => entities.find(e => e.kind === 'category' && e.name.toLowerCase() === name.toLowerCase());
+  return (result?.suggestions || []).filter(s => s.kind !== 'event' || events.some(e => e.id === s.id)).map(s => s.kind === 'new-tag' && named(s.name) ? {...s, kind: 'tag', id: named(s.name).id} : s);
+}
+const suggestionKey = s => s.kind + (s.id || s.name);
+const waitingSuggestions = (row, result, entities, events) => suggestionList(result, entities, events).filter(s => !suggestionApplied(row, s));
 const natureOf = (row, l) => l.kind === 'tag' ? (row.amount > 0 ? 'Receive' : 'Spend') : l.kind === 'expense' ? 'Offset' : l.kind === 'transfer' || l.kind === 'principal' ? 'Move' : l.kind === 'fee' ? 'Fee' : l.kind === 'excess' ? 'Extra' : '';
 
 /* Label contrast on user colors is chosen from the color itself (identity colors are data, design-system#7). */
@@ -50,9 +64,12 @@ function owedBy(state, personId, except) {
 }
 const balanceOf = (state, personId, except) => owedBy(state, personId, except).reduce((n, o) => n + o.left, 0);
 
-function Shape({row, shown, currency}) {
-  return <div className={'od-shape' + (shown.length === 1 && shown[0].kind === 'default' ? ' is-empty' : '')} role="img" aria-label={shown.map(s => `${s.name} ${money(s.cents, currency)}`).join(', ')}>
-    {shown.map(s => <div key={s.id} className={'od-seg' + (s.kind === 'default' ? ' is-gap' : '')} style={s.kind === 'default' ? {flexGrow: s.cents} : {flexGrow: s.cents, background: s.color, color: String(s.color).startsWith('var(') ? 'var(--ink)' : luminance(s.color) > 0.62 ? '#1b1b1b' : '#fafafa'}} title={`${s.name} · ${money(s.cents, currency)}`}><span className="od-seg-label">{s.name}</span></div>)}
+function Shape({row, shown, currency, ghost}) {
+  // A waiting suggestion takes the place of the gap it would fill, outlined and dashed until it is applied.
+  const segs = ghost ? shown.flatMap(s => s.kind !== 'default' ? [s] : [...ghost.parts.map(g => ({...g, kind: 'ghost'})), ...(ghost.left > 0 ? [{...s, cents: ghost.left}] : [])]) : shown;
+  const label = s => s.kind === 'ghost' ? `suggested ${s.name.replace(/\?$/, '')}` : s.name;
+  return <div className={'od-shape' + (segs.length === 1 && segs[0].kind === 'default' ? ' is-empty' : '')} role="img" aria-label={segs.map(s => `${label(s)} ${money(s.cents, currency)}`).join(', ')}>
+    {segs.map(s => <div key={s.id} className={'od-seg' + (s.kind === 'default' ? ' is-gap' : s.kind === 'ghost' ? ' is-ghost' : '')} style={s.kind === 'default' || s.kind === 'ghost' ? {flexGrow: s.cents} : {flexGrow: s.cents, background: s.color, color: String(s.color).startsWith('var(') ? 'var(--ink)' : luminance(s.color) > 0.62 ? '#1b1b1b' : '#fafafa'}} title={`${label(s)} · ${money(s.cents, currency)}`}><span className="od-seg-label">{s.name}</span></div>)}
   </div>;
 }
 function Amount({value, label, onCommit}) {
@@ -63,18 +80,44 @@ function Amount({value, label, onCommit}) {
     onBlur={() => { if (!cancel.current && /^\d+(\.\d{0,2})?$/.test(text) && Math.round(Number(text) * 100) !== value) onCommit(Math.round(Number(text) * 100)); else setText(plain(value)); }}
     onKeyDown={e => { if (e.key === 'Enter') e.target.blur(); if (e.key === 'Escape') { cancel.current = true; e.target.blur(); } }} />;
 }
-/* One box. Its answers are grouped by what the line can be. */
-function Describe({options, onPick, inputRef, placeholder}) {
-  const [query, setQuery] = useState(''), [open, setOpen] = useState(false), [cursor, setCursor] = useState(0);
-  const listId = React.useId();
-  const groups = [['twin', 'Same money'], ['person', 'Settles up'], ['share', 'Shared with'], ['payee', 'Paid a person'], ['tag', 'Tags'], ['event', 'Events'], ['account', 'Own accounts']];
-  const shown = useMemo(() => { const all = options(query); return groups.flatMap(([g]) => all.filter(o => o.kind === g)); }, [options, query]);
-  useEffect(() => setCursor(0), [query]);
+/* One box. Its answers are grouped by what the line can be; with nothing typed it leads with what is
+   likely (organize-rules.mjs), and Enter takes only that. With a waiting Claude suggestion and nothing
+   typed, Enter applies the suggestion instead (`onEnterEmpty`). */
+const MENU_ROOM = 360;
+function Describe({options, onPick, inputRef, placeholder, onEnterEmpty}) {
+  const [query, setQuery] = useState(''), [open, setOpen] = useState(false);
+  const listId = React.useId(), fieldRef = useRef(null), [place, setPlace] = useState({up: false, max: MENU_ROOM});
+  const {list: all, cursor: ordered} = useMemo(() => orderDescribe(options(query), query), [options, query]);
+  // A waiting Claude suggestion takes Enter while the box is empty, so nothing in the menu is highlighted then.
+  const lead = onEnterEmpty && !query.trim() ? -1 : ordered;
+  // Fourteen at most, keeping "Create tag" in reach.
+  const shown = useMemo(() => { const create = all.find(o => o.kind === 'create'), rest = all.filter(o => o !== create); return rest.length > 14 || create ? [...rest.slice(0, create ? 13 : 14), ...(create ? [create] : [])] : rest; }, [all]);
+  const [cursor, setCursor] = useState(lead);
+  useEffect(() => setCursor(lead < shown.length ? lead : -1), [query, lead]);
+  // Keep the menu clear of the toasts at the bottom of the page. Below the box when there is room; otherwise
+  // scroll the page up so there is. Only when the page cannot scroll does it open above the box, and never
+  // over Claude's suggestion card (which sits above it), where it would hide Apply.
+  useLayoutEffect(() => {
+    if (!open || !fieldRef.current) return;
+    const reserve = window.innerWidth <= 720 ? 200 : 150, want = Math.min(MENU_ROOM, 260);
+    const room = () => window.innerHeight - fieldRef.current.getBoundingClientRect().bottom - reserve;
+    if (room() < want) {
+      let node = fieldRef.current.parentElement;
+      while (node && node !== document.body && !(node.scrollHeight > node.clientHeight && /auto|scroll/.test(getComputedStyle(node).overflowY))) node = node.parentElement;
+      const target = node && node !== document.body ? node : document.scrollingElement;
+      target?.scrollBy?.({top: want - room()});
+    }
+    const box = fieldRef.current.getBoundingClientRect(), below = window.innerHeight - box.bottom - reserve, above = box.top - 72;
+    const covered = !!fieldRef.current.closest('.od-card-main')?.querySelector('.od-suggest');
+    setPlace(below >= 160 || covered || below >= above ? {up: false, max: Math.max(160, Math.min(MENU_ROOM, below))} : {up: true, max: Math.min(MENU_ROOM, above)});
+  }, [open]);
   function pick(o) { if (o.disabled) return; onPick(o); setQuery(''); setOpen(false); }
-  let flat = -1;
+  // The Enter hint shows only when Enter does something here (with a waiting suggestion it moves to the card).
+  const enterHere = cursor >= 0;
+  const sections = describeSections(shown);
   return (
     <div className="od-describe">
-      <div className="od-describe-field">
+      <div className="od-describe-field" ref={fieldRef}>
         <Icon name="search" size={16} />
         <input ref={inputRef} value={query} placeholder={placeholder} aria-label="Describe this transaction" role="combobox" aria-expanded={open && shown.length > 0} aria-autocomplete="list" aria-controls={listId} aria-activedescendant={open && shown[cursor] ? `${listId}-${cursor}` : undefined}
           onChange={e => { setQuery(e.target.value); setOpen(true); }} onFocus={() => setOpen(true)} onBlur={() => setTimeout(() => setOpen(false), 120)}
@@ -82,22 +125,22 @@ function Describe({options, onPick, inputRef, placeholder}) {
             if (e.key === 'ArrowDown') { e.preventDefault(); setOpen(true); setCursor(c => Math.min(shown.length - 1, c + 1)); }
             else if (e.key === 'ArrowUp') { e.preventDefault(); setCursor(c => Math.max(0, c - 1)); }
             else if (e.key === 'Enter' && open && shown[cursor]) { e.preventDefault(); pick(shown[cursor]); }
+            else if (e.key === 'Enter' && !query.trim() && onEnterEmpty) { e.preventDefault(); setOpen(false); onEnterEmpty(); }
             else if (e.key === 'Escape' && query) { e.stopPropagation(); setQuery(''); }
           }} />
-        <kbd>Enter</kbd>
+        {enterHere && <kbd>Enter</kbd>}
       </div>
       {open && query.trim() && !shown.length && <div className="od-menu is-empty" role="status">Nothing matches “{query.trim()}”. Try a tag, a person, an event or an account.</div>}
       {open && shown.length > 0 && (
-        <div className="od-menu" role="listbox" id={listId} aria-label="Suggestions">
-          {groups.map(([g, title]) => {
-            const items = shown.filter(o => o.kind === g); if (!items.length) return null;
-            return <div key={g} className="od-menu-group"><small>{title}</small>
-              {items.map(o => { const i = ++flat; return (
-                <button key={o.kind + o.id} id={`${listId}-${i}`} tabIndex={-1} type="button" role="option" aria-selected={i === cursor} aria-disabled={o.disabled || undefined} className={(i === cursor ? 'is-cursor' : '') + (o.disabled ? ' is-disabled' : '')} onMouseDown={e => e.preventDefault()} onMouseEnter={() => setCursor(i)} onClick={() => pick(o)}>
-                  <i style={{background: o.color}} /><span><b>{o.label}</b><small>{o.hint}</small></span>{o.on && <Icon name="check" size={16} />}
-                </button>); })}
-            </div>;
-          })}
+        <div className={'od-menu' + (place.up ? ' is-up' : '')} role="listbox" id={listId} aria-label="Suggestions" style={{maxHeight: place.max}}>
+          {sections.map(({group, title, items}, n) => (
+            <div key={group + n} className="od-menu-group"><small>{title}</small>
+              {items.map(({o, i}) => (
+                <button key={o.kind + o.id} id={`${listId}-${i}`} tabIndex={-1} type="button" role="option" aria-selected={i === cursor} aria-disabled={o.disabled || undefined} className={(i === cursor ? 'is-cursor' : '') + (o.disabled ? ' is-disabled' : '')} onMouseDown={e => e.preventDefault()} onMouseMove={() => { if (cursor !== i) setCursor(i); }} onClick={() => pick(o)}>
+                  {o.kind === 'create' ? <Icon name="plus" size={16} /> : <i style={{background: o.color}} />}<span><b>{o.label}</b><small>{o.hint}</small></span>{o.on && <Icon name="check" size={16} />}
+                </button>))}
+            </div>
+          ))}
         </div>
       )}
     </div>
@@ -113,13 +156,41 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const serverRows = useRef([]), pendingDesired = useRef(new Map()), queue = useRef(Promise.resolve());
   stateRef.current = state;
   const busy = saving > 0;
-  // Smart organizing: Claude suggestions per row, kept for the session and fetched when a row opens.
+  // Smart organizing: Claude suggestions per row, kept for the app session in the Organize store (so leaving
+  // the page and coming back finds them, and a running batch, as they were) and fetched when a row opens.
   const assistant = useAssistant(), smart = !!assistant.state?.settings.smartOrganize && readiness(assistant.state).ok;
-  const suggestions = useRef(new Map()), [suggestTick, setSuggestTick] = useState(0);
-  const [batch, setBatch] = useState(null), batchRun = useRef(null);
-  const autoApply = !!assistant.state?.settings.autoApply, autoApplied = useRef(new Set()), createdTags = useRef(new Map()), quiet = useRef(0);
-  // What Claude applies without review: everything it isn't unsure about.
-  const trusted = result => (result?.suggestions || []).filter(s => s.confidence !== 'low');
+  const store = useOrganizeStore(), suggestions = {current: store.suggestions}, setSuggestTick = () => storeChanged();
+  const batch = store.batch, setBatch = setStoreBatch;
+  const batchRun = {get current() { return organizeStore.run; }, set current(v) { organizeStore.run = v; }};
+  const quiet = {get current() { return organizeStore.quiet; }, set current(v) { organizeStore.quiet = v; }};
+  const autoApply = !!assistant.state?.settings.autoApply, autoApplied = {current: store.autoApplied}, createdTags = {current: store.createdTags};
+  const later = store.later, [lastPick, setLastPick] = useState(null);
+  const [claudeOpen, setClaudeOpen] = useState(false), claudeRef = useRef(null), claudeId = React.useId(), [loaded, setLoaded] = useState(false);
+  // The Claude menu closes on a click elsewhere or Escape.
+  useEffect(() => {
+    if (!claudeOpen) return;
+    const away = e => { if (!claudeRef.current?.contains(e.target)) setClaudeOpen(false); };
+    const key = e => { if (e.key === 'Escape') { e.stopPropagation(); setClaudeOpen(false); claudeRef.current?.querySelector('button')?.focus(); } };
+    document.addEventListener('pointerdown', away); document.addEventListener('keydown', key, true);
+    return () => { document.removeEventListener('pointerdown', away); document.removeEventListener('keydown', key, true); };
+  }, [claudeOpen]);
+  // The filters stay at the top while the list scrolls; the day headings stick just under them.
+  const sectionRef = useRef(null), filtersRef = useRef(null), [stickyHeight, setStickyHeight] = useState(0);
+  useEffect(() => {
+    const node = filtersRef.current; if (!node || typeof ResizeObserver === 'undefined') return;
+    const measure = () => setStickyHeight(getComputedStyle(node).position === 'sticky' ? Math.round(node.getBoundingClientRect().height) : 0);
+    const watch = new ResizeObserver(measure); watch.observe(node); measure(); window.addEventListener('resize', measure);
+    return () => { watch.disconnect(); window.removeEventListener('resize', measure); };
+  }, [loaded, state.length > 0]);
+  /* What Claude may apply without review (organize-rules.mjs): existing tags, a move with one clear other
+     half, an event without a split. Shares, settlements, payments to people and new tags wait. */
+  function autoPlan(row, result, view = freshView()) {
+    const of = id => { const r = find(view.rows, id); return r ? twins(r, view).map(t => t.id) : []; };
+    return splitForAutoApply(result?.suggestions || [], {
+      twinIsUnique: id => mutuallyUnique(row.id, of) && of(row.id)[0] === id,
+      eventHasParticipants: id => { const e = view.ents.find(x => x.id === id); return !e || (e.participants || []).length > 0; },
+    });
+  }
   const batchLabel = b => b.waitUntil > Date.now() ? `Claude is busy, retrying in ${Math.ceil((b.waitUntil - Date.now()) / 1000)} s · ${b.done} of ${b.total} done` : b.auto ? `Organizing ${b.done} of ${b.total} · ${b.counts.applied} applied` : `Suggesting ${b.done} of ${b.total} · ${b.counts.review} ready`;
   const assistantReady = readiness(assistant.state).ok;
   /* A row's star: hidden once it's sorted; otherwise loading, ready (a suggestion is waiting) or idle. */
@@ -149,12 +220,19 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     const colors = categoryColors(result.entities);
     setEntities(colors); if (lab) setConfig(lab.config); setRuleRevision(n => n + 1);
     const rows = mapRecords(result.records, colors).filter(r => !r.deleted);
-    serverRows.current = rows; publish(rows); return rows;
+    serverRows.current = rows; publish(rows); setLoaded(true); return rows;
   }
   useEffect(() => { load(true).catch(e => setLoadError(e.message)); }, [data]);
   useEffect(() => () => { generation.current++; }, []);
+  // Toasts about this page stay on it: leaving Organize closes them, and a batch that finished meanwhile
+  // shows its summary on return.
+  useEffect(() => {
+    organizeStore.mounted++;
+    if (organizeStore.summary) { const s = organizeStore.summary; organizeStore.summary = null; notify(s); }
+    return () => { organizeStore.mounted--; dismissToast('organize'); dismissToast('assistant-batch'); };
+  }, []);
   const undoRef = useRef(null);
-  const setToast = ({message, error}) => (quiet.current && !error) ? null : notify({id: 'organize', title: message, tone: error ? 'danger' : 'success', duration: error ? 9000 : 6000, action: error ? undefined : {label: 'Undo', onClick: () => undoRef.current?.()}});
+  const setToast = ({message, error, description, actions = []}) => (quiet.current && !error) ? null : notify({id: 'organize', title: message, description, tone: error ? 'danger' : 'success', duration: error ? 9000 : actions.length ? 10000 : 6000, actions: error ? undefined : [...actions, {label: 'Undo', onClick: () => undoRef.current?.()}]});
 
   const accounts = useMemo(() => [...new Map(state.map(r => [r.accountId, {id: r.accountId, name: r.account, color: r.color}])).values()], [state]);
   const people = entities.filter(e => e.kind === 'person'), events = entities.filter(e => e.kind === 'group');
@@ -184,7 +262,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     const live = find(stateRef.current, id), row = find(next, id); if (!live || !row) return Promise.resolve(false);
     const desired = desiredOf(row), undoEntry = {rows: [snapshot(live)]};
     pendingDesired.current.set(id, desired); stateRef.current = next; setState(next);
-    if (message) setToast({message}); setHistory(h => [...h.slice(-29), undoEntry]);
+    if (message) setToast(typeof message === 'string' ? {message} : message); setHistory(h => [...h.slice(-29), undoEntry]);
     return enqueue(async () => {
       const server = find(serverRows.current, id); if (!server) return false;
       try { await persistWith(applyDesired(server, desired), server.version); }
@@ -251,7 +329,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     && (filter === 'all' || filter === 'unsorted' && unsorted(r) || filter === 'in' && r.amount > 0 && !isLinked(r) || filter === 'out' && r.amount < 0 && !isLinked(r) || filter === 'transfers' && twinFilter?.has(r.id) || filter === 'suggested' && starOf(r)?.state === 'ready' || filter === 'auto' && autoApplied.current.has(r.id))
     && (!accountFilter.length || accountFilter.includes(r.accountId))
     && `${r.name} ${r.raw.originalDescription || ''} ${r.account}`.toLowerCase().includes(query.trim().toLowerCase()))
-    .sort((a, b) => b.date.localeCompare(a.date) || a.account.localeCompare(b.account) || a.id.localeCompare(b.id)), [state, filter, twinFilter, accountFilter, query, (filter === 'suggested' || filter === 'auto') && suggestTick]);
+    .sort(listOrder), [state, filter, twinFilter, accountFilter, query, (filter === 'suggested' || filter === 'auto') && store.version]);
   useEffect(() => { setLimit(PAGE); }, [filter, accountFilter, query]);
   useEffect(() => {
     if (!target?.id || !state.length) return;
@@ -262,12 +340,40 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     setOpen(target.id); setSelected([]);
     requestAnimationFrame(() => document.querySelector(`[data-row="${target.id}"]`)?.scrollIntoView({block: 'center'}));
   }, [target?.key, state.length > 0]);
-  useEffect(() => { if (target && !target.id && target.mode === 'transfers') setFilter('transfers'); }, [target?.key]);
+  // "Organize these transactions" lands on the Unsorted filter with its first row open.
+  const landing = useRef(null);
+  useEffect(() => {
+    if (!target || target.id) return;
+    if (target.mode === 'transfers') setFilter('transfers');
+    if (target.mode === 'unsorted') { setFilter('unsorted'); setAccountFilter([]); setQuery(''); landing.current = target.key; }
+  }, [target?.key]);
+  useEffect(() => {
+    if (!landing.current || !state.length || filter !== 'unsorted' || query || accountFilter.length) return;
+    landing.current = null;
+    const first = visible.find(candidate);
+    if (first) showRow(first.id, 'center');
+  }, [state, filter, visible]);
   const unsortedCount = useMemo(() => state.filter(r => r.amount !== 0 && unsorted(r)).length, [state]);
+  // A month whose last unsorted row was just sorted says so, once.
+  const monthsLeft = useRef(null);
+  useEffect(() => {
+    if (!state.length) return;
+    const left = new Map(); for (const r of state) if (r.amount !== 0) { const m = r.date.slice(0, 7); left.set(m, (left.get(m) || 0) + (unsorted(r) ? 1 : 0)); }
+    const before = monthsLeft.current; monthsLeft.current = left;
+    if (!before || quiet.current) return;
+    const done = [...left].filter(([m, n]) => n === 0 && before.get(m) > 0).map(([m]) => m);
+    if (done.length === 1) notify({id: 'organize-month', title: `${new Date(done[0] + '-15T12:00:00').toLocaleDateString('en-CA', {month: 'long', year: 'numeric'})} is done`, description: 'Every transaction in it is sorted.', tone: 'neutral', duration: 5000});
+  }, [state]);
   const readyCount = state.filter(r => r.amount !== 0 && starOf(r)?.state === 'ready').length;
   const starsOn = assistantReady && (smart || !!batch || suggestions.current.size > 0);
   const shownRows = visible.slice(0, limit), openRow = open ? find(state, open) : null, twinIds = openRow ? twins(openRow).map(t => t.id) : [];
-  const nextUnsorted = openRow ? (visible.slice(visible.findIndex(x => x.id === openRow.id) + 1).find(r => unsorted(r)) || null) : null;
+  const visibleRef = useRef(visible); visibleRef.current = visible;
+  // Rows put off with Later stay unsorted but out of the advance order for this session.
+  function candidate(r) { return unsorted(r) && !later.has(r.id); }
+  const comesBefore = (a, b) => listOrder(a, b) < 0;
+  const nextUnsorted = openRow ? nextRow(visible, openRow, r => r.id !== openRow.id && candidate(r), comesBefore) : null;
+  // The row last open, so n and the advance carry on from it even after it has left the list.
+  useEffect(() => { const r = open && find(stateRef.current, open); if (r) organizeStore.lastOpen = {id: r.id, date: r.date, account: r.account}; }, [open]);
   useEffect(() => {
     if (!smart || !openRow || !unsorted(openRow)) return;
     askClaude(openRow);
@@ -278,46 +384,129 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const openAnswer = openRow ? suggestions.current.get(openRow.id) : null;
   useEffect(() => {
     if (!autoApply || !openRow || !unsorted(openRow) || openAnswer?.status !== 'done' || autoApplied.current.has(openRow.id) || batchRun.current) return;
-    const list = trusted(openAnswer.result); if (!list.length) return;
-    autoApplied.current.add(openRow.id);
+    const list = autoPlan(openRow, openAnswer.result).apply; if (!list.length) return;
+    autoApplied.current.add(openRow.id); storeChanged();
     applySuggestions(openRow, list, {advance: false});
   }, [openAnswer, autoApply]);
   const days = []; for (const r of shownRows) { const g = days.at(-1); if (g && g.date === r.date) g.rows.push(r); else days.push({date: r.date, rows: [r]}); }
 
-  function closeEditor(advance, skip = []) {
-    const current = open, next = r => r.id !== current && !skip.includes(r.id) && unsorted(r);
-    if (advance && flow) {
-      const after = visible.slice(visible.findIndex(x => x.id === current) + 1).find(next) || visible.find(next);
-      setOpen(after?.id || null);
-      if (after) requestAnimationFrame(() => document.querySelector(`[data-row="${after.id}"]`)?.scrollIntoView({block: 'nearest'}));
-    } else { setOpen(null); requestAnimationFrame(() => document.querySelector(`[data-row="${current}"] .od-row-main`)?.focus()); }
+  /* A waiting suggestion, drawn in the closed row's strip as dashed outlines over the unsorted gap ("Groceries?"). */
+  function ghostOf(row) {
+    const s = suggestions.current.get(row.id), gap = rest(row);
+    if (s?.status !== 'done' || gap <= 0 || !unsorted(row)) return null;
+    const list = waitingSuggestions(row, s.result, entities, events); if (!list.length) return null;
+    const nameOf = x => x.kind === 'tag' ? entities.find(e => e.id === x.id)?.name : x.kind === 'new-tag' ? x.name : x.kind === 'twin' ? `${row.amount < 0 ? 'To' : 'From'} ${find(state, x.id)?.account || 'another account'}` : x.kind === 'settle' ? `${people.find(p => p.id === x.id)?.name || 'Someone'} settles up` : x.kind === 'share' ? `Shared with ${people.find(p => p.id === x.id)?.name || 'someone'}` : x.kind === 'payee' ? `Paid ${people.find(p => p.id === x.id)?.name || 'someone'}` : events.find(e => e.id === x.id)?.name;
+    const twin = list.find(x => x.kind === 'twin');
+    if (twin) return {parts: [{id: 'ghost-twin', name: nameOf(twin) + '?', cents: gap}], left: 0};
+    let left = gap; const out = [];
+    for (const x of list.filter(x => ['tag', 'new-tag', 'settle'].includes(x.kind))) { const c = Math.min(x.cents > 0 ? x.cents : left, left); if (c > 0 && nameOf(x)) { out.push({id: 'ghost-' + x.kind + (x.id || x.name), name: nameOf(x) + '?', cents: c}); left -= c; } }
+    if (!out.length) { const name = list.map(nameOf).filter(Boolean)[0]; if (!name) return null; return {parts: [{id: 'ghost', name: name + '?', cents: gap}], left: 0}; }
+    return {parts: out, left};
+  }
+
+  /* Moving through the list */
+  function showRow(id, block = 'nearest') {
+    setOpen(id); setSelected([]);
+    const index = visibleRef.current.findIndex(r => r.id === id);
+    if (index >= limit) setLimit(Math.ceil((index + 1) / PAGE) * PAGE);
+    requestAnimationFrame(() => { const el = document.querySelector(`[data-row="${id}"]`); el?.scrollIntoView({block}); if (el && !el.contains(document.activeElement)) el.querySelector('.od-row-main')?.focus({preventScroll: true}); });
+  }
+  /* Focus a row's header, or, when it has left the list, the row that took its place, so the keys keep working. */
+  function focusNear(row) {
+    if (!row) return;
+    requestAnimationFrame(() => {
+      const here = document.querySelector(`[data-row="${row.id}"] .od-row-main`);
+      const near = here ? null : nextRow(visibleRef.current, row, () => true, comesBefore);
+      (here || (near && document.querySelector(`[data-row="${near.id}"] .od-row-main`)))?.focus();
+    });
+  }
+  function closeEditor(advance, skip = [], always = false) {
+    const current = open ? (find(stateRef.current, open) || find(state, open)) : null;
+    if (advance && (flow || always)) {
+      const after = nextRow(visible, current, r => r.id !== current?.id && !skip.includes(r.id) && candidate(r), comesBefore);
+      if (after) { showRow(after.id); return; }
+    }
+    setOpen(null); focusNear(current);
+  }
+  /* n: the next unsorted row after the one open, or after the one last open. */
+  function goNext() {
+    const from = openRow || organizeStore.lastOpen;
+    const next = nextRow(visible, from, r => r.id !== open && candidate(r), comesBefore);
+    if (next) showRow(next.id);
+  }
+  /* Later (s): leave the row unsorted and move on; it stays out of the advance order this session. */
+  function putOff(id) {
+    const row = id && find(state, id); if (!row) return;
+    organizeStore.later.add(id); storeChanged();
+    notify({id: 'organize', title: `Left ${row.name} for later`, description: 'Next and n skip it for now.', tone: 'neutral', duration: 6000, action: {label: 'Bring it back', onClick: () => { organizeStore.later.delete(id); storeChanged(); }}});
+    if (id === open) closeEditor(true, [id], true);
+    else { const next = nextRow(visibleRef.current, row, r => r.id !== id && candidate(r), comesBefore); if (next) focusNear(next); }
   }
   function select(id, range) {
     setSelected(sel => { if (range && anchor) { const ids = visible.map(r => r.id), a = ids.indexOf(anchor), b = ids.indexOf(id); return ids.slice(Math.min(a, b), Math.max(a, b) + 1); } return sel.includes(id) ? sel.filter(x => x !== id) : [...sel, id]; });
     if (!range) setAnchor(id); setOpen(null);
   }
+  /* The shortcuts listen on the whole page while Organize is open, so they work whenever nothing editable
+     has focus (after a row leaves the list, focus would otherwise fall to the page and the keys go quiet). */
+  const keysRef = useRef(null); keysRef.current = keys;
+  useEffect(() => { const listen = e => keysRef.current?.(e); document.addEventListener('keydown', listen); return () => document.removeEventListener('keydown', listen); }, []);
   function keys(e) {
-    if (e.target.closest('input, textarea, select, .od-editor, dialog')) return;
+    const t = e.target instanceof Element ? e.target : null;
+    if (e.defaultPrevented || t?.closest('input, textarea, select, [contenteditable="true"], dialog, [role="dialog"], .floating-menu') || document.querySelector('dialog[open]')) return;
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && e.key === 'z') { e.preventDefault(); undo(); return; }
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const mains = [...(listRef.current?.querySelectorAll('.od-row-main') || [])], i = mains.indexOf(document.activeElement);
+    const focused = i >= 0 ? mains[i].closest('[data-row]')?.dataset.row : null;
+    if (e.key === 'n') { e.preventDefault(); goNext(); return; }
+    if (e.key === 's') { e.preventDefault(); putOff(open || focused); return; }
+    if (t?.closest('.od-editor, .od-claude-panel, .od-batch')) return;
     if (e.key === 'ArrowDown' || e.key === 'j') { e.preventDefault(); (mains[i + 1] || mains[0])?.focus(); }
     else if (e.key === 'ArrowUp' || e.key === 'k') { e.preventDefault(); (mains[i - 1] || mains.at(-1))?.focus(); }
-    else if (e.key === 'n') { e.preventDefault(); const next = visible.find(r => unsorted(r) && r.id !== open); if (next) { setOpen(next.id); requestAnimationFrame(() => document.querySelector(`[data-row="${next.id}"]`)?.scrollIntoView({block: 'nearest'})); } }
-    else if (e.key === 'x' && i >= 0) { e.preventDefault(); const id = mains[i].closest('[data-row]')?.dataset.row; if (id) select(id, false); }
-    else if (e.key === 'Escape') { setOpen(null); setSelected([]); }
-    else if ((e.ctrlKey || e.metaKey) && e.key === 'z') { e.preventDefault(); undo(); }
+    else if (e.key === 'x' && focused) { e.preventDefault(); select(focused, false); }
+    else if (e.key === 'a' && (focused || open)) { e.preventDefault(); acceptSuggestion(find(state, focused || open)); }
+    else if (e.key === 'Escape' && (open || selected.length)) { const was = openRow; setOpen(null); setSelected([]); focusNear(was); }
+  }
+  /* a: accept what Claude suggested for a row, as Apply would with the boxes as they start. */
+  function acceptSuggestion(row) {
+    const s = row && suggestions.current.get(row.id);
+    if (!row || s?.status !== 'done') return;
+    const list = waitingSuggestions(row, s.result, entities, events).filter(x => x.confidence !== 'low');
+    if (list.length) applySuggestions(row, list, {advance: row.id === open});
   }
 
   /* Row-level operations */
-  function toggleTag(row, tag) {
+  // Untouched: nothing on it yet, so tagging it like its twin by name cannot overwrite a decision.
+  const untouched = r => unsorted(r) && !r.layers.length && !isLinked(r) && !r.raw.review.assignedPersonId && !sharedWith(r).length && r.raw.review.templateReview !== 'pending';
+  function toggleTag(row, tag, {message} = {}) {
     const present = row.layers.some(l => l.id === 'tag:' + tag.id), first = !row.layers.length, completes = first && rest(row) > 0;
+    // Same again: a first tag on a name that other untouched rows share offers to tag them too, or always.
+    const others = !present && completes ? sameUntouched(stateRef.current, row, {untouched}) : [];
+    const title = message || `${present ? 'Removed' : 'Tagged'} ${tag.name}`;
+    const toast = others.length ? {message: title, description: `${count(others.length, 'more', 'more')} ${row.name} unsorted`, actions: [
+      {label: 'Tag them too', onClick: () => organizeStore.host?.tagMany(others.map(o => o.id), tag, row.amount > 0 ? 'income' : 'expense')},
+      {label: 'Always', onClick: () => organizeStore.host?.alwaysLike(row.id)},
+    ]} : title;
     const ok = change(row.id, rows => {
       if (present) { remove(rows, row.id, 'tag:' + tag.id); return; }
       const r = find(rows, row.id); let cents = rest(r);
       if (!cents) { const largest = r.layers.filter(l => l.kind === 'tag').sort((a, b) => b.cents - a.cents)[0]; if (!largest || largest.cents < 2) throw Error('Lower another part to make room for a tag.'); cents = Math.floor(largest.cents / 2); largest.cents -= cents; }
       add(rows, row.id, 'tag', tag.id, cents, tag);
-    }, `${present ? 'Removed' : 'Tagged'} ${tag.name}`);
+    }, toast);
     if (!present && completes && flow && find(stateRef.current, row.id) && rest(find(stateRef.current, row.id)) === 0) closeEditor(true);
     return ok;
+  }
+  /* "Always": the rule editor, filled in from this row as it is now. */
+  function alwaysLike(id) { const r = find(stateRef.current, id), rule = r && captureTemplate(r); if (rule) setTemplate(rule); }
+  /* Create tag '<text>': a new ungrouped tag for this direction, applied at once. */
+  async function createTag(row, name) {
+    const flowType = row.amount > 0 ? 'income' : 'expense';
+    const known = entities.find(e => e.kind === 'category' && tagType(e) === flowType && e.name.toLowerCase() === name.toLowerCase());
+    if (known) return toggleTag(row, known);
+    let id;
+    try { id = await api().saveEntity('category', {name, flowType, parentId: '', color: '#9aa993'}); }
+    catch (e) { setToast({message: e.message, error: true}); return false; }
+    const live = find(stateRef.current, row.id); if (!live) return false;
+    return toggleTag(live, {id, name, kind: 'category', flowType, color: 'var(--data-neutral)'}, {message: flowType === 'income' ? `Created tag ${name}` : `Created tag ${name}. Move it into a category in Settings.`});
   }
   const toggleEvent = (row, event) => change(row.id, rows => { const r = find(rows, row.id); r.groups = r.groups.includes(event.id) ? [] : [event.id]; }, row.groups.includes(event.id) ? `Removed from ${event.name}` : row.groups.length ? `Moved to ${event.name}` : `Added to ${event.name}`);
   function evenShares(rows, row, personIds) { const paid = Object.fromEntries(personIds.map(id => [id, repayment(rows, row.id, id)])); return Object.fromEntries(splitShares(total(row), personIds, paid).map(s => [s.id, s.cents])); }
@@ -342,31 +531,43 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     for (const o of open) { const take = Math.min(o.left, left); if (take > 0) lines.push({id: o.row.id, cents: take, name: o.row.name}); left -= take; if (!left) break; }
     return change(receipt.id, rows => { const r = find(rows, receipt.id); r.person = personId; for (const l of lines) { const existing = r.layers.find(x => x.kind === 'expense' && x.target === l.id); if (existing) existing.cents += l.cents; else add(rows, receipt.id, 'expense', l.id, l.cents, {color: people.find(p => p.id === personId)?.color}); } }, `${money(amount, receipt.currency)} settled with ${name} · ${lines.length === 1 ? lines[0].name : `${lines.length} expenses`} · ${money(owed - amount, receipt.currency)} still owed`);
   }
+  /* The describe box's options for a row, each marked with why it might be the answer (a twin, history,
+     a person the description names, the choice just made on a row with the same name). organize-rules.mjs
+     orders them and decides what Enter takes. */
   function describeOptions(row) {
     const flowKind = row.amount > 0 ? 'income' : 'expense', locked = isLinked(row);
     const history = [...new Map(state.filter(t => t.id !== row.id && t.name === row.name).flatMap(t => t.layers.filter(l => l.kind === 'tag')).map(l => [l.target, l])).keys()].map(id => tagChoices.find(t => t.id === id)).filter(Boolean).slice(0, 2);
     const guess = people.find(p => { const first = p.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return first.length > 1 && new RegExp(`\\b${first}\\b`, 'i').test(row.raw.originalDescription || row.name); });
+    const same = lastPick && lastPick.name === row.name && lastPick.id !== row.id ? lastPick : null;
     return q => {
       const query = q.trim().toLowerCase(), hit = s => !query || (s || '').toLowerCase().includes(query), out = [];
       if (!locked) for (const t of twins(row)) if (!query || hit(t.account) || hit('move') || hit('transfer')) out.push({kind: 'twin', id: t.id, label: `${row.amount < 0 ? 'To' : 'From'} ${t.account}`, hint: `${t.name} · ${dayLabel(t.date)} · ${signed(t.amount, t.currency)}`, color: t.color});
-      if (!locked && row.amount > 0) for (const p of people) { const owed = balanceOf(state, p.id, row.id); if ((!query && (owed > 0 || p.id === guess?.id)) || (query && (hit(p.name) || hit('settle') || hit('repay') || hit('paid')))) out.push({kind: 'person', id: p.id, label: `${p.name} settles up`, hint: owed > 0 ? `owes you ${money(owed, row.currency)}${rest(row) < owed ? ` · ${money(rest(row), row.currency)} of it here` : ''}` : 'owes nothing · share an expense first', color: p.color, disabled: !owed}); }
-      if (!locked && row.amount < 0) for (const p of people) if (query && (hit(p.name) || hit('paid') || hit('back'))) out.push({kind: 'payee', id: p.id, label: `Paid ${p.name} back`, hint: 'Your cost, routed through a person', color: p.color, on: row.raw.review.assignedPersonId === p.id});
-      if (!locked && row.amount < 0) for (const p of people) if (query && (hit(p.name) || hit('shared') || hit('split') || hit('owes'))) { const on = sharedWith(row).includes(p.id), paid = repayment(state, row.id, p.id); out.push({kind: 'share', id: p.id, label: `Shared with ${p.name}`, hint: on ? `${p.name} owes ${money(row.shares[p.id], row.currency)}${paid ? ` · ${money(paid, row.currency)} settled` : ''}` : paid ? `Has settled ${money(paid, row.currency)} · joins the split` : 'Even split by default', color: p.color, on}); }
-      if (!locked) { if (!query) for (const t of history) out.push({kind: 'tag', id: t.id, label: t.name, hint: 'Used before for this name', color: t.color, on: row.layers.some(l => l.id === 'tag:' + t.id)});
+      if (!locked && row.amount > 0) for (const p of people) { const owed = balanceOf(state, p.id, row.id); if ((!query && (owed > 0 || p.id === guess?.id)) || (query && (hit(p.name) || hit('settle') || hit('repay') || hit('paid')))) out.push({kind: 'person', id: p.id, label: `${p.name} settles up`, hint: owed > 0 ? `owes you ${money(owed, row.currency)}${rest(row) < owed ? ` · ${money(rest(row), row.currency)} of it here` : ''}` : 'owes nothing · share an expense first', color: p.color, disabled: !owed, guess: !query && p.id === guess?.id}); }
+      if (!locked && row.amount < 0) for (const p of people) if ((query && (hit(p.name) || hit('paid') || hit('back'))) || (!query && p.id === guess?.id)) out.push({kind: 'payee', id: p.id, label: `Paid ${p.name}`, hint: 'Your cost, paid to a person', color: p.color, on: row.raw.review.assignedPersonId === p.id, guess: !query});
+      if (!locked && row.amount < 0) for (const p of people) if ((query && (hit(p.name) || hit('shared') || hit('split') || hit('owes'))) || (!query && p.id === guess?.id)) { const on = sharedWith(row).includes(p.id), paid = repayment(state, row.id, p.id); out.push({kind: 'share', id: p.id, label: `Shared with ${p.name}`, hint: on ? `${p.name} owes ${money(row.shares[p.id], row.currency)}${paid ? ` · ${money(paid, row.currency)} settled` : ''}` : paid ? `Has settled ${money(paid, row.currency)} · joins the split` : 'Even split by default', color: p.color, on, guess: !query}); }
+      if (!locked) { if (!query) for (const t of history) out.push({kind: 'tag', id: t.id, label: t.name, hint: t.parentId ? bucketName(t.parentId) : flowKind === 'income' ? 'Income' : 'Ungrouped', color: t.color, on: row.layers.some(l => l.id === 'tag:' + t.id), history: true});
         for (const t of tagChoices) if (tagType(t) === flowKind && (hit(t.name) || hit(bucketName(t.parentId))) && !(!query && history.includes(t))) out.push({kind: 'tag', id: t.id, label: t.name, hint: t.parentId ? bucketName(t.parentId) : flowKind === 'income' ? 'Income' : 'Ungrouped', color: t.color, on: row.layers.some(l => l.id === 'tag:' + t.id)}); }
       for (const e of events) if (hit(e.name) || hit('event')) out.push({kind: 'event', id: e.id, label: e.name, hint: e.startDate && e.endDate ? `${rangeLabel(e.startDate, e.endDate)}${e.participants?.length ? ` · split with ${e.participants.map(personName).join(', ')}` : ''}` : 'Dates required', color: e.color, on: row.groups.includes(e.id)});
       if (!locked && query) for (const a of accounts) if (a.id !== row.accountId && (hit(a.name) || hit('transfer') || hit('move')) && !out.some(o => o.kind === 'twin' && find(state, o.id)?.accountId === a.id)) out.push({kind: 'account', id: a.id, label: `${row.amount < 0 ? 'To' : 'From'} ${a.name}`, hint: 'No matching entry within your transfer settings', color: a.color, disabled: true});
-      return out.slice(0, 14);
+      // Same as last: the choice just made on a row with this name, while it is not on this row already.
+      if (same && !query) { const o = out.find(x => x.kind === same.kind && x.id === same.pick && !x.on && !x.disabled); if (o) o.same = true; }
+      // Nothing by that name: offer to create it as a tag for this direction.
+      if (!locked && query && !tagChoices.some(t => tagType(t) === flowKind && t.name.toLowerCase() === query)) out.push({kind: 'create', id: 'create', name: q.trim().replace(/\s+/g, ' '), label: `Create tag “${q.trim().replace(/\s+/g, ' ')}”`, hint: flowKind === 'income' ? 'A new income tag' : 'A new expense tag, ungrouped', color: 'var(--data-neutral)'});
+      return out;
     };
   }
   function pickFor(row) {
     return o => {
+      const first = !row.layers.length && !isLinked(row) && !row.raw.review.assignedPersonId && !sharedWith(row).length;
+      if (['tag', 'event', 'share', 'payee', 'person'].includes(o.kind)) setLastPick({name: row.name, id: row.id, kind: o.kind, pick: o.id});
       if (o.kind === 'tag') toggleTag(row, entities.find(e => e.id === o.id));
+      else if (o.kind === 'create') createTag(row, o.name);
       else if (o.kind === 'event') toggleEvent(row, entities.find(e => e.id === o.id));
       else if (o.kind === 'share') toggleShare(row, people.find(p => p.id === o.id));
-      else if (o.kind === 'payee') setPayee(row, o.id);
-      else if (o.kind === 'twin') linkPair(row.id, o.id);
-      else if (o.kind === 'person') settle(row, o.id);
+      // A first sort moves on, as a first tag does: paying a person, linking a move, settling the whole receipt.
+      else if (o.kind === 'payee') { setPayee(row, o.id); if (first && flow && row.raw.review.assignedPersonId !== o.id) closeEditor(true); }
+      else if (o.kind === 'twin') { linkPair(row.id, o.id); if (flow && !isLinked(row)) closeEditor(true, [o.id]); }
+      else if (o.kind === 'person') { settle(row, o.id); const after = find(stateRef.current, row.id); if (first && flow && after && rest(after) === 0) closeEditor(true); }
     };
   }
   /* What Claude sees for one row: the line, what it can be (the same candidates the describe box offers)
@@ -415,12 +616,16 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
      skipped. A failed or skipped answer goes to the back of the queue once more. Every row ends in exactly
      one outcome, so the counts add up to the total. */
   async function suggestAll() {
+    // One run at a time, for the whole session. The run works through whichever desk is mounted (organizeStore.host),
+    // so it carries on, and stays visible, when you leave Organize and come back.
+    if (organizeStore.run) return;
+    const H = () => organizeStore.host;
     if (!readiness(assistant.state).ok) { notify({id: 'assistant-setup', title: "Claude isn't ready", description: readiness(assistant.state).reason, tone: 'warning'}); return; }
     const settings = assistant.state.settings, slots = settings.organizeSlots || 16, size = settings.organizeBatch || 1;
-    const queued = stateRef.current.filter(r => r.amount !== 0 && unsorted(r) && (!suggestions.current.get(r.id) || ['error', 'dismissed'].includes(suggestions.current.get(r.id).status) || (autoApply && suggestions.current.get(r.id).status === 'done')))
+    const queued = H().stateRef.current.filter(r => r.amount !== 0 && unsorted(r) && (!suggestions.current.get(r.id) || ['error', 'dismissed'].includes(suggestions.current.get(r.id).status) || (autoApply && suggestions.current.get(r.id).status === 'done')))
       .sort((a, b) => b.date.localeCompare(a.date) || a.id.localeCompare(b.id)).map(r => r.id);
     if (!queued.length) { setToast({message: 'Every unsorted row already has a suggestion.'}); return; }
-    const run = {stop: false, auto: autoApply, total: queued.length, done: 0, active: 0, slots, counts: {applied: 0, review: 0, nothing: 0, skipped: 0, failed: 0}, claimed: new Set(), retried: new Set(), appliedIds: new Set(), attempts: new Map(), backoff: 0, waitUntil: 0, limit: '', lastError: '', capacity: slots, clean: 0, inFlight: 0};
+    const run = {stop: false, auto: autoApply, total: queued.length, done: 0, active: 0, slots, counts: {applied: 0, review: 0, nothing: 0, skipped: 0, failed: 0}, claimed: new Set(), retried: new Set(), appliedIds: new Set(), attempts: new Map(), backoff: 0, waitUntil: 0, limit: '', lastError: '', capacity: slots, clean: 0, inFlight: 0, held: 0};
     const show = () => { if (batchRun.current === run) setBatch({total: run.total, done: run.done, active: run.active, slots, auto: run.auto, counts: {...run.counts}, waitUntil: run.waitUntil, capacity: run.capacity, inFlight: run.inFlight, size}); };
     // Anthropic sometimes turns requests away (a rate limit, a busy service, a dropped connection); those rows go
     // back to the front of the queue and every slot pauses, longer each time, before trying again. An empty credit
@@ -431,10 +636,10 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     const settleRow = (id, outcome) => { run.counts[outcome]++; run.done++; };
     batchRun.current = run; show();
     // A row the run can't use any more: sorted since it was queued, or claimed by a link from its other half.
-    const gone = id => { const live = find(stateRef.current, id); return !live || !unsorted(live) || run.claimed.has(id); };
+    const gone = id => { const live = find(H().stateRef.current, id); return !live || !unsorted(live) || run.claimed.has(id); };
     const take = () => {
       const rows = [];
-      while (rows.length < size && queued.length) { const id = queued.shift(); if (gone(id)) settleRow(id, 'skipped'); else rows.push(find(stateRef.current, id)); }
+      while (rows.length < size && queued.length) { const id = queued.shift(); if (gone(id)) settleRow(id, 'skipped'); else rows.push(find(H().stateRef.current, id)); }
       return rows;
     };
     const slot = async () => {
@@ -448,7 +653,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
         for (const r of rows) suggestions.current.set(r.id, {status: 'loading'});
         setSuggestTick(n => n + 1); show();
         let answers;
-        try { const view = freshView(run.claimed); answers = await api().suggestOrganizeBatch(rows.map(r => aiContext(r, view))); }
+        try { const view = H().freshView(run.claimed); answers = await api().suggestOrganizeBatch(rows.map(r => H().aiContext(r, view))); }
         catch (e) {
           // A refusal that has nothing to do with load (consent off, signed out, Claude missing) stops the run with its reason.
           if (!transient(e.message) && !exhausted(e.message)) { run.fatal = e.message; run.stop = true; run.active--; run.inFlight -= rows.length; for (const r of rows) suggestions.current.delete(r.id); setSuggestTick(n => n + 1); return; }
@@ -486,11 +691,11 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           if (!run.auto) { settleRow(row.id, 'review'); continue; }
           if (gone(row.id)) { settleRow(row.id, 'skipped'); continue; }
           // A move is only applied while both halves are still free; the other half is then claimed and skipped.
-          const list = trusted(answer).filter(s => s.kind !== 'twin' || !gone(s.id));
+          const plan = H().autoPlan(find(H().stateRef.current, row.id), answer, H().freshView(run.claimed)), list = plan.apply.filter(s => s.kind !== 'twin' || !gone(s.id));
           if (!list.length) { settleRow(row.id, 'review'); continue; }
           const twin = list.find(s => s.kind === 'twin');
           if (twin) { run.claimed.add(twin.id); run.claimed.add(row.id); }
-          if (await applySuggestions(find(stateRef.current, row.id), list, {advance: false})) { autoApplied.current.add(row.id); run.appliedIds.add(row.id); settleRow(row.id, 'applied'); }
+          if (await H().applySuggestions(find(H().stateRef.current, row.id), list, {advance: false})) { autoApplied.current.add(row.id); run.appliedIds.add(row.id); if (plan.hold.length) run.held++; settleRow(row.id, 'applied'); }
           else settleRow(row.id, 'review');
         }
         setSuggestTick(n => n + 1); show();
@@ -498,22 +703,24 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     };
     if (run.auto) quiet.current++;
     try { await Promise.all(Array.from({length: slots}, slot)); }
-    finally { if (run.auto) { await queue.current.catch(() => {}); quiet.current--; } }
+    finally { if (run.auto) { await H().queue.current.catch(() => {}); quiet.current--; } }
     if (batchRun.current !== run) return;
     batchRun.current = null; setBatch(null);
     const unreached = run.total - run.done;
+    // A run that ends while Organize is closed keeps its summary for when you come back.
+    const notify = toast => organizeStore.mounted ? showToast(toast) : (organizeStore.summary = toast);
     if (run.fatal) {
       notify({id: 'assistant-batch', title: "Claude couldn't run", description: `${run.fatal} Nothing was changed for the ${count(run.total - run.done, 'row', 'rows')} not reached.`, tone: 'danger', duration: 15000});
       return;
     }
     if (run.limit) {
-      notify({id: 'assistant-batch', title: 'Your Anthropic credit ran out', description: `${count(run.counts.applied, 'row', 'rows')} organized before it stopped; ${count(unreached, 'row', 'rows')} not reached yet. Add credits in the Anthropic Console, then run it again.`, tone: 'warning', duration: 15000, action: run.counts.applied && run.auto ? {label: 'Review them', onClick: () => setFilter('auto')} : undefined});
+      notify({id: 'assistant-batch', title: 'Your Anthropic credit ran out', description: `${count(run.counts.applied, 'row', 'rows')} organized before it stopped; ${count(unreached, 'row', 'rows')} not reached yet. Add credits in the Anthropic Console, then run it again.`, tone: 'warning', duration: 15000, action: run.counts.applied && run.auto ? {label: 'Review them', onClick: () => organizeStore.host?.setFilter('auto')} : undefined});
       return;
     }
-    const c = run.counts, partial = [...run.appliedIds].filter(id => { const r = find(stateRef.current, id); return r && unsorted(r); }).length;
-    const lines = [c.applied && `${count(c.applied, 'row', 'rows')} organized${run.auto && partial ? ` (${partial} still ${partial === 1 ? 'has an unsorted part' : 'have unsorted parts'})` : ''}`, c.review && `${c.review} ${c.review === 1 ? 'waits' : 'wait'} for review`, c.nothing && `${c.nothing} had nothing to suggest`, c.skipped && `${c.skipped} already sorted or linked`, c.failed && `${c.failed} failed after three tries`].filter(Boolean);
+    const c = run.counts, partial = [...run.appliedIds].filter(id => { const r = find(H().stateRef.current, id); return r && unsorted(r); }).length;
+    const lines = [c.applied && `${count(c.applied, 'row', 'rows')} organized${run.auto && partial ? ` (${partial} still ${partial === 1 ? 'has an unsorted part' : 'have unsorted parts'})` : ''}`, run.auto && run.held && `on ${count(run.held, 'row', 'rows')} of them Claude has more for you to review`, c.review && `${c.review} ${c.review === 1 ? 'waits' : 'wait'} for review`, c.nothing && `${c.nothing} had nothing to suggest`, c.skipped && `${c.skipped} already sorted or linked`, c.failed && `${c.failed} failed after three tries`].filter(Boolean);
     notify({id: 'assistant-batch', title: run.auto ? `Claude went through ${count(run.total, 'row', 'rows')}` : c.review ? `Suggestions ready for ${count(c.review, 'row', 'rows')}` : 'Claude had nothing to suggest', description: lines.join(' · ') + (c.failed ? `. Run it again to retry them${run.lastError ? ` (Claude said: ${run.lastError.slice(0, 160)})` : ''}.` : '.'), tone: c.failed ? 'warning' : c.applied || c.review ? 'success' : 'neutral', duration: 12000,
-      action: run.auto && c.applied ? {label: 'Review them', onClick: () => setFilter('auto')} : !run.auto && c.review ? {label: 'Show them', onClick: () => setFilter('suggested')} : undefined});
+      action: run.auto && c.applied ? {label: 'Review them', onClick: () => organizeStore.host?.setFilter('auto')} : !run.auto && c.review ? {label: 'Show them', onClick: () => organizeStore.host?.setFilter('suggested')} : undefined});
   }
   function stopBatch() {
     const run = batchRun.current; if (!run) return;
@@ -576,38 +783,62 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   }
   const batchFlow = selected.length > 1 ? (find(state, selected[0])?.amount > 0 ? 'income' : 'expense') : null;
   const batchTags = batchFlow ? tagChoices.filter(t => tagType(t) === batchFlow && t.name.toLowerCase().includes(batchQuery.toLowerCase())) : [];
-  function batchTag(tag) {
-    const ids = selected.filter(id => { const r = find(stateRef.current, id); return r && !isLinked(r) && (r.amount > 0) === (batchFlow === 'income') && !r.layers.some(l => l.id === 'tag:' + tag.id); });
+  function batchTag(tag, picked = selected, flowKind = batchFlow) {
+    const ids = picked.filter(id => { const r = find(stateRef.current, id); return r && !isLinked(r) && (r.amount > 0) === (flowKind === 'income') && !r.layers.some(l => l.id === 'tag:' + tag.id); });
     const next = clone(stateRef.current), done = [];
     for (const id of ids) { const r = find(next, id); let cents = rest(r); if (!cents) { const largest = r.layers.filter(l => l.kind === 'tag').sort((a, b) => b.cents - a.cents)[0]; if (!largest || largest.cents < 2) continue; cents = Math.floor(largest.cents / 2); largest.cents -= cents; } try { add(next, id, 'tag', tag.id, cents, tag); done.push(id); } catch {} }
-    const skipped = selected.length - done.length;
-    if (!done.length) { setToast({message: `None of the selected rows can take ${tag.name}. ${batchFlow === 'income' ? 'It is an income tag; the rows are money out or already tagged.' : 'It is an expense tag; the rows are money in or already tagged.'}`, error: true}); return; }
+    const skipped = picked.length - done.length;
+    if (!done.length) { setToast({message: `None of the selected rows can take ${tag.name}. ${flowKind === 'income' ? 'It is an income tag; the rows are money out or already tagged.' : 'It is an expense tag; the rows are money in or already tagged.'}`, error: true}); return; }
     const entry = {rows: done.map(id => snapshot(find(stateRef.current, id)))}, desired = new Map(done.map(id => [id, desiredOf(find(next, id))]));
     for (const [id, d] of desired) pendingDesired.current.set(id, d);
-    stateRef.current = next; setState(next); setSelected([]); setBatchQuery(''); setToast({message: `Tagged ${count(done.length, 'row', 'rows')} ${tag.name}${skipped ? ` · ${skipped} skipped (${batchFlow === 'income' ? 'money out' : 'money in'}, transfers or already tagged)` : ''}`}); setHistory(h => [...h.slice(-29), entry]);
+    stateRef.current = next; setState(next); setSelected([]); setBatchQuery(''); setToast({message: `Tagged ${count(done.length, 'row', 'rows')} ${tag.name}${skipped ? ` · ${skipped} skipped (${flowKind === 'income' ? 'money out' : 'money in'}, transfers or already tagged)` : ''}`}); setHistory(h => [...h.slice(-29), entry]);
     enqueue(async () => { for (const [id, d] of desired) { const server = find(serverRows.current, id); if (!server) continue; try { await saveRow(applyDesired(server, d), server.version); } catch (e) { setToast({message: e.message, error: true}); } if (pendingDesired.current.get(id) === d) pendingDesired.current.delete(id); } await load().catch(() => {}); return true; });
   }
 
+  /* Same again's "Tag them too": one batch, one Undo step. */
+  function tagMany(ids, tag, flowKind) { const wasOpen = open; batchTag(tag, ids, flowKind); if (wasOpen && ids.includes(wasOpen) && flow) closeEditor(true); }
+  // A running batch, and toasts' actions, work through the desk that is mounted now.
+  organizeStore.host = {stateRef, queue, freshView, aiContext, autoPlan, applySuggestions, setFilter, tagMany, alwaysLike};
+
   if (loadError && !state.length) return <section className="organize-desk workspace-page"><div className="page-heading"><div><h1>Organize</h1></div></div><Alert>{loadError}</Alert></section>;
+  const empty = loaded && !state.length && !loadError;
+  const claudeMode = !assistantReady ? 'unset' : autoApply ? 'applying' : smart ? 'suggesting' : 'off';
+  const claudeWord = {unset: 'Not set up', applying: 'Applying', suggesting: 'Suggesting', off: 'Off'}[claudeMode];
+  const countable = state.filter(r => r.amount !== 0), sortedCount = countable.length - unsortedCount;
   return (
-    <section className="organize-desk workspace-page" data-busy={busy || undefined} onKeyDown={keys}>
-      <div className="page-heading"><div><h1>Organize</h1><p>Every account in one list, newest first. Open a row and say what it is: a tag, who settled up or who you paid, an event, or the account it moved to. Each change saves at once, and Undo is always one step away.</p></div>
-        <div className="page-heading-actions">{batch
-          ? <span className="od-batch-run" role="status"><Icon name="sparkles" size={16} className="od-star-pulse" />{batchLabel(batch)}<small className="od-batch-slots">{batch.inFlight} with Claude now{batch.capacity < batch.slots ? ` · slowed to ${batch.capacity} of ${batch.slots} requests at once` : ''}</small><button type="button" className="sm ghost" onClick={stopBatch}>Stop</button></span>
-          : <button type="button" className="sm" disabled={!unsortedCount} onClick={suggestAll} title={autoApply ? 'Ask Claude about every unsorted row and apply what it is sure about.' : 'Ask Claude about every unsorted row. Nothing changes until you apply a suggestion.'}><Icon name="sparkles" size={16} />{autoApply ? 'Organize all unsorted' : 'Suggest for all unsorted'}</button>}
-          <span className="du-host od-smart"><Switch label="Smart organizing" checked={!!assistant.state?.settings.smartOrganize} onChange={setSmart} /></span>
-          <span className="du-host od-smart" title="Apply Claude's suggestions as they arrive, without review. Suggestions it is unsure about still wait for you."><Switch label="Apply automatically" checked={autoApply} onChange={setAutoApply} /></span><label className="od-flow"><input type="checkbox" checked={flow} onChange={e => setFlow(e.target.checked)} />Go to the next unsorted row after tagging</label></div></div>
-      <div className="od-filters">
-        <div className="od-chips" role="group" aria-label="Show">
-          {[['all', 'All'], ['unsorted', 'Unsorted'], ...(readyCount || filter === 'suggested' ? [['suggested', 'Suggested']] : []), ...(autoApplied.current.size || filter === 'auto' ? [['auto', 'Auto-applied']] : []), ['in', 'Money in'], ['out', 'Money out'], ['transfers', 'Transfers']].map(([id, label]) => <button key={id} type="button" className="sm" aria-pressed={filter === id} onClick={() => setFilter(id)}>{id === 'suggested' && <Icon name="sparkles" size={16} />}{label}{id === 'unsorted' && <span className="od-count" aria-label={`${unsortedCount} unsorted`}>{unsortedCount}</span>}{id === 'suggested' && <span className="od-count" aria-label={`${readyCount} with a suggestion`}>{readyCount}</span>}{id === 'auto' && <span className="od-count" aria-label={`${autoApplied.current.size} applied by Claude`}>{autoApplied.current.size}</span>}</button>)}
+    <section className="organize-desk workspace-page" data-busy={busy || undefined} ref={sectionRef} style={{'--od-sticky': stickyHeight + 'px'}}>
+      <div className="page-heading od-heading"><div className="od-title"><h1>Organize</h1>
+        <InfoDot label="Organize" align="start">Every account in one list, newest first. Open a row and say what it is: a tag, who settled up or who you paid, an event, or the account it moved to. Each change saves at once, and Undo is always one step away.</InfoDot></div>
+        {!empty && <div className="page-heading-actions">
+          {batch && <span className="od-batch-run" role="status"><Icon name="sparkles" size={16} className="od-star-pulse" />{batchLabel(batch)}<small className="od-batch-slots">{batch.inFlight} with Claude now{batch.capacity < batch.slots ? ` · slowed to ${batch.capacity} of ${batch.slots} requests at once` : ''}</small><button type="button" className="sm ghost" onClick={stopBatch}>Stop</button></span>}
+          <div className="od-claude" ref={claudeRef}>
+            <button type="button" className="sm" aria-expanded={claudeOpen} aria-controls={claudeId} onClick={() => setClaudeOpen(v => !v)}><Icon name="sparkles" size={16} />Claude<span className={'od-claude-state is-' + claudeMode}>{claudeWord}</span><Icon name="chevron-down" size={16} /></button>
+            {claudeOpen && <div className="od-claude-panel" id={claudeId} role="group" aria-label="Claude">
+              {!assistantReady && <p className="od-claude-note">{readiness(assistant.state).reason} <button type="button" className="link" onClick={() => { setClaudeOpen(false); location.hash = '#settings/assistant'; }}>Open Settings</button></p>}
+              <div className="od-claude-item">
+                <button type="button" className="sm" disabled={!unsortedCount || !!batch || !assistantReady} onClick={() => { setClaudeOpen(false); suggestAll(); }}><Icon name="sparkles" size={16} />{autoApply ? 'Organize all unsorted' : 'Suggest for all unsorted'}</button>
+                <small>{batch ? 'Claude is going through the unsorted rows now.' : autoApply ? 'Asks Claude about every unsorted row and applies what may be applied without review.' : 'Asks Claude about every unsorted row. Nothing changes until you apply a suggestion.'}</small>
+              </div>
+              <div className="od-claude-item"><span className="du-host od-smart"><Switch label="Smart organizing" checked={!!assistant.state?.settings.smartOrganize} onChange={setSmart} /></span><small>Asks Claude when you open an unsorted row.</small></div>
+              <div className="od-claude-item"><span className="du-host od-smart"><Switch label="Apply automatically" checked={autoApply} onChange={setAutoApply} /></span><small>{AUTO_APPLY_NOTE}</small></div>
+              <label className="od-flow"><input type="checkbox" checked={flow} onChange={e => setFlow(e.target.checked)} />Go to the next unsorted row after sorting one</label>
+            </div>}
+          </div>
+        </div>}</div>
+      {!empty && <div className="od-filters" ref={filtersRef}>
+        <div className="od-chiprow">
+          <div className="od-chips" role="group" aria-label="Show">
+            {[['all', 'All'], ['unsorted', 'Unsorted'], ...(readyCount || filter === 'suggested' ? [['suggested', 'Suggested']] : []), ...(autoApplied.current.size || filter === 'auto' ? [['auto', 'Auto-applied']] : []), ['in', 'Money in'], ['out', 'Money out'], ['transfers', 'Transfers']].map(([id, label]) => <button key={id} type="button" className="sm" aria-pressed={filter === id} onClick={() => setFilter(id)}>{id === 'suggested' && <Icon name="sparkles" size={16} />}{label}{id === 'unsorted' && <span className="od-count" aria-label={`${unsortedCount} unsorted`}>{unsortedCount}</span>}{id === 'suggested' && <span className="od-count" aria-label={`${readyCount} with a suggestion`}>{readyCount}</span>}{id === 'auto' && <span className="od-count" aria-label={`${autoApplied.current.size} applied by Claude`}>{autoApplied.current.size}</span>}</button>)}
+          </div>
+          {accounts.length > 1 && <div className="od-chips" role="group" aria-label="Accounts">
+            {accounts.map(a => <button key={a.id} type="button" className="sm" aria-pressed={accountFilter.includes(a.id)} onClick={() => setAccountFilter(f => f.includes(a.id) ? f.filter(x => x !== a.id) : [...f, a.id])}><i className="od-dot" style={{background: a.color}} />{a.name}</button>)}
+          </div>}
         </div>
-        {accounts.length > 1 && <div className="od-chips" role="group" aria-label="Accounts">
-          {accounts.map(a => <button key={a.id} type="button" className="sm" aria-pressed={accountFilter.includes(a.id)} onClick={() => setAccountFilter(f => f.includes(a.id) ? f.filter(x => x !== a.id) : [...f, a.id])}><i className="od-dot" style={{background: a.color}} />{a.name}</button>)}
-        </div>}
         <label className="od-search"><Icon name="search" size={16} /><input type="search" placeholder="Find a transaction" value={query} onChange={e => setQuery(e.target.value)} aria-label="Find a transaction" /></label>
-      </div>
+        {countable.length > 0 && <div className="od-progress" role="status" aria-label={`${sortedCount} of ${countable.length} sorted`}><span className="od-progress-bar"><i style={{width: `${Math.round(sortedCount / countable.length * 1000) / 10}%`}} /></span><small>{sortedCount.toLocaleString('en-CA')} of {countable.length.toLocaleString('en-CA')} sorted</small></div>}
+      </div>}
       {loadError && <Alert>{loadError}</Alert>}
-      <div className="od-head" aria-hidden="true"><span /><span>Transaction</span><span>Shape</span><span>Amount</span></div>
+      {!empty && <div className="od-head" aria-hidden="true"><span /><span>Transaction</span><span>Shape</span><span>Amount</span></div>}
       <ol className="od-ledger" aria-label="Ledger" ref={listRef}>
         {days.map(g => (
           <li key={g.date} className="od-day"><h2>{weekday(g.date)}</h2>
@@ -619,8 +850,8 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                   <div className="od-row-main" role="button" tabIndex={0} aria-expanded={isOpen} aria-label={`${r.name}, ${signed(r.amount, r.currency)}`}
                     onClick={e => { if (e.metaKey || e.ctrlKey || e.shiftKey) select(r.id, e.shiftKey); else { setOpen(isOpen ? null : r.id); setSelected([]); } }}
                     onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setOpen(isOpen ? null : r.id); setSelected([]); } }}>
-                    <span className="od-who"><i className="od-dot" style={{background: r.color}} /><b>{r.name}</b><small>{isOpen ? `${r.account} · ${dayLabel(r.date)}${r.raw.originalDescription && r.raw.originalDescription !== r.name ? ` · ${r.raw.originalDescription}` : ''}` : <>{r.account}{person ? ` · ${person.name}` : ''}{payee && !person ? ` · paid ${payee.name}` : ''}{shared.length ? ` · shared with ${shared.join(', ')}` : ''}{r.groups.length ? ` · ${r.groups.map(id => events.find(e => e.id === id)?.name).filter(Boolean).join(', ')}` : ''}{r.raw.review.templateReview === 'pending' ? ' · suggested by a rule' : ''}</>}</small></span>
-                    <span className="od-row-shape">{starsOn ? <span className="od-star-slot">{linked ? <Icon name="arrow-left-right" size={16} /> : (() => { const star = starOf(r); return star && <span className={'od-star is-' + star.state} title={star.label}><Icon name="sparkles" size={16} label={star.label} /></span>; })()}</span> : linked && <Icon name="arrow-left-right" size={16} />}<Shape row={r} shown={shown} currency={r.currency} /></span>
+                    <span className="od-who"><i className="od-dot" style={{background: r.color}} /><b>{r.name}</b><small>{isOpen ? `${r.account} · ${dayLabel(r.date)}${r.raw.originalDescription && r.raw.originalDescription !== r.name ? ` · ${r.raw.originalDescription}` : ''}` : <>{r.account}{person ? ` · ${person.name}` : ''}{payee && !person ? ` · paid ${payee.name}` : ''}{shared.length ? ` · shared with ${shared.join(', ')}` : ''}{r.groups.length ? ` · ${r.groups.map(id => events.find(e => e.id === id)?.name).filter(Boolean).join(', ')}` : ''}{r.raw.review.templateReview === 'pending' ? ' · suggested by a rule' : ''}{later.has(r.id) && unsorted(r) ? ' · left for later' : ''}</>}</small></span>
+                    <span className="od-row-shape">{starsOn ? <span className="od-star-slot">{linked ? <Icon name="arrow-left-right" size={16} /> : (() => { const star = starOf(r); return star && <span className={'od-star is-' + star.state} title={star.label}><Icon name="sparkles" size={16} label={star.label} /></span>; })()}</span> : linked && <Icon name="arrow-left-right" size={16} />}<Shape row={r} shown={shown} currency={r.currency} ghost={isOpen ? null : ghostOf(r)} /></span>
                     <span className="od-row-amount">{signed(r.amount, r.currency)}</span>
                   </div>
                   {twinOf && <button type="button" className="od-twin sm" disabled={busy} onClick={() => linkPair(twinOf, r.id)}><Icon name="link-2" size={16} />Same money</button>}
@@ -632,16 +863,16 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
                     capture={() => captureTemplate(r)} onTemplate={setTemplate} ruleRevision={ruleRevision}
-                    smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
+                    smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
           </li>
         ))}
         {!visible.length && state.length > 0 && <li className="od-empty">Nothing here. Change the filter or the search.</li>}
-        {!state.length && !loadError && <li className="od-empty">No transactions yet. Add a bank export in Snapshots.</li>}
+        {empty && <li className="od-empty is-start"><p>No transactions yet. Import a bank export and every account lands here, newest first.</p><button type="button" className="primary" onClick={() => { location.hash = '#snapshots'; }}><Icon name="upload" size={16} />Import a bank export</button></li>}
       </ol>
       {visible.length > limit && <div className="od-more"><button type="button" onClick={() => setLimit(n => n + PAGE)}>Show {Math.min(PAGE, visible.length - limit)} more</button><small>{limit.toLocaleString('en-CA')} of {visible.length.toLocaleString('en-CA')}</small></div>}
-      <p className="od-keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open, then type what it is · <kbd>n</kbd> next unsorted · <kbd>x</kbd> or the checkbox selects several · <kbd>Ctrl</kbd><kbd>Z</kbd> undo</p>
+      {!empty && <p className="od-keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open, then type what it is · <kbd>n</kbd> next unsorted · <kbd>s</kbd> later · {starsOn && <><kbd>a</kbd> accept Claude's suggestion · </>}<kbd>x</kbd> or the checkbox selects several · <kbd>Ctrl</kbd><kbd>Z</kbd> undo</p>}
       {selected.length > 1 && (
         <div className="od-batch" role="region" aria-label="Selected rows">
           <b>{selected.length} rows selected</b>
@@ -656,8 +887,14 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
 }
 
 /* The parts-first card: the box, the typed part rows with amount boxes, and fixed slots at the right. */
-function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, capture, onTemplate, ruleRevision, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions}) {
+function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, capture, onTemplate, ruleRevision, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
   const inputRef = useRef(null), [showDetails, setShowDetails] = useState(false), detailsId = React.useId();
+  // Which of Claude's suggestions are unchecked; Enter in an empty describe box applies the rest.
+  const [off, setOff] = useState({});
+  useEffect(() => setOff({}), [suggestion?.result]);
+  const waiting = smart && suggestion?.status === 'done' ? waitingSuggestions(row, suggestion.result, entities, events) : [];
+  const chosen = waiting.filter(s => !(off[suggestionKey(s)] ?? s.confidence === 'low'));
+  const applyChosen = chosen.length && !busy ? () => onApplySuggestions(chosen) : undefined;
   useEffect(() => { if (unsorted(row)) inputRef.current?.focus(); }, [row.id]);
   const gap = rest(row), linked = isLinked(row), received = row.amount < 0 ? repayment(state, row.id) : 0;
   const other = linked ? (find(state, row.raw.review.transferId) || paired(state, row.id) || find(state, row.layers.find(l => l.kind === 'transfer')?.target)) : null;
@@ -671,8 +908,9 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
   return (
     <div className="od-editor od-card" onKeyDown={e => { if (e.key === 'Escape') { e.stopPropagation(); onClose(false); } }}>
       <div className="od-card-main">
-        {smart && !linked && <Suggestions row={row} state={state} entities={entities} people={people} events={events} busy={busy} suggestion={suggestion} onAsk={onAsk} onApply={onApplySuggestions} onDismiss={onDismissSuggestions} />}
-        {!linked && <Describe options={describe} onPick={onPick} inputRef={inputRef} placeholder={row.amount > 0 ? 'Tag, who settled up, event or account…' : 'Tag, who you paid, shared with, event or account…'} />}
+        {smart && !linked && <Suggestions row={row} state={state} entities={entities} people={people} events={events} busy={busy} suggestion={suggestion} onAsk={onAsk} onApply={onApplySuggestions} onDismiss={onDismissSuggestions} off={off} setOff={setOff} enterHint={!!applyChosen} />}
+        {!linked && <div className="od-describe-row"><Describe options={describe} onPick={onPick} inputRef={inputRef} onEnterEmpty={applyChosen} placeholder={row.amount > 0 ? 'Tag, who settled up, event or account…' : 'Tag, who you paid, shared with, event or account…'} />
+          {unsorted(row) && onLater && <button type="button" className="sm ghost od-later" onClick={onLater} title="Leave it unsorted and move on. It stays out of the way until you come back to it.">Later<kbd>s</kbd></button>}</div>}
         {row.raw.review.templateReview === 'pending' && <p className="od-note od-note-rule">A rule suggested these settings. <button type="button" className="sm" onClick={onConfirm}>Keep them</button></p>}
         {row.legacyScaling && <p className="od-note">This receipt has older tags covering its full amount. Changing it here applies those tags proportionally to the remainder after its deductions.</p>}
         <div className="od-partlist">
@@ -695,7 +933,8 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
       </div>
       <div className="od-card-side">
         {row.amount < 0 && !linked && <div className="od-slot"><div className="od-slot-head"><b>Split</b><small>{shares.length ? `Your share ${money(row.shares.me || 0, row.currency)}${followsEvent ? ` · as ${event.name}` : canFollow ? ' · your own split' : ''}` : payee ? `Paid ${payee.name} · your cost` : 'Just you'}</small></div>
-          <div className="od-people">{people.map(p => { const s = shares.find(x => x.person.id === p.id); return <span key={p.id} className={'od-person' + (s ? ' is-on' : '')} style={{'--part': p.color}}><button type="button" aria-pressed={!!s} onClick={() => onShare(p)}><i />{p.name}</button>{s && <Amount value={s.cents} label={`Share for ${p.name}`} onCommit={c => onShareAmount(p.id, c)} />}{s && s.repaid > 0 && <small>{s.repaid >= s.cents ? 'Settled' : `${money(s.cents - s.repaid, row.currency)} owed`}</small>}</span>; })}</div>
+          {shares.length > 0 && <div className="od-split-lines">{shares.map(({person: p, cents, repaid}) => <div key={p.id} className="od-split-line" style={{'--part': p.color}}><button type="button" aria-pressed="true" onClick={() => onShare(p)} title={`Take ${p.name} out of the split`}><i />{p.name}</button><Amount value={cents} label={`Share for ${p.name}`} onCommit={c => onShareAmount(p.id, c)} /><small>{repaid >= cents ? 'settled' : repaid > 0 ? `${money(cents - repaid, row.currency)} owes` : 'owes'}</small></div>)}</div>}
+          {people.some(p => !shares.some(x => x.person.id === p.id)) && <div className="od-people">{people.filter(p => !shares.some(x => x.person.id === p.id)).map(p => <span key={p.id} className="od-person" style={{'--part': p.color}}><button type="button" aria-pressed="false" onClick={() => onShare(p)}><i />{p.name}</button></span>)}</div>}
           {(canFollow || shares.length > 1) && <div className="od-slot-actions">{canFollow && <button type="button" className="link" onClick={onFollowEvent}>Split like {event.name}</button>}{shares.length > 1 && !followsEvent && <button type="button" className="link" onClick={onSplitEvenly}>Split evenly</button>}</div>}
         </div>}
         <div className="od-slot"><div className="od-slot-head"><b>Event</b>{event?.startDate && <small>{rangeLabel(event.startDate, event.endDate)}</small>}</div>
@@ -710,9 +949,7 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
 
 /* Smart organizing on the open card: what Claude suggests, each with its reason and a checkbox, applied
    together with one button. Suggestions already on the row show as applied. */
-function Suggestions({row, state, entities, people, events, busy, suggestion, onAsk, onApply, onDismiss}) {
-  const [off, setOff] = useState({});
-  useEffect(() => setOff({}), [suggestion?.result]);
+function Suggestions({row, state, entities, people, events, busy, suggestion, onAsk, onApply, onDismiss, off, setOff, enterHint}) {
   if (!suggestion) return unsorted(row) ? null : <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Claude what this is</button></div>;
   if (suggestion.status === 'dismissed') return <div className="od-suggest-actions"><button type="button" className="link" onClick={onAsk}><Icon name="sparkles" size={16} />Ask Claude again</button></div>;
   if (suggestion.status === 'loading') return <div className="od-suggest is-loading" role="status"><div className="od-suggest-head"><Icon name="loader-circle" size={16} /><b>Claude is looking at this transaction…</b></div></div>;
@@ -729,9 +966,7 @@ function Suggestions({row, state, entities, people, events, busy, suggestion, on
     const e = events.find(x => x.id === s.id); return {nature: 'Event', label: e?.name || 'Event', color: e?.color, hint: e?.startDate ? rangeLabel(e.startDate, e.endDate) : ''};
   };
   // A suggested new tag that has since been created is offered as that tag.
-  const named = name => entities.find(e => e.kind === 'category' && e.name.toLowerCase() === name.toLowerCase());
-  const list = result.suggestions.filter(s => s.kind !== 'event' || events.some(e => e.id === s.id)).map(s => s.kind === 'new-tag' && named(s.name) ? {...s, kind: 'tag', id: named(s.name).id} : s);
-  const keyOf = s => s.kind + (s.id || s.name);
+  const list = suggestionList(result, entities, events), keyOf = suggestionKey;
   const pending = list.filter(s => !applied(s)), chosen = pending.filter(s => !(off[keyOf(s)] ?? s.confidence === 'low'));
   return (
     <div className="od-suggest" aria-label="Claude suggestions">
@@ -747,7 +982,7 @@ function Suggestions({row, state, entities, people, events, busy, suggestion, on
           </label>); })}
       </div>}
       <div className="od-suggest-actions">
-        {chosen.length > 0 && <button type="button" className="sm primary" disabled={busy} onClick={() => onApply(chosen)}><Icon name="check" size={16} />{chosen.length === pending.length && chosen.length > 1 ? 'Apply all' : `Apply ${count(chosen.length, 'suggestion', 'suggestions')}`}</button>}
+        {chosen.length > 0 && <button type="button" className="sm primary" disabled={busy} onClick={() => onApply(chosen)}><Icon name="check" size={16} />{chosen.length === pending.length && chosen.length > 1 ? 'Apply all' : `Apply ${count(chosen.length, 'suggestion', 'suggestions')}`}{enterHint && <kbd>Enter</kbd>}</button>}
         {pending.length > 0 && <button type="button" className="sm ghost" onClick={onDismiss}>Dismiss</button>}
         <button type="button" className="link" onClick={onAsk}>Ask again</button>
       </div>

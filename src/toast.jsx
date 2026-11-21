@@ -1,5 +1,6 @@
 // One place for transient confirmations: the package Toast, stacked bottom-left of the page area.
-// notify({ title, description, tone, action: { label, onClick }, duration }) returns an id.
+// notify({ title, description, tone, action: { label, onClick }, duration }) returns an id; `actions`
+// (an array of the same) puts several buttons on one toast.
 import React, { useEffect, useRef, useState } from "react";
 import { Toast, Button } from "@derekurban/design-system";
 
@@ -36,10 +37,14 @@ function TimedToast({ item, onDone }) {
         description={item.description}
         tone={item.tone}
         onDismiss={() => onDone(item.id)}
-        action={item.action && (
-          <Button variant="ghost" size="sm" onClick={() => { item.action.onClick(); onDone(item.id); }}>
-            {item.action.label}
-          </Button>
+        action={(item.actions || (item.action ? [item.action] : [])).length > 0 && (
+          <span className={"toast-actions" + ((item.actions || []).length > 1 ? " is-several" : "")}>
+            {(item.actions || [item.action]).map((action) => (
+              <Button key={action.label} variant="ghost" size="sm" onClick={() => { action.onClick(); onDone(item.id); }}>
+                {action.label}
+              </Button>
+            ))}
+          </span>
         )}
       />
     </div>
