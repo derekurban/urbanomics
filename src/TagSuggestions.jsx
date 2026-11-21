@@ -62,14 +62,16 @@ export function TagSuggestions({ mode, entities, onClose, onApplied }) {
   async function apply() {
     setApplying(true);
     const results = {};
+    let tagged = 0;
     const record = (key, ok, message) => { results[key] = { ok, message }; setOutcomes((o) => ({ ...o, [key]: { ok, message } })); };
     try {
-      if (mode === "restructure") await applyRestructure(chosen, edits, record);
-      else await applyMissing(chosen, edits, record);
+      tagged = mode === "restructure" ? await applyRestructure(chosen, edits, record) : await applyMissing(chosen, edits, record);
     } finally {
       setApplying(false); setApplied(true);
       const done = Object.values(results).filter((r) => r.ok).length, failed = Object.values(results).length - done;
-      notify({ title: failed ? `${plural(done, "change")} applied, ${failed} didn't` : `${plural(done, "change")} applied`, tone: failed ? "warning" : "success" });
+      const noun = mode === "restructure" ? "change" : "tag";
+      const what = mode === "restructure" ? "applied" : "created";
+      notify({ title: [failed ? `${plural(done, noun)} ${what}, ${failed} didn't` : `${plural(done, noun)} ${what}`, tagged ? `${plural(tagged, "transaction")} now tagged` : ""].filter(Boolean).join(" · "), tone: failed ? "warning" : "success" });
       onApplied?.();
     }
   }
@@ -85,8 +87,8 @@ export function TagSuggestions({ mode, entities, onClose, onApplied }) {
       {error ? <Alert title="Claude couldn't make suggestions.">{error}</Alert>
         : !result ? <Thinking title={mode === "restructure" ? "Claude is reading your categories and tags…" : "Claude is reading your transactions…"} detail={mode === "restructure" ? "It looks for duplicates, tags in the wrong place and vague categories. Nothing changes until you approve it." : "It looks for spending and income your tags don't cover yet. Nothing changes until you approve it."} />
         : !items.length ? <div className="empty-state"><Icon name="circle-check" size={24} /><h2>{mode === "restructure" ? "Your structure already reads well." : "Nothing is missing."}</h2><p>{mode === "restructure" ? "Claude didn't find a change worth making." : "Claude thinks your tags already cover your transactions."}</p></div>
-        : mode === "restructure" ? <Restructure result={result} picked={picked} setPicked={setPicked} blocked={blocked} outcomes={outcomes} applied={applied} edits={edits} setEdits={setEdits} />
-        : <Missing items={items} buckets={buckets} picked={picked} setPicked={setPicked} edits={edits} setEdits={setEdits} outcomes={outcomes} applied={applied} />}
+        : <>{items.length > 6 && !applied && <SelectAll onAll={() => setPicked(Object.fromEntries(items.map((s) => [s.key, true])))} onNone={() => setPicked(Object.fromEntries(items.map((s) => [s.key, false])))} />}{mode === "restructure" ? <Restructure result={result} picked={picked} setPicked={setPicked} blocked={blocked} outcomes={outcomes} applied={applied} edits={edits} setEdits={setEdits} />
+        : <Missing items={items} buckets={buckets} picked={picked} setPicked={setPicked} edits={edits} setEdits={setEdits} outcomes={outcomes} applied={applied} />}</>}
     </WorkspaceModal>
   );
 }
@@ -197,11 +199,12 @@ async function applyMissing(chosen, edits, record) {
       record(s.key, true, edit.tagUnsorted && s.unsorted.length ? "Created, tagging…" : "Created");
     } catch (e) { record(s.key, false, e.message); }
   }
-  await tagUntouched(made.map(({ s, id, edit, name }) => ({ key: s.key, id, name, flowType: s.flowType, unsorted: edit.tagUnsorted ? s.unsorted : [] })), record);
+  return tagUntouched(made.map(({ s, id, edit, name }) => ({ key: s.key, id, name, flowType: s.flowType, unsorted: edit.tagUnsorted ? s.unsorted : [] })), record);
 }
 /* Tag only rows that still have nothing on them (no tags, repayment or transfer), each once, in batches. */
 async function tagUntouched(made, record) {
   const fresh = await api.reviewState(), taken = new Set();
+  let tagged = 0;
   for (const s of made) {
     const { id, name } = s;
     if (!s.unsorted.length) continue;
@@ -215,10 +218,11 @@ async function tagUntouched(made, record) {
       changes.push({ id: r.id, version: r.version, tags: [{ id, cents: Math.abs(r.amountCents) }] });
     }
     try {
-      for (let i = 0; i < changes.length; i += 500) await api.organize(changes.slice(i, i + 500));
+      for (let i = 0; i < changes.length; i += 500) { await api.organize(changes.slice(i, i + 500)); tagged += Math.min(500, changes.length - i); }
       record(s.key, true, changes.length ? `Created and tagged ${plural(changes.length, "transaction")}` : "Created");
     } catch (e) { record(s.key, false, `Created ${name}, but tagging failed: ${e.message}`); }
   }
+  return tagged;
 }
 async function applyRestructure(chosen, edits, record) {
   const order = ["create-category", "create-tag", "rename", "move", "merge", "delete"], made = [];
@@ -257,5 +261,15 @@ async function applyRestructure(chosen, edits, record) {
       state = await api.reviewState();
     }
   }
-  await tagUntouched(made, record);
+  return tagUntouched(made, record);
+}
+
+/** Above a long list of suggestions: check every one, or none, before choosing. */
+export function SelectAll({ onAll, onNone }) {
+  return (
+    <div className="cx-select-all" role="group" aria-label="Select suggestions">
+      <button type="button" className="sm ghost" onClick={onAll}>Select all</button>
+      <button type="button" className="sm ghost" onClick={onNone}>Select none</button>
+    </div>
+  );
 }

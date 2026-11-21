@@ -79,5 +79,7 @@
   "suggestTags": "ai:suggest-tags",
   "suggestAliases": "ai:suggest-aliases",
   "suggestOrganize": "ai:suggest-organize",
-  "suggestOrganizeBatch": "ai:suggest-organize-batch"
+  "suggestOrganizeBatch": "ai:suggest-organize-batch",
+  "backupWorkspace": "admin:backup",
+  "workspaceBackups": "admin:backups"
 }

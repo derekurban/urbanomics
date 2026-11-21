@@ -1,4 +1,6 @@
 import { blend, endpoints } from "../electron/review/palette.mjs";
+import { orderedTags, tagType } from "../electron/review/tag-model.mjs";
+import { notify } from "./toast.jsx";
 import React, { useId, useState } from "react";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { Alert, ConfirmDialog, PersonPicker, Segmented, Swatches } from "./ui.jsx";
@@ -43,9 +45,13 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
     : entity.kind === "person" ? "No transaction or rule mentions them, so nothing else changes."
     : entity.kind === "bucket" ? "The category goes; there's nothing left in it."
     : "The tag goes. No transaction or rule uses it.";
+  const Label = label[0].toUpperCase() + label.slice(1);
+  // Tags that take their colour from this palette, in tag order, for the live preview.
+  const paletteTags = !isPalette ? [] : orderedTags(entities.filter((t) => t.kind === "category" && !t.systemRole && (entity.kind === "bucket" ? tagType(t) === "expense" && t.parentId === entity.id : entity.id === "income" ? tagType(t) === "income" : tagType(t) === "expense" && !t.parentId)));
+  const buckets = entities.filter((e) => e.kind === "bucket");
   async function save(e) {
     e.preventDefault();
-    if ((await act(() => api.saveEntity(entity.kind, {
+    const values = {
       ...entity,
       name,
       color: isPalette ? blend(gradientStart, gradientEnd) : color,
@@ -55,7 +61,11 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
       parentId,
       flowType,
       ...(entity.kind === "group" ? { participants } : {}),
-    }))) !== false) onClose();
+    };
+    const id = await act(() => api.saveEntity(entity.kind, values));
+    if (id === false) return;
+    onClose();
+    notify(savedToast(entity, values, id, act, label, entities));
   }
   return (
     <WorkspaceModal
@@ -121,6 +131,13 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
               <i style={{ background: blend(gradientStart, gradientEnd) }} />
               The category's own color is the blend of both.
             </div>
+            {paletteTags.length > 0 && (
+              <div className="gradient-steps" role="list" aria-label="How its tags will look">
+                {paletteTags.map((t, i) => (
+                  <span role="listitem" key={t.id}><i style={{ background: blend(gradientStart, gradientEnd, paletteTags.length === 1 ? 0.5 : i / (paletteTags.length - 1)) }} aria-hidden="true" />{t.name}</span>
+                ))}
+              </div>
+            )}
             <small className="form-help">Tags take evenly spaced steps along it, in your tag order.</small>
           </fieldset>
         ) : entity.kind === "category" ? (
@@ -135,10 +152,21 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
           <fieldset>
             <legend>Type</legend>
             <Segmented label="Tag type" value={flowType} onChange={(type) => { setFlowType(type); if (type === "income") setParentId(""); }} options={[{ value: "expense", label: "Expense" }, { value: "income", label: "Income" }]} />
+            {!entity.id && flowType === "expense" && (
+              <label className="entity-category">
+                Category
+                <select value={parentId} onChange={(e) => setParentId(e.target.value)}>
+                  <option value="">Ungrouped</option>
+                  {buckets.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+                </select>
+              </label>
+            )}
             <small className="form-help">
               {flowType === "income"
                 ? "Income tags describe money in and have no category."
-                : `Category: ${entities.find((e) => e.id === parentId)?.name || "Ungrouped"}. Move tags between categories by dragging them in Settings.`}
+                : entity.id
+                  ? `Category: ${entities.find((e) => e.id === parentId)?.name || "Ungrouped"}. Move tags between categories by dragging them in Settings.`
+                  : "You can also drag a tag onto another category later."}
             </small>
             {entity.id && flowType !== (entity.flowType || "expense") && (
               <Alert tone="warning">Transactions already tagged keep this tag as it is. From now on it's offered only for {flowType === "income" ? "money in" : "money out"}.</Alert>
@@ -153,7 +181,7 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
           confirmLabel={`Delete ${label}`}
           disabled={!!blocked}
           onClose={() => setConfirm(false)}
-          onConfirm={async () => { if ((await act(() => api.removeEntity(entity.id))) !== false) onClose(); }}
+          onConfirm={async () => { if ((await act(() => api.removeEntity(entity.id))) !== false) { onClose(); notify({ title: `Deleted ${label} “${entity.name}”`, tone: "success" }); } }}
           error={error}
         >
           {blocked ? <Alert tone="warning">{blocked}</Alert> : <p>{deleteText}</p>}
@@ -161,4 +189,50 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
       )}
     </WorkspaceModal>
   );
+}
+
+/* What a save did, in plain words, and an Undo where putting the old values back is safe: names, colours,
+   dates and types go back through the same versioned save (the server re-checks every rule). A new item can be
+   taken away again while nothing uses it. Changing who shares an event re-splits its expenses, so that one has
+   no Undo. */
+export function savedToast(entity, values, id, act, label, entities = []) {
+  const quote = (n) => `“${n}”`;
+  if (!entity.id) {
+    return {
+      title: `Added ${label} ${quote(values.name)}`,
+      tone: "success",
+      action: {
+        label: "Undo",
+        onClick: async () => {
+          if ((await act(() => api.removeEntity(id))) !== false) notify({ title: `Removed ${label} ${quote(values.name)}`, tone: "neutral" });
+        },
+      },
+    };
+  }
+  const was = entity.name || "", now = values.name || was;
+  const changes = [];
+  const renamed = entity.kind !== "palette" && was.trim() !== now.trim();
+  const isPalette = entity.kind === "bucket" || entity.kind === "palette";
+  const before = endpoints(entity);
+  if (isPalette ? before.gradientStart !== values.gradientStart || before.gradientEnd !== values.gradientEnd : !entity.systemRole && entity.kind !== "category" && String(entity.customColor ?? entity.color).toLowerCase() !== String(values.color).toLowerCase()) changes.push("colours");
+  if (entity.kind === "group" && (entity.startDate !== values.startDate || entity.endDate !== values.endDate)) changes.push("dates");
+  if (entity.kind === "category" && !entity.systemRole && (entity.flowType || "expense") !== values.flowType) changes.push("type");
+  const sharing = entity.kind === "group" && JSON.stringify([...(entity.participants || [])].sort()) !== JSON.stringify([...(values.participants || [])].sort());
+  if (sharing) changes.push("who shares it");
+  const name = entity.kind === "palette" ? (entity.id === "income" ? "Income tags" : "Ungrouped tags") : now;
+  const title = !renamed && !changes.length ? `Saved ${label} ${quote(name)}`
+    : renamed && !changes.length ? `Renamed ${quote(was)} to ${quote(now)}`
+    : `Changed the ${[renamed ? "name" : "", ...changes].filter(Boolean).join(", ").replace(/, ([^,]*)$/, " and $1")} of ${quote(name)}`;
+  if ((!renamed && !changes.length) || sharing) return { title, tone: "success" };
+  const restore = entity.kind === "palette" ? { ...entity } : { ...entity, color: entity.customColor ?? entity.color, ...(isPalette ? before : {}) };
+  return {
+    title,
+    tone: "success",
+    action: {
+      label: "Undo",
+      onClick: async () => {
+        if ((await act(() => api.saveEntity(entity.kind, restore))) !== false) notify({ title: renamed ? `Renamed back to ${quote(was)}` : `Put ${quote(name)} back as it was`, tone: "neutral" });
+      },
+    },
+  };
 }

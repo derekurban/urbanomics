@@ -28,6 +28,8 @@ contextBridge.exposeInMainWorld("urbanomics", {
     invoke("transfer-lab:apply", values, token, keys),
   previewWorkspaceReset: () => invoke("admin:reset-preview"),
   resetWorkspace: (token,confirmation) => invoke("admin:reset",token,confirmation),
+  backupWorkspace: () => invoke("admin:backup"),
+  workspaceBackups: () => invoke("admin:backups"),
   previewUntagAll: () => invoke("admin:untag-preview"),
   untagAll: (token) => invoke("admin:untag-all", token),
   previewUnlinkAll: () => invoke("admin:unlink-preview"),

@@ -52,3 +52,8 @@
   .workspace-dialog-footer > .footer-start { flex: 1 1 100%; margin: 0; }
   .stat-row { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
 }
+/* Phones: the top bar already names the page, so the page's own title is kept for screen readers only. */
+@media (max-width: 720px) {
+  .workspace > main .page-heading h1 { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .workspace > main .page-heading:not(:has(p, button, select, input, .page-heading-actions)) { display: contents; }
+}

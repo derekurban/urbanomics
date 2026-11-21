@@ -7,6 +7,7 @@ import { Recognize } from "./recognize.jsx";
 import { describeText } from "./AliasesWorkspace.jsx";
 import { compileTextRule, decompileTextRule, textMatches } from "./import-analysis.mjs";
 import { Alert, ConfirmDialog, Segmented } from "./ui.jsx";
+import { notify } from "./toast.jsx";
 import { signedMoney, dayLabel, plural } from "./format.js";
 import "./rules-workspace.css";
 
@@ -162,13 +163,13 @@ function RuleEditor({ rule, aliases, categories, people, byId, act, busy, onClos
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [signature, complete]);
-  async function mutate(fn) {
+  async function mutate(fn, message) {
     if (saving.current) return;
     saving.current = true;
     setWorking(true);
     setError("");
     try {
-      if ((await act(fn)) !== false) onClose();
+      if ((await act(fn)) !== false) { onClose(); notify({ title: message, tone: "success" }); }
     } catch (e) {
       setError(e.message);
       setConfirm(false);
@@ -188,7 +189,7 @@ function RuleEditor({ rule, aliases, categories, people, byId, act, busy, onClos
         <>
           {rule.id && <span className="footer-start"><button disabled={working} className="danger" onClick={() => setConfirm(true)}>Delete rule</button></span>}
           <button disabled={working} onClick={onClose}>Cancel</button>
-          <button className="primary" disabled={working || busy || !complete || !!failed} onClick={() => mutate(() => api.saveTransactionRule(values))}>Save rule</button>
+          <button className="primary" disabled={working || busy || !complete || !!failed} onClick={() => mutate(() => api.saveTransactionRule(values), rule.id ? `Saved rule “${values.name || rule.name}”. New imports use it` : `Added rule “${values.name}”. New imports use it`)}>Save rule</button>
         </>
       }
     >
@@ -257,7 +258,7 @@ function RuleEditor({ rule, aliases, categories, people, byId, act, busy, onClos
         )}
       </section>
       {confirm && (
-        <ConfirmDialog title={`Delete “${rule.name}”?`} confirmLabel="Delete rule" cancelLabel="Keep rule" busy={working} onClose={() => setConfirm(false)} onConfirm={() => mutate(() => api.removeTransactionRule(rule.id, rule.version))}>
+        <ConfirmDialog title={`Delete “${rule.name}”?`} confirmLabel="Delete rule" cancelLabel="Keep rule" busy={working} onClose={() => setConfirm(false)} onConfirm={() => mutate(() => api.removeTransactionRule(rule.id, rule.version), `Deleted rule “${rule.name}”`)}>
           <p>New imports won't use it. Tags and people it already filled in stay where they are.</p>
         </ConfirmDialog>
       )}

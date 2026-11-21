@@ -174,6 +174,7 @@ else {
                 archive: path.join(privateRoot, "archive"),
                 sources: path.join(privateRoot, "archive/sources"),
                 snapshots: path.join(privateRoot, "archive/snapshots"),
+                backups: path.join(privateRoot, "backups"),
               };
               let location = folders[kind];
               if (kind === "month") {

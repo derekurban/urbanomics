@@ -30,7 +30,7 @@ function createWorkspaceService({
   const readOnly = new Set([
     "workspace:state", "review:state", "transfer-lab:state", "transfer-lab:preview", "transfer-lab:validate",
     "aliases:state", "aliases:preview", "transaction-rules:coverage", "transaction-rules:state", "transaction-rules:preview",
-    "admin:reset-preview", "admin:untag-preview", "admin:unlink-preview", "admin:shares-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
+    "admin:reset-preview", "admin:backup", "admin:backups", "admin:untag-preview", "admin:unlink-preview", "admin:shares-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
     "workspace:reveal", "workspace:prefix-test", "imports:inspect", "imports:detect-dates", "imports:preview-layout", "imports:layouts",
     "updates:state", "updates:check", "updates:install",
   ]);
@@ -108,6 +108,9 @@ function createWorkspaceService({
   handle("aliases:remove", (id, version) => store.aliases.remove(id, version));
   handle("admin:reset-preview", () => store.admin.previewReset());
   handle("admin:reset", (token,confirmation) => store.admin.resetWorkspace(token,confirmation));
+  // A backup writes a file but changes nothing in the workspace, so it is read-only for the change events.
+  handle("admin:backup", () => store.admin.backup());
+  handle("admin:backups", () => store.admin.backups());
   handle("admin:untag-preview", () => store.admin.preview());
   handle("admin:untag-all", (token) => store.admin.untagAll(token));
   handle("admin:unlink-preview", () => store.admin.previewUnlink());
@@ -258,6 +261,7 @@ function createWorkspaceService({
             "aliases:preview",
             "transaction-rules:coverage", "transaction-rules:state",
             "transaction-rules:preview",
+            "admin:backups",
             "workspace:transactions",
             "workspace:detail",
             "workspace:snapshot",

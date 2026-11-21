@@ -1,6 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import "./account-route-network.css";
 import { Icon } from "@derekurban/design-system";
+import { InfoDot } from "./snapshots-v2-atoms.jsx";
 const clamp = (n) => Math.max(0, Math.min(1, n));
 const layoutKey = "urbanomics.transfer-route-layout";
 function savedLayout() {
@@ -27,7 +28,61 @@ function curve(a, b, width, height) {
   }
   return `M ${a.x} ${a.y} C ${c1} ${a.y}, ${c2} ${b.y}, ${b.x} ${b.y}`;
 }
-export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
+// Directions only rank Organize's transfer suggestions; they never hide one.
+const noDirections = "No directions yet. Organize still suggests transfers between any two of your accounts; directions put the likely ones first.";
+const phone = "(max-width: 720px)";
+function useNarrow() {
+  const [narrow, setNarrow] = useState(() => typeof matchMedia === "function" && matchMedia(phone).matches);
+  useEffect(() => {
+    if (typeof matchMedia !== "function") return;
+    const query = matchMedia(phone), listen = () => setNarrow(query.matches);
+    query.addEventListener("change", listen);
+    return () => query.removeEventListener("change", listen);
+  }, []);
+  return narrow;
+}
+/** Phones get a list of directions and two selects instead of the drawing; both save through onChange. */
+export function AccountRouteNetwork(props) {
+  return useNarrow() ? <RouteList {...props} /> : <RouteDrawing {...props} />;
+}
+function RouteList({ accounts, routes, onChange, disabled }) {
+  const [from, setFrom] = useState(""), [to, setTo] = useState("");
+  const name = (id) => accounts.find((a) => a.id === id)?.name || "Unknown account";
+  const exists = routes.some((r) => r.from === from && r.to === to);
+  return (
+    <section className="arn arn-list" aria-label="Account route network">
+      <ul className="arn-directions" aria-label="Allowed directions">
+        {routes.map((r) => (
+          <li key={`${r.from}-${r.to}`}>
+            <span>{name(r.from)} <Icon name="arrow-right" size={16} /> {name(r.to)}</span>
+            <button type="button" className="icon ghost sm" disabled={disabled} aria-label={`Remove route ${name(r.from)} to ${name(r.to)}`}
+              onClick={() => onChange(routes.filter((x) => x.from !== r.from || x.to !== r.to))}>
+              <Icon name="x" size={16} />
+            </button>
+          </li>
+        ))}
+        {!routes.length && <li className="arn-none">{noDirections}</li>}
+      </ul>
+      {accounts.length > 1 && (
+        <div className="arn-add" role="group" aria-label="Add direction">
+          <label>From<select value={from} disabled={disabled} onChange={(e) => { setFrom(e.target.value); if (e.target.value === to) setTo(""); }}>
+            <option value="">Choose an account</option>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select></label>
+          <label>To<select value={to} disabled={disabled} onChange={(e) => setTo(e.target.value)}>
+            <option value="">Choose an account</option>
+            {accounts.filter((a) => a.id !== from).map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+          </select></label>
+          <button type="button" disabled={disabled || !from || !to || exists} onClick={() => { onChange([...routes, { from, to }]); setFrom(""); setTo(""); }}>
+            <Icon name="plus" size={16} />Add direction
+          </button>
+          {exists && <small>That direction is already there.</small>}
+        </div>
+      )}
+    </section>
+  );
+}
+function RouteDrawing({ accounts, routes, onChange, disabled }) {
   const canvas = useRef(null),
     drag = useRef(null),
     suppress = useRef(false),
@@ -203,10 +258,12 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
       }}
     >
       <div className="arn-tools">
-        <p className="form-help">
-          Drag from an account's plus onto another account, or click the plus and then the account.
-          Drag the accounts themselves to tidy the picture.
-        </p>
+        <span className="arn-how">How to draw a direction
+        <InfoDot label="How to draw a direction" align="start">
+          Drag from an account's plus onto another account, or click the plus and then the account. Drag the
+          accounts themselves to tidy the picture. With the keyboard, arrow keys move a focused account; select an
+          arrow to remove it.
+        </InfoDot></span>
         <button
           type="button"
           className="sm ghost"
@@ -438,11 +495,10 @@ export function AccountRouteNetwork({ accounts, routes, onChange, disabled }) {
             {accountName(r.from)} <Icon name="arrow-right" size={16} /> {accountName(r.to)} <Icon name="x" size={16} />
           </button>
         ))}
-        {!routes.length && <small>No directions yet, so Organize won't suggest transfers.</small>}
+        {!routes.length && <small>{noDirections}</small>}
       </div>
       <p className="arn-notice" role="status">
-        {notice ||
-          "With the keyboard, arrow keys move a focused account. Select an arrow to remove it."}
+        {notice}
       </p>
     </section>
   );

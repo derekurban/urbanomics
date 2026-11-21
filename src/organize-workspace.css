@@ -23,3 +23,6 @@
 .settings-people { display: grid; gap: var(--space-3); max-width: 880px; }
 .settings-people .og-toolbar { margin: 0; }
 .settings-people .og-toolbar .primary { margin-left: auto; }
+/* Every section shares one width and left edge, so each section's main button lands in the same place. */
+.settings-body { max-width: 1040px; }
+.settings-body :is(.og-rows, .settings-people, .admin-workspace, .aliases-workspace, .rules-workspace, .assistant-workspace) { max-width: none; }

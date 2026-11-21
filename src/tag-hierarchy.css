@@ -33,11 +33,27 @@
 .th-system strong { font-weight: var(--weight-medium); }
 .th-system small { color: var(--ink-tertiary); }
 
+.th-grip { display: inline-flex; color: var(--ink-tertiary); }
+.th-reorder, .th-touch-hint { display: none; }
+/* Phones and touch screens: one line per tag (dot, name and count, edit). Dragging is a mouse gesture, so the
+   grip and its hint go; the arrows appear for a category while its Reorder is on. */
+@media (max-width: 720px), (pointer: coarse) {
+  .th-tag { grid-template-columns: 8px minmax(0, 1fr) auto; cursor: default; }
+  .th-grip, .th-drag-hint, .th-group:not(.is-reordering) .th-move { display: none; }
+  .th-reorder { display: inline-flex; align-items: center; justify-content: center; }
+  .th-workspace > .th-touch-hint { display: block; }
+}
 @media (max-width: 720px) {
   .th-actions { margin-left: 0; }
-  .th-tag { grid-template-columns: 8px minmax(0, 1fr) auto; }
-  .th-tag > svg { display: none; }
+  .th-toolbar input[type="search"] { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) {
   .th-group { transition: none; }
 }
+
+/* New tag: the category it starts in. Edit category: its tags as they will step along the gradient. */
+.entity-form .entity-category { display: grid; gap: var(--space-2); margin-top: var(--space-2); font: var(--font-label); color: var(--ink-secondary); }
+.entity-form .entity-category select { font: var(--font-small); color: var(--ink); }
+.gradient-steps { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); margin-top: var(--space-1); font: var(--font-small); color: var(--ink-secondary); }
+.gradient-steps span { display: inline-flex; align-items: center; gap: var(--space-1); }
+.gradient-steps i { width: 8px; height: 8px; border-radius: var(--radius-full); flex: none; }

@@ -90,8 +90,9 @@ export function AssistantWorkspace() {
                 <div className="cx-feature-text">
                   <h3>{title}</h3><small>{description}</small>
                   {feature === "organize" && (
-                    <span className="du-host cx-switch">
-                      <Switch label="Suggest when I open a transaction" checked={settings.smartOrganize} disabled={!!busy} onChange={(on) => save({ smartOrganize: on })} />
+                    <div className="cx-switch">
+                      {/* Only the package Switches sit in a host; the native selects keep the app's control styles. */}
+                      <span className="du-host"><Switch label="Suggest when I open a transaction" checked={settings.smartOrganize} disabled={!!busy} onChange={(on) => save({ smartOrganize: on })} /></span>
                       <span className="cx-slots">
                         <label className="cx-select"><span>Requests at once</span>
                           <select aria-label="Requests at once" value={settings.organizeSlots} disabled={!!busy} onChange={(e) => save({ organizeSlots: Number(e.target.value) })}>{[...new Set([...AT_ONCE, settings.organizeSlots])].sort((a, b) => a - b).map((n) => <option key={n} value={n}>{n}</option>)}</select>
@@ -101,8 +102,8 @@ export function AssistantWorkspace() {
                         </label>
                       </span>
                       <small>Organize all unsorted keeps this many requests going and starts the next as each one answers. One transaction per request finds events and shared expenses most reliably; more per request costs a little less. If Anthropic limits your account's rate, the run slows itself down and carries on.</small>
-                      <Switch label="Apply suggestions automatically" description="Applies what Claude is sure about as soon as it arrives, for the row you open and for Organize all unsorted. Suggestions it is unsure about still wait for you, and every change can be undone." checked={settings.autoApply} disabled={!!busy} onChange={(on) => save({ autoApply: on })} />
-                    </span>
+                      <span className="du-host"><Switch label="Apply suggestions automatically" description="Applies tags and clear transfers between your accounts as they arrive. People, new tags and anything Claude is unsure about still wait for you, and every change can be undone." checked={settings.autoApply} disabled={!!busy} onChange={(on) => save({ autoApply: on })} /></span>
+                    </div>
                   )}
                 </div>
                 <label className="cx-select"><span>Model</span>
