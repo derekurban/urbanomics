@@ -587,3 +587,12 @@ p.sv2-date-invalid { color: var(--ink); }
 @media (prefers-reduced-motion: reduce) {
   .sv2 *, .sv2 *::before, .sv2 *::after, .sv2-dialog *, .sv2-dialog *::before, .sv2-dialog *::after { animation: none !important; transition: none !important; }
 }
+/* Each setup step moves focus to its heading; only keyboard users see it ring. */
+.sv2-g-head h2:focus { outline: none; }
+.sv2-g-head h2:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.sv2-g-found-what { color: var(--ink); }
+.sv2-g-fact-text > small { display: block; margin-top: var(--space-1); color: var(--ink-tertiary); }
+.sv2-g-twins { margin-bottom: var(--space-3); }
+/* Under each account on the snapshot calendar: where the next export should start. */
+.sv2-grid-name { display: inline; }
+.sv2-grid tbody th .sv2-grid-next { display: block; padding-left: calc(8px + var(--space-2)); font-weight: var(--weight-regular); color: var(--ink-tertiary); line-height: var(--type-caption-leading); }

@@ -37,6 +37,27 @@ function columnStats(rows, i) {
   };
 }
 
+/* Whether column `col` is a running balance that moves by valueOf(row) from row to row, in either file order
+   (oldest first: each balance is the previous one plus this row; newest first: plus the row before). Returns 1
+   when it moves with the value, -1 when against it, or null when it doesn't run or no row proves anything. */
+function balanceSign(files, col, valueOf) {
+  let plus = 0, minus = 0, n = 0;
+  for (const f of files) {
+    if (f.rows.length < 2) continue;
+    const bal = f.rows.map((r) => num(r[col])), val = f.rows.map(valueOf);
+    if (bal.some((v) => v === null || Number.isNaN(v)) || val.some((v) => v === null || Number.isNaN(v))) return null;
+    const near = (x, y) => Math.abs(x - y) < 0.005;
+    const fit = (s) => (forward) => f.rows.slice(1).every((_, k) => { const r = k + 1; return forward ? near(bal[r] - bal[r - 1], s * val[r]) : near(bal[r - 1] - bal[r], s * val[r - 1]); });
+    const informative = val.some((v) => v !== 0);
+    if (!informative) continue;
+    n++;
+    if (fit(1)(true) || fit(1)(false)) plus++;
+    else if (fit(-1)(true) || fit(-1)(false)) minus++;
+    else return null;
+  }
+  return n && plus === n ? 1 : n && minus === n ? -1 : null;
+}
+
 const headingHints = [
   ["date", /date|posted/i],
   ["description", /desc|detail|merchant|memo|narrative|payee/i],
@@ -84,28 +105,33 @@ export function analyzeKind({ headers: H, files }) {
   let sign = null;
   if (pairs.length) {
     const [a, b] = pairs[0], ha = hint(H[a]), hb = hint(H[b]);
-    const out = ha === "debit" || hb === "credit" ? a : hb === "debit" || ha === "credit" ? b : null;
+    // A running balance that moves by one column minus the other proves which is money in, whatever the headings say.
+    const rest = numCols.filter((i) => i !== a && i !== b);
+    let balanceCol = null, runs = null;
+    for (const c of rest) {
+      const s = balanceSign(files, c, (row) => (num(row[b]) || 0) - (num(row[a]) || 0));
+      if (s) { balanceCol = c; runs = s; break; }
+    }
+    const out = runs ? (runs === 1 ? a : b) : ha === "debit" || hb === "credit" ? a : hb === "debit" || ha === "credit" ? b : null;
     if (out != null) {
       const inn = out === a ? b : a;
-      take(out, "debit", `only one of ${H[a]} and ${H[b]} is filled on each row, and the heading says this one is money out`);
+      take(out, "debit", runs
+        ? `${H[balanceCol]} goes up by ${H[inn]} and down by ${H[out]} from row to row`
+        : `only one of ${H[a]} and ${H[b]} is filled on each row, and the heading says this one is money out`);
       take(inn, "credit", "the other half of that pair");
     } else {
       take(a, "debit", `only one of ${H[a]} and ${H[b]} is filled on each row`);
       take(b, "credit", "the other half of that pair");
       questions.push({ id: "outIn", options: [a, b], text: `${H[a]} and ${H[b]} are a pair. Which one is money out?` });
     }
+    if (balanceCol != null) take(balanceCol, "balance", `it moves by ${H[roles[a] === "credit" ? a : b]} minus ${H[roles[a] === "debit" ? a : b]} from row to row`);
+    else { const named = rest.find((i) => hint(H[i]) === "balance"); if (named != null) take(named, "balance", "the heading says so"); }
   } else {
     const rest = numCols.filter((i) => !roles[i]);
     let amountCol = null, balanceCol = null;
-    for (const b of rest) for (const a of rest) if (a !== b) {
-      let plus = 0, minus = 0, n = 0;
-      for (const f of files) for (let r = 1; r < f.rows.length; r++) {
-        const d = num(f.rows[r][b]) - num(f.rows[r - 1][b]), v = num(f.rows[r][a]);
-        if (!v || Number.isNaN(d)) continue;
-        n++;
-        if (Math.abs(d - v) < 0.005) plus++; else if (Math.abs(d + v) < 0.005) minus++;
-      }
-      if (n && (plus === n || minus === n)) { balanceCol = b; amountCol = a; sign = plus === n ? 1 : -1; }
+    for (const b of rest) for (const a of rest) if (a !== b && amountCol == null) {
+      const s = balanceSign(files, b, (row) => num(row[a]));
+      if (s) { balanceCol = b; amountCol = a; sign = s; }
     }
     if (amountCol != null) {
       take(amountCol, "amount", `${H[balanceCol]} moves by exactly this value from row to row`);
@@ -282,4 +308,124 @@ export function decompileTextRule(pattern) {
 export function textMatches(pattern, text) {
   if (!pattern?.trim()) return false;
   try { return new RegExp(pattern.trim(), "iu").test(text || ""); } catch { return false; }
+}
+
+/* ---------- files that share a name ----------
+   Many banks name every export the same, and the browser renames repeat downloads ("accountactivity (1).csv").
+   Such names cannot tell accounts apart, so the cells have to: a running balance that carries on from one file
+   to the next is one account; files that cover the same days with different balances are different accounts. */
+
+/** A filename without its extension and any copy suffix a browser or the system adds: " (1)", "-1", " copy". */
+export function copyBase(name) {
+  let b = String(name || "").replace(/\.[^.]+$/, "").trim();
+  for (;;) {
+    const next = b.replace(/\s*\(\d+\)$/, "").replace(/\s*-?\s*copy(?:\s*\(?\d+\)?)?$/i, "").replace(/(?<=\D)-\d$/, "").trim();
+    if (next === b || !next) return b.toLowerCase();
+    b = next;
+  }
+}
+/** Groups of indexes into `names` whose names differ only by a copy suffix (or not at all). */
+export function sameNameSets(names) {
+  const by = new Map();
+  names.forEach((n, i) => { const k = copyBase(n); if (!by.has(k)) by.set(k, []); by.get(k).push(i); });
+  return [...by.values()].filter((set) => set.length > 1);
+}
+
+/* One file's run of balances in cents: where it starts and ends, and over which days. */
+function fileRun(rows, roles, { sign, dateFormat }) {
+  const col = (role) => { const k = Object.keys(roles).find((x) => roles[x] === role); return k == null ? -1 : Number(k); };
+  const b = col("balance");
+  if (b < 0 || !rows.length) return null;
+  const read = readRows(rows, roles, { sign: sign ?? 1, dateFormat });
+  const bal = rows.map((r) => num(r[b]));
+  if (bal.some((v) => v === null || Number.isNaN(v))) return null;
+  const c = bal.map((v) => Math.round(v * 100)), amt = read.map((r) => r.cents);
+  const items = read.map((r, i) => `${r.date}|${amt[i]}|${c[i]}`);
+  const dates = dateFormat ? read.map((r) => r.date).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort() : [];
+  const span = dates.length === rows.length ? { start: dates[0], end: dates.at(-1) } : null;
+  const n = rows.length;
+  const forward = c.slice(1).every((v, k) => v - c[k] === amt[k + 1]);
+  const backward = c.slice(1).every((v, k) => c[k] - v === amt[k]);
+  if (n > 1 && !forward && !backward) return { items, span, opening: null, closing: null };
+  const newestFirst = n > 1 && !forward;
+  return { items, span, opening: newestFirst ? c[n - 1] - amt[n - 1] : c[0] - amt[0], closing: newestFirst ? c[0] : c[n - 1] };
+}
+
+/**
+ * What the balances say about files that share a name. `files` is [{name, rows}], read under `roles` with the
+ * amount `sign` and `dateFormat` when known. Returns { verdict: "same" | "different" | "unknown", clusters, reason }:
+ * clusters are groups of file indexes proven to be one account; the reason says which evidence was used.
+ */
+export function balanceEvidence(files, roles, { sign = null, dateFormat = null } = {}) {
+  const named = (i) => files[i].name.replace(/\.[^.]+$/, "");
+  const hasBalance = Object.values(roles).includes("balance");
+  const signed = Object.values(roles).includes("amount");
+  const unknown = (reason) => ({ verdict: "unknown", clusters: files.map((_, i) => [i]), reason, pairs: [] });
+  if (files.length < 2) return { verdict: "same", clusters: [files.map((_, i) => i)], reason: "", pairs: [] };
+  if (!hasBalance || (signed && sign == null)) return unknown("there is no running balance to tell them apart");
+  const runs = files.map((f) => fileRun(f.rows, roles, { sign, dateFormat }));
+  if (runs.some((r) => !r)) return unknown("there is no running balance to tell them apart");
+  const pairs = [];
+  for (let i = 0; i < files.length; i++) for (let j = i + 1; j < files.length; j++) {
+    const a = runs[i], b = runs[j];
+    const before = (x, y) => !x.span || !y.span || x.span.end <= y.span.start;
+    let rel = null, why = "";
+    if (a.items.some((k) => b.items.includes(k))) { rel = "same"; why = `${named(i)} and ${named(j)} share rows`; }
+    else if (a.closing != null && b.opening != null && a.closing === b.opening && before(a, b)) { rel = "same"; why = `${named(j)} starts at the balance ${named(i)} ends with`; }
+    else if (b.closing != null && a.opening != null && b.closing === a.opening && before(b, a)) { rel = "same"; why = `${named(i)} starts at the balance ${named(j)} ends with`; }
+    else if (a.span && b.span && a.span.start < b.span.end && b.span.start < a.span.end) { rel = "different"; why = `${named(i)} and ${named(j)} cover the same days with different balances`; }
+    pairs.push({ i, j, rel, why });
+  }
+  // Files proven to be one account form a cluster.
+  const root = files.map((_, i) => i);
+  const find = (i) => (root[i] === i ? i : (root[i] = find(root[i])));
+  for (const p of pairs) if (p.rel === "same") root[find(p.i)] = find(p.j);
+  const groups = new Map();
+  files.forEach((_, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(i); });
+  const clusters = [...groups.values()];
+  const reasons = (rel) => pairs.filter((p) => p.rel === rel).map((p) => p.why);
+  const join = (list) => listJoin(list.slice(0, 3)) + (list.length > 3 ? "…" : "");
+  if (clusters.length === 1) return { verdict: "same", clusters, reason: join(reasons("same")), pairs };
+  const apart = (x, y) => pairs.some((p) => p.rel === "different" && ((x.includes(p.i) && y.includes(p.j)) || (x.includes(p.j) && y.includes(p.i))));
+  const allApart = clusters.every((x, m) => clusters.every((y, n) => m >= n || apart(x, y)));
+  if (allApart) return { verdict: "different", clusters, reason: join([...reasons("different"), ...reasons("same")]), pairs };
+  const known = [...reasons("different"), ...reasons("same")];
+  return { verdict: "unknown", clusters, reason: known.length ? `${join(known)}, but the balances don't show where the rest belong` : "their balances don't show whether one carries on from another", pairs };
+}
+
+/** "A", "A and B", "A, B and C". */
+export const listJoin = (items) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} and ${items.at(-1)}`);
+
+/** One row that is positive and one that is negative in the amount column, as the file writes them (cents). */
+export function signExamples(rows, roles) {
+  const k = Object.keys(roles).find((x) => roles[x] === "amount"), t = Object.keys(roles).find((x) => roles[x] === "description");
+  if (k == null) return { pos: null, neg: null };
+  const pick = (test) => { const r = rows.find((row) => { const v = num(row[k]); return v != null && !Number.isNaN(v) && test(v); }); return r ? { text: String(r[t] ?? "").trim(), cents: Math.round(num(r[k]) * 100) } : null; };
+  return { pos: pick((v) => v > 0), neg: pick((v) => v < 0) };
+}
+
+/**
+ * A saved layout's recognition in plain words. A layout made for several accounts stores the alternation of their
+ * rules ("^(?:a.*|b.*)"); each part is named by the account whose rule it is, or said as its sentence.
+ * `accounts` is [{name, prefixRegex}].
+ */
+export function describeLayoutRule(pattern, accounts = []) {
+  const p = (pattern || "").trim();
+  if (!p) return "Chosen by hand for each file";
+  const alt = /^\^\(\?:(.*)\)$/.exec(p);
+  const parts = alt ? alt[1].split(/(?<!\\)\|/).map((x) => (x.startsWith("^") ? x : `^${x}`)) : [p];
+  const named = [], said = [];
+  for (const part of parts) {
+    const account = accounts.find((a) => (a.prefixRegex || "").trim() === part);
+    if (account) named.push(account.name);
+    else {
+      const rule = decompileRule(part);
+      if (rule.mode === "custom") return "Files that match a custom pattern";
+      said.push(describeRule(rule));
+    }
+  }
+  const orJoin = (items) => (items.length <= 1 ? items.join("") : `${items.slice(0, -1).join(", ")} or ${items.at(-1)}`);
+  if (!said.length) return `Files recognized by ${orJoin(named)}`;
+  if (!named.length) return `Files whose name ${orJoin(said)}`;
+  return `Files recognized by ${orJoin(named)}, or whose name ${orJoin(said)}`;
 }

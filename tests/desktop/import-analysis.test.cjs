@@ -91,3 +91,99 @@ test("rows read under roles with the chosen sign and date order", async () => {
   assert.deepEqual(readRows(rows, roles, { sign: -1, dateFormat: "dmy" })[0], { date: "2026-04-03", text: "Interest", cents: -421 });
   assert.deepEqual(monthsCovered(rows, roles, "mdy"), ["2026-03", "2026-05"]);
 });
+
+test("separate money out and in columns still take a running balance, which settles which is which", async () => {
+  const { analyzeKind, toMapping } = await load();
+  const rows = [["2026-09-02", "COFFEE SHOP", "4.50", "", "995.50"], ["2026-09-03", "PAYROLL", "", "2000.00", "2995.50"], ["2026-09-05", "RENT", "1500.00", "", "1495.50"]];
+  const a = analyzeKind({ headers: ["Date", "Transaction", "Debit", "Credit", "Balance"], files: [{ name: "everyday.csv", rows }] });
+  assert.deepEqual(a.roles, { 0: "date", 1: "description", 2: "debit", 3: "credit", 4: "balance" });
+  assert.match(a.because.balance, /moves by Credit minus Debit/);
+  assert.equal(toMapping(a.roles, { dateFormat: "ymd" }).balance, 4);
+  // Headings that say nothing: the balance alone proves the second column is money out.
+  const b = analyzeKind({ headers: ["When", "What", "Col A", "Col B", "Running"], files: [{ name: "x.csv", rows: rows.map((r) => [r[0], r[1], r[3], r[2], r[4]]) }] });
+  assert.equal(b.roles[2], "credit"); assert.equal(b.roles[3], "debit"); assert.equal(b.roles[4], "balance");
+  assert.deepEqual(b.questions, []);
+});
+
+test("a balance listed newest first still proves the sign", async () => {
+  const { analyzeKind } = await load();
+  const a = analyzeKind({ headers: ["Date", "Memo", "Amount", "Balance"], files: [{ name: "n.csv", rows: [["2026-01-04", "C", "-20.00", "80.00"], ["2026-01-03", "B", "5.00", "100.00"], ["2026-01-02", "A", "10.00", "95.00"]] }] });
+  assert.equal(a.sign, 1);
+  assert.equal(a.roles[3], "balance");
+});
+
+test("copy suffixes make names indistinguishable; dates and months don't", async () => {
+  const { copyBase, sameNameSets } = await load();
+  assert.equal(copyBase("accountactivity (2).csv"), "accountactivity");
+  assert.equal(copyBase("statement-1.csv"), "statement");
+  assert.equal(copyBase("export copy.csv"), "export");
+  assert.equal(copyBase("Bank_everyday_2026-07.csv"), "bank_everyday_2026-07");
+  assert.deepEqual(sameNameSets(["accountactivity.csv", "accountactivity (1).csv", "accountactivity (2).csv"]), [[0, 1, 2]]);
+  assert.deepEqual(sameNameSets(["Bank_everyday_2026-07.csv", "Bank_everyday_2026-08.csv"]), []);
+});
+
+test("balances decide whether same-named files are one account or several, and say how", async () => {
+  const { balanceEvidence } = await load();
+  const roles = { 0: "date", 1: "description", 2: "debit", 3: "credit", 4: "balance" };
+  const opts = { dateFormat: "ymd" };
+  const aug = { name: "accountactivity.csv", rows: [["2026-08-02", "COFFEE", "4.50", "", "995.50"], ["2026-08-20", "PAYROLL", "", "2000.00", "2995.50"]] };
+  const sep = { name: "accountactivity (1).csv", rows: [["2026-09-02", "RENT", "1500.00", "", "1495.50"]] };
+  const same = balanceEvidence([aug, sep], roles, opts);
+  assert.equal(same.verdict, "same");
+  assert.match(same.reason, /accountactivity \(1\) starts at the balance accountactivity ends with/);
+  // Newest first in the second file still chains.
+  const sepNewest = { name: "accountactivity (1).csv", rows: [["2026-09-04", "GAS", "45.00", "", "1450.50"], ["2026-09-02", "RENT", "1500.00", "", "1495.50"]] };
+  assert.equal(balanceEvidence([aug, sepNewest], roles, opts).verdict, "same");
+  const card = { name: "accountactivity (2).csv", rows: [["2026-08-05", "GROCER", "80.00", "", "-80.00"], ["2026-08-10", "PAYMENT THANK YOU", "", "80.00", "0.00"]] };
+  const apart = balanceEvidence([aug, card], roles, opts);
+  assert.equal(apart.verdict, "different");
+  assert.match(apart.reason, /cover the same days with different balances/);
+  assert.deepEqual(apart.clusters, [[0], [1]]);
+  // A gap the balances can't bridge: the cells can't settle it.
+  const later = { name: "accountactivity (3).csv", rows: [["2026-09-30", "INTEREST", "", "3.10", "5003.10"]] };
+  assert.equal(balanceEvidence([aug, later], roles, opts).verdict, "unknown");
+  assert.equal(balanceEvidence([aug, card, later], roles, opts).verdict, "unknown");
+  // Without a balance there is nothing to go on.
+  const noBalance = balanceEvidence([aug, sep], { 0: "date", 1: "description", 2: "debit", 3: "credit" }, opts);
+  assert.equal(noBalance.verdict, "unknown");
+  assert.match(noBalance.reason, /no running balance/);
+});
+
+test("an account type comes from that account's own files", async () => {
+  const { suggestType } = await load();
+  const cardRows = [["2026-09-02", "GROCER", "80.00"], ["2026-09-10", "PAYMENT THANK YOU", "-80.00"]];
+  const chequingRows = [["2026-09-03", "PAYROLL", "2000.00"]];
+  assert.equal(suggestType(["demo-alpha.csv"], cardRows), "Credit card");
+  assert.equal(suggestType(["demo-beta.csv"], chequingRows), "");
+  assert.equal(suggestType(["demo-chequing.csv"], chequingRows), "Chequing");
+  assert.equal(suggestType([], []), "");
+});
+
+test("the sign question shows one row of each sign", async () => {
+  const { signExamples } = await load();
+  const roles = { 0: "date", 1: "description", 2: "amount" };
+  const ex = signExamples([["2026-09-02", "GROCER", "80.00"], ["2026-09-03", "PAYROLL NORTHWIND", "2400.00"], ["2026-09-04", "BEAN COUNTER", "-5.75"]], roles);
+  assert.deepEqual(ex, { pos: { text: "GROCER", cents: 8000 }, neg: { text: "BEAN COUNTER", cents: -575 } });
+  assert.equal(signExamples([["2026-09-02", "A", "1.00"]], roles).neg, null);
+});
+
+test("a saved layout's recognition reads in plain words, naming the accounts it serves", async () => {
+  const { describeLayoutRule, listJoin } = await load();
+  const accounts = [{ name: "Demo card", prefixRegex: "^demo-card.*" }, { name: "Demo chequing", prefixRegex: "^demo-chequing.*" }, { name: "Demo savings", prefixRegex: "^demo-savings.*" }];
+  assert.equal(describeLayoutRule("^(?:demo-card.*|demo-chequing.*|demo-savings.*)", accounts), "Files recognized by Demo card, Demo chequing or Demo savings");
+  assert.equal(describeLayoutRule("^(?:demo-card.*|accountactivity.*)", accounts), "Files recognized by Demo card, or whose name starts with “accountactivity”");
+  assert.equal(describeLayoutRule("^statement.*", accounts), "Files whose name starts with “statement”");
+  assert.equal(describeLayoutRule("^x(a|b).*", accounts), "Files that match a custom pattern");
+  assert.equal(describeLayoutRule("", accounts), "Chosen by hand for each file");
+  assert.equal(listJoin(["A", "B", "C"]), "A, B and C");
+  assert.equal(listJoin(["A", "B"]), "A and B");
+});
+
+test("a file with no heading row, or with account lines above the headings, is named for what it is", () => {
+  const { diagnoseShape } = require("../../electron/imports/layouts.cjs");
+  const B = (s) => Buffer.from(s);
+  assert.deepEqual(diagnoseShape(B("09/02/2026,COFFEE SHOP,4.50,,995.50\n09/03/2026,PAYROLL,,2000.00,2995.50\n")), { kind: "noHeader", first: ["09/02/2026", "COFFEE SHOP", "4.50", "", "995.50"] });
+  assert.deepEqual(diagnoseShape(B("Account Number,12345\nStatement period,Sep 2026\n\nDate,Description,Amount\n2026-09-02,COFFEE SHOP,-4.50\n")), { kind: "preamble", lines: 2, headers: ["Date", "Description", "Amount"] });
+  assert.equal(diagnoseShape(B("Date,Description,Amount\n2026-09-02,COFFEE SHOP,-4.50\n2026-09-03,PAYROLL,2000.00\n")), null);
+  assert.equal(diagnoseShape(B("Date;Description;Amount\n2026-09-02;COFFEE;-4.50\n")), null);
+});

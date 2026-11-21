@@ -10,11 +10,11 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AccountDot, api, palette, plural } from "./snapshots-v2-atoms.jsx";
 import { Recognize } from "./recognize.jsx";
 import { FloatingMenu, Swatches } from "./ui.jsx";
-import { money } from "./format.js";
+import { signedMoney } from "./format.js";
 import { PreviewTable } from "./snapshots-v2-layout.jsx";
 import {
-  analyzeKind, compileRule, decompileRule, fileStem, formatLabel, fromMapping, monthsCovered, patternMatches,
-  readRows, roleLabel, rolesComplete, ruleMatches, ruleModes, sharedStart, suggestName, suggestType, toMapping,
+  analyzeKind, balanceEvidence, compileRule, decompileRule, fileStem, formatLabel, fromMapping, listJoin, monthsCovered,
+  patternMatches, roleLabel, rolesComplete, ruleMatches, sameNameSets, sharedStart, signExamples, suggestName, suggestType, toMapping,
 } from "./import-analysis.mjs";
 
 const monthLabel = (m) => new Date(`${m}-15T12:00:00`).toLocaleDateString("en-CA", { month: "short", year: "numeric" });
@@ -24,12 +24,22 @@ let groupSeq = 0;
 
 /* ---------- frame ---------- */
 function Stage({ title, lede, step, steps, onBack, backLabel = "Back", next, nextLabel = "Continue", nextDisabled, aside, children, bodyKey, wide }) {
+  // Every step starts at the top with its heading focused, so a short window never opens a step scrolled to its end.
+  const heading = useRef(null);
+  const at = bodyKey ?? title;
+  useEffect(() => {
+    const el = heading.current;
+    if (!el) return;
+    window.scrollTo({ top: 0, behavior: "auto" });
+    for (let p = el.parentElement; p; p = p.parentElement) if (p.scrollTop) p.scrollTop = 0;
+    el.focus({ preventScroll: true });
+  }, [at]);
   return (
     <section className={`sv2-panel sv2-g-stage${wide ? " sv2-g-wide" : ""}`} aria-label="Set up files">
       <header className="sv2-g-head">
         <div>
           <p className="sv2-g-step">{steps ? `Step ${step} of ${steps}` : " "}</p>
-          <h2>{title}</h2>
+          <h2 ref={heading} tabIndex={-1}>{title}</h2>
           {lede && <p className="sv2-quiet sv2-g-lede">{lede}</p>}
         </div>
         <div className="sv2-g-head-side">
@@ -111,10 +121,14 @@ const pickColor = (taken) => {
   taken.add(free.toUpperCase());
   return free;
 };
+/* A new account for some files. Its type is suggested from those files' names and rows only, never from
+   another account's files in the same batch. */
 const freshTab = (jobs, rows, taken) => {
   const names = jobs.map((j) => j.filename), start = sharedStart(names);
-  return { id: "g" + ++groupSeq, existingId: null, name: names.length ? suggestName(start || fileStem(names[0])) : "", type: suggestType(names, rows), color: pickColor(taken), rule: { mode: "starts", text: start || (names.length === 1 ? fileStem(names[0]) : "") } };
+  return { id: "g" + ++groupSeq, existingId: null, name: names.length ? suggestName(start || fileStem(names[0])) : "", type: names.length ? suggestType(names, rows) : "", color: pickColor(taken), rule: { mode: "starts", text: start || (names.length === 1 ? fileStem(names[0]) : "") } };
 };
+/* The sampled rows of some of a kind's files. */
+const rowsOf = (kind, jobs) => jobs.flatMap((j) => kind.files[kind.jobs.indexOf(j)]?.rows || []);
 const takenColors = (accounts, state, except) => new Set([...accounts.map((a) => (a.color || "").toUpperCase()), ...Object.entries(state).filter(([key]) => key !== except).flatMap(([, st]) => (st.tabs || []).map((g) => g.color.toUpperCase()))]);
 /* Which tab a file goes to: the one tab whose sentence matches its name; failing that, a hand-picked
    tab for this batch; two matching sentences are ambiguous and need a hand pick. */
@@ -128,8 +142,12 @@ function resolveFile(job, tabs, manual) {
 /* Files already assigned, or matched by an existing rule, start on that account. The rest are grouped
    by what stays the same in their names: two files from one bank's export format with different stems
    (a card and a chequing account) become two tabs; three months of one export stay one. */
-function initialTabs(kind, accounts, byId, rows, taken) {
-  const tabs = [], known = new Map(), rest = [], manual = {};
+/* Files whose names differ only by a copy suffix ("accountactivity (1).csv") can't be told apart by name.
+   The balances decide when they can (see balanceEvidence); otherwise the person is asked, and their answer
+   (`answers`, by the files' shared name) wins over the evidence. "Several" gives each account its own tab
+   with no recognition sentence: every file is assigned by hand, this time and each time. */
+function initialTabs(kind, accounts, byId, taken, reading, answers = {}) {
+  const tabs = [], known = new Map(), rest = [], manual = {}, twins = [];
   for (const job of kind.jobs) {
     const acc = byId[job.accountId] || accounts.find((a) => a.prefixRegex && patternMatches(a.prefixRegex, job.filename));
     if (acc) { if (!known.has(acc.id)) known.set(acc.id, []); known.get(acc.id).push(job); } else rest.push(job);
@@ -137,10 +155,61 @@ function initialTabs(kind, accounts, byId, rows, taken) {
   for (const [id, jobs] of known) { const tab = fromAccount(byId[id]); tabs.push(tab); for (const job of jobs) if (!patternMatches(byId[id].prefixRegex || "", job.filename)) manual[job.id] = tab.id; }
   const byStem = new Map();
   for (const job of rest) { const key = fileStem(job.filename).toLowerCase(); if (!byStem.has(key)) byStem.set(key, []); byStem.get(key).push(job); }
-  for (const jobs of byStem.values()) { const tab = freshTab(jobs, rows, taken); tabs.push(tab); for (const job of jobs) if (!ruleMatches(tab.rule, job.filename)) manual[job.id] = tab.id; }
-  return { tabs, manual };
+  for (const [key, jobs] of byStem) {
+    const names = jobs.map((j) => j.filename);
+    if (jobs.length > 1 && sameNameSets(names).length) {
+      const evidence = balanceEvidence(jobs.map((j) => ({ name: j.filename, rows: rowsOf(kind, [j]) })), reading.roles, reading);
+      const answer = answers[key] || null;
+      const decision = answer || (evidence.verdict === "same" ? "one" : evidence.verdict === "different" ? "several" : null);
+      const base = sharedStart(names) || fileStem(names[0]);
+      twins.push({ key, base, count: jobs.length, verdict: evidence.verdict, reason: evidence.reason, answer, decision });
+      if (decision === "several") {
+        const clusters = evidence.clusters.length > 1 ? evidence.clusters : jobs.map((_, i) => [i]);
+        const used = new Map();
+        for (const cluster of clusters) {
+          const own = cluster.map((i) => jobs[i]);
+          const tab = freshTab(own, rowsOf(kind, own), taken);
+          const name = tab.type || suggestName(base);
+          used.set(name, (used.get(name) || 0) + 1);
+          tabs.push({ ...tab, name: used.get(name) > 1 ? `${name} ${used.get(name)}` : name, rule: { mode: "starts", text: "" }, twin: base });
+          for (const job of own) manual[job.id] = tabs.at(-1).id;
+        }
+        continue;
+      }
+    }
+    const tab = freshTab(jobs, rowsOf(kind, jobs), taken); tabs.push(tab); for (const job of jobs) if (!ruleMatches(tab.rule, job.filename)) manual[job.id] = tab.id;
+  }
+  return { tabs, manual, twins };
+}
+/* How the cells are read for the balance evidence: the roles, sign and (only when settled) date order. */
+const readingOf = (roles, sign, dateFits, dateFormat) => ({ roles, sign, dateFormat: dateFormat || (dateFits?.length === 1 ? dateFits[0] : null) });
+
+/* Everything still open on a kind: the intro and the kind's own screen count the same things. */
+function openCount(kind, st) {
+  if (!st) return 0;
+  const colOf = (role) => Object.keys(st.roles).find((k) => st.roles[k] === role);
+  const resolved = kind.jobs.map((j) => resolveFile(j, st.tabs, st.manual).tab);
+  const used = new Set(resolved.filter(Boolean).map((t) => t.id));
+  return (colOf("date") != null && !st.dateFormat ? 1 : 0)
+    + (colOf("amount") != null && st.sign == null ? 1 : 0)
+    + (rolesComplete(st.roles) ? 0 : 1)
+    + (st.tabs.some((g) => used.has(g.id) && !g.name.trim()) ? 1 : 0)
+    + (resolved.some((t) => !t) ? 1 : 0)
+    + (st.twins || []).filter((t) => !t.decision).length;
 }
 const groupLabel = (g) => g.name.trim() || "New account";
+/* A file whose shape the setup can't read: what is wrong, in one sentence, and what the person can do. */
+function shapeProblem(problem) {
+  const cells = (list) => list.filter((c) => String(c).trim()).slice(0, 3).join(", ");
+  if (problem.kind === "noHeader") return {
+    what: `It has no row of column names: the first line is already a transaction (${cells(problem.first)}…).`,
+    todo: "Add a first row naming each column (for example Date, Description, Amount) in a spreadsheet, save it as CSV and add it again, or look for an export option at your bank that includes column headings.",
+  };
+  return {
+    what: `It starts with ${problem.lines === 1 ? "a line" : `${problem.lines} lines`} of account details above its column names (${cells(problem.headers)}…).`,
+    todo: `Delete the ${problem.lines === 1 ? "line" : "lines"} above ${cells(problem.headers)} in a spreadsheet, save it as CSV and add it again.`,
+  };
+}
 
 /* ---------- the setup ---------- */
 export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, settled, onImported, onBack, onRemoveAll, onGuide }) {
@@ -170,6 +239,7 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
     for (const job of jobs) {
       const entry = inspects[job.id];
       if (!entry) continue;
+      if (entry.result?.problem) { unreadable.push({ job, problem: entry.result.problem }); continue; }
       if (entry.error || !entry.result?.headers?.length) { unreadable.push({ job, error: entry.error || entry.result?.error || "Cannot read this file." }); continue; }
       const key = kindKeyOf(entry.result);
       if (!map.has(key)) map.set(key, { key, headers: entry.result.headers, delimiter: entry.result.delimiter, jobs: [], inspects: [] });
@@ -193,21 +263,25 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
       let next = current, changed = false;
       for (const kind of kinds.list) {
         const ids = kind.jobs.map((j) => j.id).join(",");
-        const rows = kind.files.flatMap((f) => f.rows);
         if (current[kind.key]) {
           const st = current[kind.key];
-          if (st.jobIds !== ids && !st.groupsTouched) { next = { ...next, [kind.key]: { ...st, jobIds: ids, ...initialTabs(kind, accounts, byId, rows, takenColors(accounts, next, kind.key)), analysis: analyzeKind({ headers: kind.headers, files: kind.files }) } }; changed = true; }
+          if (st.jobIds !== ids && !st.groupsTouched) {
+            const an = analyzeKind({ headers: kind.headers, files: kind.files });
+            next = { ...next, [kind.key]: { ...st, jobIds: ids, ...initialTabs(kind, accounts, byId, takenColors(accounts, next, kind.key), readingOf(st.roles, st.sign, an.dateFits, st.dateFormat), st.twinAnswers), analysis: an } };
+            changed = true;
+          }
           continue;
         }
         const an = analyzeKind({ headers: kind.headers, files: kind.files });
         const tpl = kind.template;
+        const roles = tpl ? fromMapping(tpl.mapping) : an.roles, sign = tpl ? tpl.mapping.sign : an.sign;
+        const dateFormat = tpl ? tpl.mapping.dateFormat : an.dateFits.length === 1 ? an.dateFits[0] : null;
         next = { ...next, [kind.key]: {
-          analysis: an, roles: tpl ? fromMapping(tpl.mapping) : an.roles, changed: false, saved: false, jobIds: ids, groupsTouched: false,
-          dateFormat: tpl ? tpl.mapping.dateFormat : an.dateFits.length === 1 ? an.dateFits[0] : null, dateChosen: false,
-          sign: tpl ? tpl.mapping.sign : an.sign, currency: tpl?.mapping.currency || "CAD",
-          ...initialTabs(kind, accounts, byId, rows, takenColors(accounts, next, kind.key)),
+          analysis: an, roles, changed: false, saved: false, jobIds: ids, groupsTouched: false,
+          dateFormat, dateChosen: false, sign, currency: tpl?.mapping.currency || "CAD", twinAnswers: {},
+          ...initialTabs(kind, accounts, byId, takenColors(accounts, next, kind.key), readingOf(roles, sign, an.dateFits, dateFormat)),
           layoutRule: tpl ? decompileRule(tpl.prefixRegex || "") : { mode: "accounts", text: "" },
-          columns: false, dates: null, preview: null, previewError: "",
+          columns: !rolesComplete(roles), dates: null, preview: null, previewError: "",
         } };
         changed = true;
       }
@@ -216,6 +290,11 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
   }, [kinds.list.map((k) => `${k.key}:${k.jobs.map((j) => j.id).join(",")}`).join("|")]);
 
   const upd = (key, patch) => setState((v) => ({ ...v, [key]: { ...v[key], ...(typeof patch === "function" ? patch(v[key]) : patch) } }));
+  // One account or several, for files that share a name: rebuild that kind's tabs with the answer (null asks again).
+  const answerTwins = (kind, twinKey, answer) => setState((v) => {
+    const st = v[kind.key], twinAnswers = { ...st.twinAnswers, [twinKey]: answer };
+    return { ...v, [kind.key]: { ...st, twinAnswers, groupsTouched: true, ...initialTabs(kind, accounts, byId, takenColors(accounts, v, kind.key), readingOf(st.roles, st.sign, st.analysis.dateFits, st.dateFormat), twinAnswers) } };
+  });
   const todo = kinds.list.filter((k) => !k.ready);
   // The walk is fixed when it starts (new kinds append), so step counts never shift as kinds complete.
   const order = [...(walk || []), ...kinds.list.map((k) => k.key).filter((key) => !(walk || []).includes(key))].filter((key) => kinds.list.some((k) => k.key === key));
@@ -237,12 +316,7 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
   }, [screen, kinds.list.map((k) => `${k.key}:${k.ready}`).join("|")]);
   useEffect(() => { if (!jobs.length) { setScreen("intro"); setWalk(null); } }, [jobs.length]);
 
-  const openQuestions = (kind) => {
-    const st = state[kind.key];
-    if (!st || kind.ready) return 0;
-    const used = new Set(kind.jobs.map((j) => resolveFile(j, st.tabs, st.manual).tab?.id).filter(Boolean));
-    return (!st.dateFormat ? 1 : 0) + (Object.values(st.roles).includes("amount") && st.sign == null ? 1 : 0) + (rolesComplete(st.roles) ? 0 : 1) + (st.tabs.some((g) => used.has(g.id) && !g.name.trim()) ? 1 : 0) + (kind.jobs.some((j) => !resolveFile(j, st.tabs, st.manual).tab) ? 1 : 0);
-  };
+  const openQuestions = (kind) => (kind.ready ? 0 : openCount(kind, state[kind.key]));
   const totalOpen = todo.reduce((n, k) => n + openQuestions(k), 0);
   const startWalk = (target) => { if (!walk) setWalk(kinds.list.map((k) => k.key)); setScreen(target); };
 
@@ -253,13 +327,13 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
       <Stage
         title={loading ? "Reading your files…" : `You added ${plural(jobs.length, "file", "files")}.`}
         lede={loading ? "Looking at the columns and the first rows of each one." : [
-          kinds.list.length > 1 ? `They come in ${kinds.list.length} export formats` : jobs.length > 1 ? "They share one export format" : "",
-          kinds.unreadable.length ? `${plural(kinds.unreadable.length, "file", "files")} can't be read` : "",
-        ].filter(Boolean).join(", and ").replace(/^(.)/, (c) => c.toUpperCase()) + (kinds.list.length > 1 || jobs.length > 1 || kinds.unreadable.length ? ". " : "") + (todo.length ? `Columns, dates and signs were read from the files themselves; ${totalOpen ? `${plural(totalOpen, "question", "questions")} ${totalOpen === 1 ? "needs" : "need"} your answer.` : "nothing needs your answer."}` : "Everything is recognized and ready to import.")}
+          kinds.list.length > 1 ? `They come in ${kinds.list.length} export formats` : kinds.list.length && jobs.length > 1 && !kinds.unreadable.length ? "They share one export format" : "",
+          kinds.unreadable.length ? `${kinds.unreadable.length === jobs.length ? (jobs.length === 1 ? "it" : "none of them") : plural(kinds.unreadable.length, "file", "files")} can't be read as ${kinds.unreadable.length === 1 ? "it is" : "they are"}` : "",
+        ].filter(Boolean).join(", and ").replace(/^(.)/, (c) => c.toUpperCase()).replace(/^None of them can't/, "None of them can") + (kinds.list.length > 1 || (kinds.list.length && jobs.length > 1) || kinds.unreadable.length ? ". " : "") + (todo.length ? `Columns, dates and signs were read from the files themselves; ${totalOpen ? `${plural(totalOpen, "question", "questions")} ${totalOpen === 1 ? "needs" : "need"} your answer.` : "nothing needs your answer."}` : kinds.list.length ? "Everything is recognized and ready to import." : "What's wrong, and what you can do, is below.")}
         step={1} steps={steps} bodyKey="intro"
         aside={<span className="sv2-g-aside">{onGuide && <button type="button" className="link" onClick={onGuide}>How importing works</button>}<button type="button" className="link" disabled={busy} onClick={onRemoveAll}>Remove all files</button></span>}
         onBack={onBack} backLabel={settled ? "Back to snapshots" : "Set up later"}
-        next={() => startWalk(todo[0]?.key || "check")} nextLabel={todo.length ? "Walk me through it" : "Check and import"} nextDisabled={loading || !kinds.list.length}
+        next={loading || kinds.list.length ? () => startWalk(todo[0]?.key || "check") : undefined} nextLabel={todo.length ? "Walk me through it" : "Check and import"} nextDisabled={loading || !kinds.list.length}
       >
         <ul className="sv2-g-found">
           {kinds.list.map((kind) => {
@@ -287,13 +361,17 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
               </li>
             );
           })}
-          {kinds.unreadable.map(({ job, error }) => (
+          {kinds.unreadable.map(({ job, error, problem }) => { const said = problem ? shapeProblem(problem) : null; return (
             <li key={job.id} className="is-bad">
               <span className="sv2-g-found-mark" aria-hidden="true"><Icon name="file-x" size={18} /></span>
-              <div className="sv2-g-found-main"><b>{job.filename}</b><small>{error}</small><span className="sv2-g-found-status is-open">Can't be read<button type="button" className="link" disabled={busy} onClick={() => run(() => api.dismiss(job.id), "File removed. Its archived copy stays.")}>Remove</button></span></div>
+              <div className="sv2-g-found-main">
+                <b>{job.filename}</b>
+                {said ? <><span className="sv2-g-found-what">{said.what}</span><small>{said.todo}</small></> : <small>{error}</small>}
+                <span className="sv2-g-found-status is-open">{said ? "Can't be read as it is" : "Can't be read"}<button type="button" className="link" disabled={busy} onClick={() => run(() => api.dismiss(job.id), "File removed. Its archived copy stays.")}>Remove</button></span>
+              </div>
               <div className="sv2-g-found-files" />
             </li>
-          ))}
+          ); })}
         </ul>
       </Stage>
     );
@@ -324,10 +402,10 @@ export function GuidedSetup({ jobs, accounts, templates, run, busy, progress, se
   /* ---- one kind ---- */
   const kind = kinds.list.find((k) => k.key === screen), st = state[screen];
   if (!kind || !st) return <section className="sv2-panel sv2-g-stage"><p className="sv2-quiet" role="status">Reading…</p></section>;
-  return <KindScreen key={kind.key} kind={kind} st={st} upd={(patch) => upd(kind.key, patch)} accounts={accounts} byId={byId} templates={templates} run={run} busy={busy} step={ix + 1} steps={steps} n={order.indexOf(kind.key) + 1} total={order.length} onBack={() => setScreen(screens[ix - 1])} onDone={() => setScreen(forward(ix))} />;
+  return <KindScreen key={kind.key} kind={kind} st={st} upd={(patch) => upd(kind.key, patch)} onTwins={(twinKey, answer) => answerTwins(kind, twinKey, answer)} accounts={accounts} byId={byId} templates={templates} run={run} busy={busy} step={ix + 1} steps={steps} n={order.indexOf(kind.key) + 1} total={order.length} onBack={() => setScreen(screens[ix - 1])} onDone={() => setScreen(forward(ix))} />;
 }
 
-function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step, steps, n, total, onBack, onDone }) {
+function KindScreen({ kind, st, upd, onTwins, accounts, byId, templates, run, busy, step, steps, n, total, onBack, onDone }) {
   const H = kind.headers, first = kind.jobs[0], rows = kind.files.flatMap((f) => f.rows);
   const colOf = (role) => { const i = Object.keys(st.roles).find((k) => st.roles[k] === role); return i == null ? null : Number(i); };
   const dateCol = colOf("date"), amountCol = colOf("amount");
@@ -337,7 +415,8 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
   const live = st.tabs.filter((g) => filesOf(g).length);
   const unplaced = kind.jobs.filter((j) => !resolved[j.id].tab);
   const namesOk = live.every((g) => g.name.trim());
-  const complete = rolesComplete(st.roles) && !!st.dateFormat && (amountCol == null || st.sign != null) && namesOk && live.length > 0 && !unplaced.length;
+  const twins = st.twins || [], undecided = twins.filter((t) => !t.decision);
+  const complete = rolesComplete(st.roles) && !!st.dateFormat && (amountCol == null || st.sign != null) && namesOk && live.length > 0 && !unplaced.length && !undecided.length;
 
   // The date order, checked against every row of the first file by the real parser.
   useEffect(() => {
@@ -357,11 +436,14 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
   }, [first.id, dateCol, kind.delimiter]);
 
   // The layout: one per kind. Its rule covers every account the kind's files go to.
-  const accountsPattern = () => { const patterns = live.map((g) => compileRule(g.rule)).filter(Boolean); return patterns.length <= 1 ? patterns[0] || "" : `^(?:${patterns.map((p) => p.replace(/^\^/, "")).join("|")})`; };
+  // Files that share a name keep being read this way even though their accounts are chosen by hand.
+  const accountsPattern = () => { const patterns = [...live.map((g) => compileRule(g.rule)), ...twins.filter((t) => t.decision === "several").map((t) => compileRule({ mode: "starts", text: t.base }))].filter(Boolean); return patterns.length <= 1 ? patterns[0] || "" : `^(?:${patterns.map((p) => p.replace(/^\^/, "")).join("|")})`; };
   const layoutPatternFor = (rule) => (rule.mode === "accounts" ? accountsPattern() : compileRule(rule));
   const layoutRule = layoutPatternFor(st.layoutRule);
   const sameAsSaved = !!kind.template && !st.changed && kind.template.mapping.dateFormat === st.dateFormat && kind.template.mapping.sign === mapping.sign && kind.template.mapping.currency === st.currency && (kind.template.prefixRegex || "") === layoutRule;
-  const layoutName = kind.template ? kind.template.name : uniqueName(`${(live[0]?.name || "Export").trim()} export`, templates);
+  // A layout that serves several accounts is named after what their files share, not after one of them.
+  const sharedName = suggestName(sharedStart(kind.jobs.map((j) => j.filename)));
+  const layoutName = kind.template ? kind.template.name : uniqueName(live.length > 1 ? (sharedName ? `${sharedName} export` : `Export for ${live.length} accounts`) : `${(live[0]?.name || "Export").trim()} export`, templates);
 
   // The preview: every row of the first file read with the mapping, by the parser that will import it.
   useEffect(() => {
@@ -408,7 +490,7 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
       tabs.push({ ...g, existingId: accountId });
     }
     upd({ changed: false, saved: true, tabs });
-  }, kind.ready ? "Changes saved." : `${plural(kind.jobs.length, "file", "files")} ready for ${live.map(groupLabel).join(" and ")}.`);
+  }, kind.ready ? "Changes saved." : `${plural(kind.jobs.length, "file", "files")} ready for ${listJoin(live.map(groupLabel))}.`);
   const confirm = async () => {
     if (!dirty) return onDone();
     const value = await save();
@@ -423,11 +505,16 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
   // Tabs: edit the selected one, add one for an existing or a new account, send an unmatched file to one by hand.
   const setTabs = (fn) => upd((cur) => ({ tabs: fn(cur.tabs), groupsTouched: true }));
   const editTab = (gid, patch) => setTabs((gs) => gs.map((g) => (g.id === gid ? { ...g, ...patch } : g)));
-  const addTab = (account) => { const g = account ? fromAccount(account) : freshTab([], rows, new Set([...accounts.map((a) => (a.color || "").toUpperCase()), ...st.tabs.map((t) => t.color.toUpperCase())])); setTabs((gs) => [...gs, g]); setTab(g.id); setAdding(false); };
+  const addTab = (account) => { const g = account ? fromAccount(account) : freshTab([], [], new Set([...accounts.map((a) => (a.color || "").toUpperCase()), ...st.tabs.map((t) => t.color.toUpperCase())])); setTabs((gs) => [...gs, g]); setTab(g.id); setAdding(false); };
   const removeTab = (gid) => setTabs((gs) => gs.filter((g) => g.id !== gid));
   const sendTo = (jobId, gid) => upd((cur) => ({ manual: { ...cur.manual, [jobId]: gid }, groupsTouched: true }));
-  const signExamples = (sign) => readRows(rows.slice(0, 2), st.roles, { sign, dateFormat: st.dateFormat }).map((r) => `${r.text} ${money(r.cents, st.currency)}`).join(" · ");
-  const open = (dateOpen ? 1 : 0) + (amountCol != null && st.sign == null ? 1 : 0) + (rolesComplete(st.roles) ? 0 : 1) + (namesOk ? 0 : 1) + (unplaced.length ? 1 : 0);
+  // The sign question in words: one row of each sign from across the kind's files, read both ways.
+  const examples = signExamples(rows, st.roles);
+  const signWords = (sgn) => {
+    const say = (r, positive) => r && `${r.text} ${signedMoney(r.cents, st.currency)} ${(positive ? sgn === 1 : sgn !== 1) ? "comes in" : "goes out"}`;
+    return [say(examples.pos, true), say(examples.neg, false)].filter(Boolean).join(" and ");
+  };
+  const open = openCount(kind, st);
   const spareAccounts = accounts.filter((a) => !st.tabs.some((g) => g.existingId === a.id));
   const currentJobs = current ? filesOf(current) : [];
   const otherJobs = current ? kind.jobs.filter((j) => resolved[j.id].tab && resolved[j.id].tab.id !== current.id) : [];
@@ -442,6 +529,18 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
       <div className="sv2-g-two">
         <section className="sv2-g-block" aria-label={live.length > 1 ? "The accounts" : "The account"}>
           <h4>{live.length > 1 ? "The accounts" : "The account"}</h4>
+          {undecided.map((t) => (
+            <ul key={t.key} className="sv2-g-facts sv2-g-twins" aria-label="Same name">
+              <Fact ok={false}>
+                These files have the same name. Are they one account or several?
+                <small>Banks often name every export the same, so the name can't tell{/^the(re|ir) /.test(t.reason) ? `, and ${t.reason}` : `. Here, ${t.reason}`}.</small>
+                <div className="sv2-g-choice">
+                  <button type="button" onClick={() => onTwins(t.key, "one")}><b>One account</b><small>All {t.count} files go to the same account</small></button>
+                  <button type="button" onClick={() => onTwins(t.key, "several")}><b>Different accounts</b><small>Each file gets its own account, chosen by hand</small></button>
+                </div>
+              </Fact>
+            </ul>
+          ))}
           <div className="sv2-g-tabrow">
             <div className="sv2-g-tabs" role="tablist" aria-label="Accounts for these files" onKeyDown={(e) => {
               if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
@@ -468,7 +567,7 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
                 <li key={j.id} className={r.tab && current && r.tab.id === current.id ? "is-current" : r.tab ? "" : "is-open"}>
                   <AccountDot color={r.tab?.color} /><span className="sv2-g-filename">{j.filename}</span>
                   <span className={`sv2-g-filewhere${r.tab ? "" : " is-warn"}`}>
-                    {r.tab ? <>{groupLabel(r.tab)}{r.how === "manual" ? <small> · chosen by hand this time</small> : null}</> : r.how === "ambiguous" ? `Both ${r.matches.map(groupLabel).join(" and ")} recognize this name` : "No account recognizes this name"}
+                    {r.tab ? <>{groupLabel(r.tab)}{r.how === "manual" ? <small> · chosen by hand this time</small> : null}</> : r.how === "ambiguous" ? `${r.matches.length === 2 ? "Both " : ""}${listJoin(r.matches.map(groupLabel))} recognize this name` : "No account recognizes this name"}
                   </span>
                   {!r.tab && current && <button type="button" className="sm" onClick={() => sendTo(j.id, current.id)}>Use {groupLabel(current)} this time</button>}
                 </li>
@@ -483,9 +582,10 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
               </div>
               <Swatches colors={palette} value={current.color} label="Account color" onChange={(color) => editTab(current.id, { color })} />
               <Recognize rule={current.rule} onChange={(rule) => editTab(current.id, { rule })} candidates={currentJobs} others={otherJobs}
+                emptyMessage={current.twin ? `Files named “${current.twin}” can't tell these accounts apart, so you'll be asked which account each one belongs to every time you add one.` : ""}
                 hint={!current.existingId && currentJobs.length === 1 && current.rule.mode === "starts" && current.rule.text === currentJobs[0].filename.replace(/.[^.]+$/, "") ? "This is the whole filename. If next month's export is named differently, shorten it to the part that stays the same." : ""} />
               <div className="sv2-g-row sv2-g-between">
-                <small>{current.existingId ? (accountChanged(current) ? "Changes here are saved to this account." : "Saved with this account.") : `Next time, files matching this go to ${groupLabel(current)} on their own.`}</small>
+                <small>{current.existingId ? (accountChanged(current) ? "Changes here are saved to this account." : "Saved with this account.") : compileRule(current.rule) ? `Next time, files matching this go to ${groupLabel(current)} on their own.` : ""}</small>
                 {!currentJobs.length && <button type="button" className="link" onClick={() => removeTab(current.id)}>Remove from this list</button>}
               </div>
             </div>
@@ -529,7 +629,7 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
                 Amounts in <b>{H[amountCol]}</b>{st.sign != null ? <>; positive means <b>{st.sign === 1 ? "money in" : "money out"}</b></> : null}
                 {st.sign == null && (
                   <div className="sv2-g-choice">
-                    {[1, -1].map((sgn) => <button type="button" key={sgn} onClick={() => upd({ sign: sgn, changed: true })}><b>Positive is money {sgn === 1 ? "in" : "out"}</b><small>{signExamples(sgn)}</small></button>)}
+                    {[1, -1].map((sgn) => <button type="button" key={sgn} onClick={() => upd({ sign: sgn, changed: true })}><b>Positive is money {sgn === 1 ? "in" : "out"}</b><small>{signWords(sgn)}</small></button>)}
                   </div>
                 )}
               </Fact>
@@ -541,6 +641,13 @@ function KindScreen({ kind, st, upd, accounts, byId, templates, run, busy, step,
             )}
             {amountCol == null && (colOf("debit") == null || colOf("credit") == null) && <Fact ok={false}>No amounts yet: choose one signed column, or a money-out and a money-in column, below.</Fact>}
             {colOf("balance") != null && <Fact ok why={st.changed ? undefined : st.analysis.because.balance}>Running balance in <b>{H[colOf("balance")]}</b></Fact>}
+            {twins.filter((t) => t.decision).map((t) => (
+              <Fact key={t.key} ok why={t.answer ? "your answer" : t.reason} action={<button type="button" className="link" onClick={() => onTwins(t.key, t.decision === "one" ? "several" : "one")}>Change</button>}>
+                {t.decision === "one"
+                  ? <>The {t.count} files named <b>{t.base}</b> are one account</>
+                  : <>The {t.count} files named <b>{t.base}</b> are {st.tabs.filter((g) => g.twin === t.base).length} different accounts</>}
+              </Fact>
+            ))}
             <Fact ok action={<select aria-label="Currency" value={st.currency} onChange={(e) => upd({ currency: e.target.value, changed: true })}>{["CAD", "USD", "EUR", "GBP"].map((c) => <option key={c}>{c}</option>)}</select>}>Amounts in <b>{st.currency}</b></Fact>
             {H.some((_, i) => !st.roles[i]) && <Fact ok>Not used: {H.filter((_, i) => !st.roles[i]).join(", ")}</Fact>}
           </ul>

@@ -10,6 +10,25 @@ function table(bytes,delimiter=','){
  const headers=rows.shift()?.map(s=>s.trim());if(!headers?.length||headers.some(s=>!s)||new Set(headers).size!==headers.length)throw Error('Column headers must be present and unique.');
  return {headers,rows};
 }
+/* Why a CSV can't be read as one table with a heading row, when the cells show it: the first line is already a
+ transaction (it holds a date), or lines of account details sit above the headings (the first line whose column
+ count matches every line after it is preceded by lines that don't). Null when neither shows. The setup says so in
+ plain words instead of reading the whole first line as one column. */
+const looksLikeDate=v=>{const s=String(v||'').trim();return /^\d{1,4}[-/.]\d{1,2}[-/.]\d{1,4}$/.test(s)&&['ymd','mdy','dmy'].some(f=>{try{date(s,f);return true;}catch{return false;}});};
+function diagnoseShape(bytes){
+ let text;try{text=new TextDecoder('utf-8',{fatal:true}).decode(bytes);}catch{return null;}
+ let best=null;
+ for(const delimiter of [',',';','\t']){let rows;try{rows=parse(text,{bom:true,delimiter,relax_column_count:true,skip_empty_lines:true});}catch{continue;}
+  rows=rows.filter(r=>r.some(c=>String(c).trim()));if(rows.length<2)continue;
+  const counts=new Map();for(const r of rows)counts.set(r.length,(counts.get(r.length)||0)+1);const width=[...counts].sort((x,y)=>y[1]-x[1]||y[0]-x[0])[0][0];if(width<2)continue;
+  const start=rows.findIndex(r=>r.length===width);if(rows.slice(start).some(r=>r.length!==width))continue;
+  if(!best||width>best.width)best={rows,width,start};}
+ if(!best)return null;
+ const head=best.rows[best.start];
+ if(best.start===0)return head.some(looksLikeDate)?{kind:'noHeader',first:head.map(s=>String(s).trim())}:null;
+ if(head.some(looksLikeDate))return {kind:'noHeader',first:head.map(s=>String(s).trim()),lines:best.start};
+ return {kind:'preamble',lines:best.start,headers:head.map(s=>String(s).trim())};
+}
 function validate(values){
  if(!values||typeof values.name!=='string'||!values.name.trim()||values.name.length>80)throw Error('Give this input template a name (up to 80 characters).');
  const prefixRegex=values.prefixRegex??'';prefixPattern(prefixRegex);
@@ -46,6 +65,9 @@ class ImportLayouts{
  bind(sourceHash,template){this.db.prepare('INSERT OR IGNORE INTO source_layouts VALUES (?,?,?)').run(sourceHash,template.id,JSON.stringify(template));}
  inspect(id){const {job,bytes}=this.bytes(id);let parsed,error;try{parsed=this.parse(bytes,job.filename);}catch(e){error=e.message;}
  let t;for(const delimiter of [',',';','\t']){try{const candidate=table(bytes,delimiter);if(!t||candidate.headers.length>t.headers.length)t={...candidate,delimiter};}catch{}}
+ // A file already read by a saved layout is fine as it is; otherwise say plainly when its shape is the problem.
+ const problem=parsed?null:diagnoseShape(bytes);
+ if(problem)return {id,filename:job.filename,schema:null,headers:[],delimiter:t?.delimiter||',',sample:[],rowCount:0,preview:[],error,problem,templateId:null,templates:this.list(),accounts:this.db.prepare("SELECT * FROM accounts WHERE deletedAt IS NULL ORDER BY name").all()};
  if(!t)throw Error('Cannot read this CSV. Use UTF-8 with a header row and consistent columns.');
  return {id,filename:job.filename,schema:parsed?.schema||null,headers:t.headers,delimiter:t.delimiter,sample:t.rows.slice(0,24),rowCount:parsed?.rows.length??t.rows.length,preview:parsed?.rows.slice(0,5)||[],error,templateId:parsed?.schema?.startsWith('custom:')?parsed.schema.slice(7):null,templates:this.list(),accounts:this.db.prepare("SELECT * FROM accounts WHERE deletedAt IS NULL ORDER BY name").all()};
  }
@@ -68,4 +90,4 @@ class ImportLayouts{
  this.db.prepare('DELETE FROM source_layouts WHERE template_id=?').run(id);this.db.prepare('DELETE FROM import_layouts WHERE id=?').run(id);
  });}
 }
-module.exports={ImportLayouts,customParse,validate,table};
+module.exports={ImportLayouts,customParse,validate,table,diagnoseShape};
