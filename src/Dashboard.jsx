@@ -113,6 +113,19 @@ export function Dashboard({ data, onSource, onSnapshots, onOrganize, onTransacti
     const m = from.slice(0, 7);
     writePlace(tabNames[mode] + "/" + (from === m + "-01" && through === monthEnd(m) ? m : from + ".." + through));
   }, [mode, from, through, valid]);
+  // An address that changes while the Dashboard is showing (a link, or forward and back between two
+  // Dashboard addresses) moves the page to that tab and period.
+  useEffect(() => {
+    const follow = () => {
+      if (!location.hash.startsWith("#dashboard/")) return;
+      const next = readPlace();
+      setMode(next.mode);
+      if (next.from && next.through) { setFrom(next.from); setThrough(next.through); setYear(next.from.slice(0, 4)); }
+    };
+    window.addEventListener("hashchange", follow);
+    window.addEventListener("popstate", follow);
+    return () => { window.removeEventListener("hashchange", follow); window.removeEventListener("popstate", follow); };
+  }, []);
   const options = {
     from,
     through,
