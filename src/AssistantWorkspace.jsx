@@ -102,7 +102,7 @@ export function AssistantWorkspace() {
                         </label>
                       </span>
                       <small>Organize all unsorted keeps this many requests going and starts the next as each one answers. One transaction per request finds events and shared expenses most reliably; more per request costs a little less. If Anthropic limits your account's rate, the run slows itself down and carries on.</small>
-                      <span className="du-host"><Switch label="Apply suggestions automatically" description="Applies tags and clear transfers between your accounts as they arrive. People, new tags and anything Claude is unsure about still wait for you, and every change can be undone." checked={settings.autoApply} disabled={!!busy} onChange={(on) => save({ autoApply: on })} /></span>
+                      <span className="du-host"><Switch label="Apply suggestions automatically" description="Adds tags you already have, links a transfer with one clear match and adds events without a split as soon as answers arrive, for the row you open and for Organize all unsorted. Shares, settlements, payments to people, new tags and anything Claude is unsure about wait for you, and every change can be undone." checked={settings.autoApply} disabled={!!busy} onChange={(on) => save({ autoApply: on })} /></span>
                     </div>
                   )}
                 </div>

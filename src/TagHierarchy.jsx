@@ -11,7 +11,7 @@ const api = window.urbanomics;
 
 // Expense tags grouped into categories (drag or Space/Enter to move and reorder), income tags in their own
 // list, and the system tags, which can only be renamed. Category palettes colour their tags.
-export function TagHierarchy({ entities, usage, edit, act, busy, error, onSuggest }) {
+export function TagHierarchy({ entities, usage, edit, act, busy, error, onSuggest, hasTransactions = true }) {
   const [lens, setLens] = useState("expense");
   const [suggestMenu, setSuggestMenu] = useState(null);
   const [lifted, setLifted] = useState("");
@@ -83,7 +83,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error, onSugges
             {suggestMenu && <FloatingMenu anchor={suggestMenu} label="Claude suggestions" width={240} onClose={() => setSuggestMenu(null)} onSelect={(value) => onSuggest(value)}
               items={[{ value: "missing", label: "Suggest missing tags" }, { value: "restructure", label: "Suggest a restructure" }]} />}
             {lens === "expense" && <button disabled={busy} onClick={() => edit({ kind: "bucket", color: palette[buckets.length % palette.length] })}><Icon name="plus" size={16} />New category</button>}
-            <button className="primary" disabled={busy} onClick={() => edit({ kind: "category", flowType: lens })}><Icon name="plus" size={16} />New tag</button>
+            <button className={fresh && lens === "expense" ? undefined : "primary"} disabled={busy} onClick={() => edit({ kind: "category", flowType: lens })}><Icon name="plus" size={16} />New tag</button>
           </div>
         )}
       </div>
@@ -108,8 +108,8 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error, onSugges
         <div className="empty-state">
           <Icon name="tags" size={24} />
           <h2>No categories yet.</h2>
-          <p>Make your own, let Claude propose categories and tags from your transactions, or start with Food and Personal and their usual tags. You can rename, move or delete any of them later.</p>
-          <div className="empty-state-actions">{onSuggest && <button className="primary" disabled={busy} onClick={() => onSuggest("restructure")}><Icon name="sparkles" size={16} />Suggest a structure from my transactions</button>}<button disabled={busy} onClick={async () => { if ((await act(() => api.starterHierarchy())) !== false) notify({ title: "Added Food and Personal with their usual tags", tone: "success" }); }}>Start with Food and Personal</button></div>
+          <p>{hasTransactions ? "Make your own, let Claude propose categories and tags from your transactions, or start with Food and Personal and their usual tags." : "Make your own, or start with Food and Personal and their usual tags. Once you have imported a bank export, Claude can propose a structure from your transactions."} You can rename, move or delete any of them later.</p>
+          <div className="empty-state-actions">{onSuggest && hasTransactions && <button className="primary" disabled={busy} onClick={() => onSuggest("restructure")}><Icon name="sparkles" size={16} />Suggest a structure from my transactions</button>}<button className={onSuggest && hasTransactions ? undefined : "primary"} disabled={busy} onClick={async () => { if ((await act(() => api.starterHierarchy())) !== false) notify({ title: "Added Food and Personal with their usual tags", tone: "success" }); }}>Start with Food and Personal</button></div>
         </div>
       ) : (
         <>

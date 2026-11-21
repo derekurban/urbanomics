@@ -201,7 +201,7 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
           )}
         </section>
       ) : (
-        <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} onSuggest={suggest} />
+        <TagHierarchy entities={entities} usage={usage} edit={edit} act={act} busy={busy || !state} error={editing ? "" : error} onSuggest={suggest} hasTransactions={records.length > 0} />
       )}
       </div>
       {(suggesting === "missing" || suggesting === "restructure") && <TagSuggestions mode={suggesting} entities={entities} onClose={() => setSuggesting(null)} />}
