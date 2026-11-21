@@ -26,3 +26,15 @@
 /* Every section shares one width and left edge, so each section's main button lands in the same place. */
 .settings-body { max-width: 1040px; }
 .settings-body :is(.og-rows, .settings-people, .admin-workspace, .aliases-workspace, .rules-workspace, .assistant-workspace) { max-width: none; }
+
+/* Getting set up: shown at the top of Settings until its four steps are done or it is dismissed. */
+.setup-checklist { display: grid; gap: var(--space-2); max-width: 1040px; margin-bottom: var(--space-5); padding: var(--space-3) var(--space-4) var(--space-4); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-rest); }
+.setup-checklist header { display: flex; align-items: center; gap: var(--space-3); }
+.setup-checklist h2 { margin: 0; font: var(--font-subheading); letter-spacing: var(--tracking-subheading); }
+.setup-checklist header small { flex: 1; color: var(--ink-tertiary); }
+.setup-checklist ol { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 220px), 1fr)); gap: var(--space-2) var(--space-4); }
+.setup-checklist li { display: flex; align-items: center; gap: var(--space-2); }
+.setup-checklist li > svg { flex: none; color: var(--ink-tertiary); }
+.setup-checklist li[data-done] > svg { color: var(--accent); }
+.setup-checklist li[data-done] span { color: var(--ink-tertiary); }
+.setup-checklist li .link { text-align: left; }
