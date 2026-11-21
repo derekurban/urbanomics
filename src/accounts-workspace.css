@@ -14,6 +14,11 @@
 .accounts-tile-name small { color: var(--ink-tertiary); }
 .accounts-balance { font: var(--weight-light) var(--type-heading-size) / var(--type-heading-leading) var(--font-title); font-variant-numeric: tabular-nums; }
 .accounts-tile > small { color: var(--ink-tertiary); }
+/* Without an exported balance, the tile carries its latest month of money out and in. */
+.accounts-tile-flow { display: grid; gap: 2px; min-height: var(--type-heading-leading); align-content: center; font-size: var(--type-small-size); color: var(--ink-secondary); }
+.accounts-tile-flow b { color: var(--ink); font-weight: var(--weight-medium); }
+.accounts-footnote { margin: calc(var(--space-2) * -1) 0 var(--space-4); font-size: var(--type-caption-size); color: var(--ink-tertiary); }
+.accounts-activity-list small.accounts-unsorted { color: var(--ink-secondary); }
 .accounts-tile-count { margin-top: var(--space-2); }
 
 .accounts-detail-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-4); }

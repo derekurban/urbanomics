@@ -3,7 +3,7 @@ import { Icon } from "@derekurban/design-system";
 import { AccountEditor, AccountDeleteDialog } from "./AccountSettings.jsx";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { YearChart } from "./DashboardCharts.jsx";
-import { accountsModel } from "./accounts-model.js";
+import { accountsModel, isCardAccount, latestMonth } from "./accounts-model.js";
 import { decompileRule, describeRule } from "./import-analysis.mjs";
 import { Alert, Segmented, StatRow } from "./ui.jsx";
 import { money, signedMoney, dayLabel, monthName, rangeLabel, plural } from "./format.js";
@@ -39,6 +39,15 @@ export function AccountsWorkspace({ data, busy, run, onSnapshots, onSource, onTr
   const remembered = account ? data.rules.filter((r) => r.account_id === account.id) : [];
   const reset = () => { setMonth(""); setLimit(10); setObservations(false); };
   const recognizes = (a) => (a.prefixRegex ? `Files whose name ${describeRule(decompileRule(a.prefixRegex))}` : "Chosen by hand when you import");
+  const names = new Map((source?.entities || []).map((e) => [e.id, e.name]));
+  // What an activity row is: its tags, or Unsorted until it has one.
+  const rowLabel = (r) => {
+    if (r.review.kind === "transfer") return "Transfer between your accounts";
+    const tags = r.tagsAutomatic ? [] : r.review.tags.map((p) => names.get(p.id)).filter(Boolean);
+    return tags.length ? tags.join(", ") : "Unsorted";
+  };
+  const card = isCardAccount(account);
+  const noBalance = models.some((a) => a.balance.value === null && !a.balance.ambiguous);
   const balanceNote = (b) => (b.ambiguous ? `Different balances on ${dayLabel(b.date)}` : b.date ? `Reported ${dayLabel(b.date)}` : "No balance in its exports");
   return (
     <div className="accounts-workspace workspace-page">
@@ -77,13 +86,40 @@ export function AccountsWorkspace({ data, busy, run, onSnapshots, onSource, onTr
               return (
                 <button className="accounts-tile" key={a.id} style={{ "--account-color": a.color }} aria-pressed={a.id === account.id} onClick={() => { setSelected(a.id); reset(); }}>
                   <span className="accounts-tile-name"><i aria-hidden="true" /><strong>{a.name}</strong>{a.kind && <small>{a.kind}</small>}</span>
-                  <span className="accounts-balance">{a.balance.value !== null ? money(a.balance.value, currency) : "—"}</span>
-                  <small>{balanceNote(a.balance)}</small>
+                  {a.balance.value !== null || a.balance.ambiguous ? (
+                    <>
+                      <span className="accounts-balance">{a.balance.value !== null ? money(a.balance.value, currency) : "—"}</span>
+                      <small>{balanceNote(a.balance)}</small>
+                    </>
+                  ) : latestMonth(a) ? (
+                    <>
+                      <span className="accounts-tile-flow tabular">
+                        {isCardAccount(a) ? (
+                          <>
+                            <span>Charged <b>{money(latestMonth(a).cashOut, currency)}</b></span>
+                            <span>Paid off <b>{money(latestMonth(a).cashIn, currency)}</b></span>
+                          </>
+                        ) : (
+                          <>
+                            <span>In <b>{money(latestMonth(a).cashIn, currency)}</b></span>
+                            <span>Out <b>{money(latestMonth(a).cashOut, currency)}</b></span>
+                          </>
+                        )}
+                      </span>
+                      <small>{monthName(latestMonth(a).month)}*</small>
+                    </>
+                  ) : (
+                    <>
+                      <span className="accounts-balance">—</span>
+                      <small>{balanceNote(a.balance)}</small>
+                    </>
+                  )}
                   <small className="accounts-tile-count">{elsewhere?.length ? `Only in ${elsewhere.join(", ")}` : plural(a.rows.length, "transaction", "transactions")}</small>
                 </button>
               );
             })}
           </div>
+          {noBalance && <p className="accounts-footnote">* These exports carry no balance, so the card shows its latest month's money in and out instead. Moves between your own accounts aren't counted.</p>}
           <div className="accounts-detail" key={account.id} style={{ "--account-color": account.color }}>
             <div className="accounts-detail-heading">
               <div><i className="accounts-dot" aria-hidden="true" /><h2>{account.name}</h2></div>
@@ -110,10 +146,15 @@ export function AccountsWorkspace({ data, busy, run, onSnapshots, onSource, onTr
                       <button className="sm ghost" onClick={() => { setMonth(""); setLimit(10); }}>Show all of {year}</button>
                     </div>
                   )}
-                  <StatRow items={[
+                  {/* A card's money out is what was charged and its money in is what was paid off. */}
+                  <StatRow items={card ? [
+                    { label: "Charged", value: <span data-testid="account-money-out">{money(period.cashOut, currency)}</span> },
+                    { label: "Paid off", value: <span data-testid="account-money-in">{money(period.cashIn, currency)}</span> },
+                    { label: "Added to balance", value: signedMoney(period.cashOut - period.cashIn, currency), delta: period.cashOut >= period.cashIn ? "Charged minus paid off; transfers between your accounts aren't counted" : "Paid down; transfers between your accounts aren't counted" },
+                  ] : [
                     { label: "Money in", value: <span data-testid="account-money-in">{money(period.cashIn, currency)}</span> },
                     { label: "Money out", value: <span data-testid="account-money-out">{money(period.cashOut, currency)}</span> },
-                    { label: "Left over", value: signedMoney(period.cashIn - period.cashOut, currency), emphasis: true, delta: "Transfers between your accounts aren't counted" },
+                    { label: "Left over", value: signedMoney(period.cashIn - period.cashOut, currency), emphasis: period.cashIn >= period.cashOut, delta: "Transfers between your accounts aren't counted" },
                   ]} />
                 </section>
                 <section className="accounts-panel" aria-label="Transfers with your other accounts">
@@ -177,12 +218,12 @@ export function AccountsWorkspace({ data, busy, run, onSnapshots, onSource, onTr
                     {recent.slice(0, limit).map((r) => (
                       <button key={r.id} onClick={() => onSource?.(r.id)} aria-label={`${r.description}, ${dayLabel(r.date)}, ${signedMoney(r.amountCents, currency)}. Open the original record`}>
                         <time dateTime={r.date}>{dayLabel(r.date, { year: false })}</time>
-                        <span>{r.description}<small>{r.review.kind === "transfer" ? "Transfer between your accounts" : r.amountCents > 0 ? "Money in" : "Money out"}</small></span>
+                        <span>{r.description}<small className={rowLabel(r) === "Unsorted" ? "accounts-unsorted" : ""}>{rowLabel(r)}</small></span>
                         <strong className="tabular">{signedMoney(r.amountCents, currency)}</strong>
                       </button>
                     ))}
                   </div>
-                  {recent.length > limit && <button className="sm accounts-load" onClick={() => setLimit((n) => n + 20)}>Show {Math.min(20, recent.length - limit)} more of {recent.length - limit}</button>}
+                  {recent.length > limit && <button className="sm accounts-load" onClick={() => setLimit((n) => n + 20)}>Show {Math.min(20, recent.length - limit)} more</button>}
                 </>
               ) : <p className="form-help">No transactions in {periodLabel}.</p>}
             </section>

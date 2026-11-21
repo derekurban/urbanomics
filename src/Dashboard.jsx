@@ -10,6 +10,9 @@ import {
   monthlyDashboard,
   vendorGroups,
   accountOverview,
+  likelyMoves,
+  UNCATEGORIZED,
+  TRANSFER_FEES,
 } from "./dashboard-model.js";
 import { WorkspaceModal } from "./WorkspaceModal.jsx";
 import { validDate } from "../electron/review/event-model.mjs";
@@ -23,11 +26,31 @@ const monthEnd = (m) =>
   new Date(Date.UTC(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0))
     .toISOString()
     .slice(0, 10);
+// The address keeps the tab and the period (#dashboard/cash/2026-07), so Back, reload and the sidebar
+// return to the same place. A bare #dashboard reopens the last place used in this session.
+const placeKey = "urbanomics.dashboardPlace.v1";
+const tabNames = { spending: "expenses", income: "income", cash: "cash", events: "events" };
+const tabOf = (name) => Object.keys(tabNames).find((k) => tabNames[k] === name);
+const isDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || "") && validDate(v);
+function readPlace() {
+  let [, tab, period] = location.hash.slice(1).split("/");
+  if (!tab) { try { [tab, period] = (sessionStorage.getItem(placeKey) || "").split("/"); } catch {} }
+  const mode = tabOf(tab) || "spending";
+  if (/^\d{4}-\d{2}$/.test(period || "")) return { mode, from: period + "-01", through: monthEnd(period) };
+  const [from, through] = String(period || "").split("..");
+  return isDay(from) && isDay(through) && from <= through ? { mode, from, through } : { mode };
+}
+function writePlace(place) {
+  const hash = "#dashboard/" + place;
+  if (location.hash.startsWith("#dashboard") && location.hash !== hash) history.replaceState(null, "", hash);
+  try { sessionStorage.setItem(placeKey, place); } catch {}
+}
 const shortMonth = (m) => new Date(m + "-15T12:00:00Z").toLocaleDateString("en-CA", { month: "short", timeZone: "UTC" });
 
 // Overview of the ledger in one currency and date range. Each tab leads with its figures, then the
 // year, then what's behind the figures. Uncertain totals say so next to the number.
-export function Dashboard({ data, onSource, onSnapshots }) {
+export function Dashboard({ data, onSource, onSnapshots, onOrganize, onTransactions }) {
+  const [place] = useState(readPlace);
   const [source, setSource] = useState(null),
     [error, setError] = useState("");
   const months = data.months
@@ -38,19 +61,19 @@ export function Dashboard({ data, onSource, onSnapshots }) {
     months.find((m) => m <= data.lastCompleteMonth) ||
     months[0] ||
     data.lastCompleteMonth;
-  const [from, setFrom] = useState(latest + "-01"),
-    [through, setThrough] = useState(monthEnd(latest));
+  const [from, setFrom] = useState(place.from || latest + "-01"),
+    [through, setThrough] = useState(place.through || monthEnd(latest));
   const [incomeTags, setIncomeTags] = useState([]);
   const [filterLens, setFilterLens] = useState("expense");
   const [layer, setLayer] = useState("categories");
-  const [mode, setMode] = useState("spending"),
+  const [mode, setMode] = useState(place.mode),
     [selected, setSelected] = useState([]),
     [later, setLater] = useState(false),
     [currency, setCurrency] = useState("CAD"),
     [detail, setDetail] = useState(null),
     [custom, setCustom] = useState(false),
     [filtersOpen, setFiltersOpen] = useState(false),
-    [year, setYear] = useState(latest.slice(0, 4)),
+    [year, setYear] = useState((place.from || latest).slice(0, 4)),
     [detailLayout, setDetailLayout] = useState("vendors"),
     [trendCost, setTrendCost] = useState("net");
   const load = () =>
@@ -78,7 +101,18 @@ export function Dashboard({ data, onSource, onSnapshots }) {
       current = false;
     };
   }, [data]);
+  const [matcher, setMatcher] = useState(null);
+  useEffect(() => {
+    let current = true;
+    window.urbanomics.transferLabState?.().then((s) => { if (current) setMatcher(s?.config || null); }).catch(() => {});
+    return () => { current = false; };
+  }, [data]);
   const valid = validDate(from) && validDate(through) && from <= through;
+  useEffect(() => {
+    if (!valid) return;
+    const m = from.slice(0, 7);
+    writePlace(tabNames[mode] + "/" + (from === m + "-01" && through === monthEnd(m) ? m : from + ".." + through));
+  }, [mode, from, through, valid]);
   const options = {
     from,
     through,
@@ -120,6 +154,16 @@ export function Dashboard({ data, onSource, onSnapshots }) {
         : [],
     [source, year, currency, selected, later, layer, incomeTags, mode],
   );
+  const moves = useMemo(
+    () => (source && valid && matcher ? likelyMoves(source.records, matcher, { from, through, currency }) : null),
+    [source, matcher, from, through, currency, valid],
+  );
+  // Events are listed whatever the period: each event's whole cost, by its expenses' own dates.
+  const eventModel = useMemo(() => {
+    if (!source || mode !== "events") return null;
+    const dates = source.records.filter((t) => !t.deleted && t.currency === currency).map((t) => t.date).sort();
+    return dates.length ? dashboard(source.records, source.entities, { ...options, from: dates[0], through: dates.at(-1) }) : null;
+  }, [source, mode, currency, selected, later, layer]);
   const overview = useMemo(
     () => (source && valid ? accountOverview(source.records, { from, through, currency }) : null),
     [source, from, through, currency, valid],
@@ -146,14 +190,28 @@ export function Dashboard({ data, onSource, onSnapshots }) {
     );
     setDetail(null);
   }
-  const open = (title, rows, type = "expenses") => setDetail({ title, rows, type });
+  // ledger: the Transactions filters that show the same rows (dates are added from the period).
+  const open = (title, rows, type = "expenses", ledger = type === "expenses" ? { flow: "expense" } : {}) => setDetail({ title, rows, type, ledger });
   const original = (id) => { setDetail(null); onSource(id); };
+  const organize = (id) => { setDetail(null); onOrganize?.(id); };
+  const tagName = (id) => (id === TRANSFER_FEES ? "Transfer fee" : source?.entities.find((t) => t.id === id)?.name || "Tag");
+  const rowTags = (parts) =>
+    parts.some((p) => p.id === UNCATEGORIZED && p.cents > 0) && parts.filter((p) => p.cents > 0).length === 1 ? (
+      <span className="dash-row-tags"><span className="dash-unsorted-badge">Unsorted</span></span>
+    ) : (
+      <span className="dash-row-tags">
+        {parts.filter((p) => p.cents > 0).map((p) =>
+          p.id === UNCATEGORIZED ? <span key={p.id} className="dash-unsorted-badge">Unsorted</span> : <span key={p.id}>{tagName(p.id)}</span>,
+        )}
+      </span>
+    );
   const renderExpense = (e) => (
     <details className="dash-detail-row" key={e.row.id}>
       <summary>
         <span>
           <strong>{e.fee ? "Transfer fee · " : ""}{e.row.description}</strong>
           <small>{dayLabel(e.row.date)} · {e.row.account}</small>
+          {!e.fee && rowTags(e.grossParts)}
         </span>
         <span>
           <strong className="tabular">{money(e.net)}</strong>
@@ -179,7 +237,10 @@ export function Dashboard({ data, onSource, onSnapshots }) {
         </div>
       ))}
       {!e.payments.length && <p className="dash-caption">Nothing paid back in this view.</p>}
-      <button className="sm" onClick={() => original(e.row.id)}><Icon name="file-text" size={16} />Original record</button>
+      <div className="dash-row-actions">
+        {onOrganize && !e.row.deleted && <button className="sm" onClick={() => organize(e.row.id)}>Organize<Icon name="arrow-right" size={16} /></button>}
+        <button className="sm ghost" onClick={() => original(e.row.id)}><Icon name="file-text" size={16} />Original record</button>
+      </div>
     </details>
   );
   if (error)
@@ -206,6 +267,53 @@ export function Dashboard({ data, onSource, onSnapshots }) {
   const filterSummary = activeFilters.length
     ? visibleCategories.filter((c) => activeFilters.includes(c.id)).map((c) => c.name).join(", ")
     : incomeLens ? "All income tags" : `All ${layer}`;
+  // The month in one sentence, from figures the page already has. A clause is left out when its figure
+  // is unknown; an average needs at least three earlier months of the same year.
+  function monthSentence() {
+    if (!selectedMonth || !model?.expenses.length || selected.length) return "";
+    const earlier = trends.filter((m) => m.model && m.month < selectedMonth);
+    const parts = [`${new Date(selectedMonth + "-15T12:00:00Z").toLocaleDateString("en-CA", { month: "long", timeZone: "UTC" })}: you spent ${money(model.gross)}`];
+    if (earlier.length >= 3 && !isPartial) {
+      const average = Math.round(earlier.reduce((n, m) => n + m.model.gross, 0) / earlier.length), gap = model.gross - average;
+      parts.push(gap === 0 ? `the same as your ${earlier.length}-month average` : `${money(Math.abs(gap))} ${gap > 0 ? "more" : "less"} than your ${earlier.length}-month average`);
+    }
+    const unsorted = model.categories.find((c) => c.id === UNCATEGORIZED), top = model.categories.find((c) => c.id !== UNCATEGORIZED);
+    if (unsorted && unsorted.net * 2 > model.net) parts.push("most of it not sorted yet");
+    else if (top && top.net * 5 >= model.net * 2) parts.push(`mostly ${top.name}`);
+    let text = parts.join(", ") + ".";
+    if (model.known && model.owed > 0) text += ` Friends still owe you ${money(model.owed)} for it.`;
+    return text;
+  }
+  // "See these N in Transactions": the same dates, tag and account on the ledger.
+  function ledgerLink(d) {
+    if (!onTransactions || !["expenses", "owed", "cash"].includes(d.type || "expenses") || !model) return null;
+    const rows = d.category ? drill?.expenses || [] : d.rows || [];
+    const count = new Set(rows.map((e) => e.row.id)).size;
+    if (!count) return null;
+    const filters = d.category
+      ? d.category === UNCATEGORIZED ? { flow: "expense", status: "attention" } : d.category === TRANSFER_FEES ? { flow: "transfer" } : { flow: "expense", tag: d.category }
+      : d.type === "owed" ? { flow: "expense", status: "shared" } : { ...d.ledger };
+    const dates = d.allDates ? {} : selectedMonth ? { month: selectedMonth } : { from, through };
+    return (
+      <span className="footer-start">
+        <button className="sm" onClick={() => { setDetail(null); onTransactions({ ...dates, ...filters, currency }); }}>
+          <Icon name="list" size={16} />See {count === 1 ? "it" : `these ${count}`} in Transactions
+        </button>
+      </span>
+    );
+  }
+  // Likely moves between the person's own accounts that are still counted (disclosure only).
+  const spentMoves = moves ? model?.expenses.filter((e) => !e.fee && moves.outIds.has(e.row.id)) || [] : [];
+  const cashMovesOut = moves ? model?.outflow.filter((t) => !t.transfer && moves.outIds.has(t.row.id)) || [] : [];
+  const cashMovesIn = moves ? model?.inflow.filter((t) => !t.transfer && moves.inIds.has(t.row.id)) || [] : [];
+  const movesNote = (count, text) =>
+    count > 0 && (
+      <p className="dash-moves-note">
+        <Icon name="arrow-left-right" size={16} />
+        <span>{text}</span>
+        {onOrganize && <button className="sm" onClick={() => onOrganize(null, "transfers")}>Review in Organize</button>}
+      </p>
+    );
   const filterBar = (
     <div className="dash-filterbar">
       <button className="sm" aria-expanded={filtersOpen} onClick={() => setFiltersOpen((v) => !v)}>
@@ -282,7 +390,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
             onChange={(id) => { setMode(id); setDetail(null); }}
             items={[{ value: "spending", label: "Expenses" }, { value: "income", label: "Income" }, { value: "cash", label: "Cash flow" }, { value: "events", label: "Events" }]}
           />
-          <div className="dash-periods" role="group" aria-label="Dashboard date range">
+          {mode !== "events" && <div className="dash-periods" role="group" aria-label="Dashboard date range">
             <select aria-label="Dashboard year" value={year} onChange={(e) => period(populatedMonths.filter((m) => m.startsWith(e.target.value)).at(-1))}>
               {years.map((y) => <option key={y}>{y}</option>)}
             </select>
@@ -312,8 +420,8 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                 {currencies.map((c) => <option key={c}>{c}</option>)}
               </select>
             )}
-          </div>
-          {custom && (
+          </div>}
+          {custom && mode !== "events" && (
             <div className="dash-date-inputs">
               <label>From<input aria-label="Dashboard from" type="date" value={from} onChange={(e) => { setFrom(e.target.value); setDetail(null); }} /></label>
               <label>Through<input aria-label="Dashboard through" type="date" value={through} onChange={(e) => { setThrough(e.target.value); setDetail(null); }} /></label>
@@ -324,12 +432,13 @@ export function Dashboard({ data, onSource, onSnapshots }) {
           ) : (
             <>
               <p className="dash-range">
-                {selectedMonth ? monthName(selectedMonth) : rangeLabel(from, through)}
+                {mode === "events" ? "All dates" : selectedMonth ? monthName(selectedMonth) : rangeLabel(from, through)}
                 {currencies.length > 1 ? ` · ${currency}` : ""}
                 {isPartial ? " · so far" : ""}
               </p>
               {mode === "spending" && (
                 <>
+                  {monthSentence() && <p className="dash-sentence">{monthSentence()}</p>}
                   <StatRow items={[
                     {
                       label: "Spent",
@@ -351,6 +460,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                       onClick: () => open("Your cost after repayments", model.expenses),
                     },
                   ]} />
+                  {movesNote(spentMoves.length, `${plural(spentMoves.length, "likely move", "likely moves")} between your accounts (${money(sum(spentMoves, (e) => e.gross))}) ${spentMoves.length === 1 ? "is" : "are"} counted until you link ${spentMoves.length === 1 ? "it" : "them"}.`)}
                   {filterBar}
                   <section className="dash-panel">
                     <div className="dash-panel-heading">
@@ -375,6 +485,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                         layer={layer}
                         money={money}
                         onOpen={(c) => { setDetailLayout("vendors"); setDetail({ title: c.name, category: c.id }); }}
+                        onOrganizeUnsorted={onOrganize ? () => onOrganize(null, "unsorted") : null}
                       />
                       {!model.expenses.length && <p className="dash-caption">No expenses match these dates and {layer}.</p>}
                     </section>
@@ -384,9 +495,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                         <span>Still owed to you</span>
                         <strong>{model.known ? money(model.owed) : "Not recorded"}</strong>
                         <small>
-                          {model.known + model.unknown
-                            ? `Splits recorded for ${model.known} of ${plural(model.known + model.unknown, "shared expense", "shared expenses")}`
-                            : "No shared expenses in this period"}
+                          {model.known ? `Splits recorded on ${plural(model.known, "expense", "expenses")}` : "No splits recorded in this period"}
                         </small>
                       </button>
                       <button className="dash-relation" onClick={() => setDetail({ title: "Transfers between your accounts", type: "transfers" })}>
@@ -417,7 +526,8 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                     year={year}
                     money={money}
                     partialFrom={partialFrom}
-                    onOpen={(title, rows) => open(title, rows, "cash")}
+                    onOpen={(title, rows, tag) => open(title, rows, "cash", tag === UNCATEGORIZED ? { flow: "income", status: "attention" } : tag ? { flow: "income", tag } : { flow: "income" })}
+                    onOrganizeUnsorted={onOrganize ? () => onOrganize(null, "unsorted") : null}
                   />
                 </>
               )}
@@ -426,8 +536,12 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                   <StatRow items={[
                     { label: "Money in", value: money(model.cashIn), delta: "From outside your accounts", onClick: () => open("Money in", model.inflow, "cash") },
                     { label: "Money out", value: money(model.cashOut), delta: "Transfer fees counted once", onClick: () => open("Money out", model.outflow, "cash") },
-                    { label: "Left over", value: signedMoney(model.cashIn - model.cashOut, currency), delta: "Money in minus money out", emphasis: true, onClick: () => open("Money in and out", model.bank, "cash") },
+                    { label: "Left over", value: signedMoney(model.cashIn - model.cashOut, currency), delta: "Money in minus money out", emphasis: model.cashIn >= model.cashOut, onClick: () => open("Money in and out", model.bank, "cash") },
                   ]} />
+                  {movesNote(
+                    Math.max(cashMovesOut.length, cashMovesIn.length),
+                    `${plural(Math.max(cashMovesOut.length, cashMovesIn.length), "likely move", "likely moves")} between your accounts ${Math.max(cashMovesOut.length, cashMovesIn.length) === 1 ? "is" : "are"} counted until you link ${Math.max(cashMovesOut.length, cashMovesIn.length) === 1 ? "it" : "them"}: ${money(sum(cashMovesIn, (t) => t.cents))} of money in and ${money(sum(cashMovesOut, (t) => t.cents))} of money out.`,
+                  )}
                   <section className="dash-panel">
                     <div className="dash-panel-heading"><h2>{year} by month</h2></div>
                     <YearChart months={trends} currency={currency} selectedMonth={selectedMonth} onMonth={period} kind="cash" partialFrom={partialFrom} />
@@ -462,7 +576,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                   <AccountFlow
                     overview={overview}
                     money={money}
-                    onCash={(title, rows, type = "cash") => open(title, rows, type)}
+                    onCash={(title, rows, type = "cash", accountId = "") => open(title, rows, type, accountId ? { account: accountId } : {})}
                     onTransfer={(r) => setDetail({ title: `${r.from} to ${r.to}`, type: "transfers", pairs: r.pairs })}
                   />
                 </>
@@ -471,16 +585,16 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                 <>
                   {filterBar}
                   <div className="dash-panel-heading">
-                    <h2>Spending inside your events</h2>
-                    <span className="dash-caption">Events can overlap, so these totals don't add up to your spending.</span>
+                    <h2>Every event</h2>
+                    <span className="dash-caption">Whole events, whatever month is selected, newest first. Events can overlap, so these totals don't add up to your spending.</span>
                   </div>
                   <div className="dash-event-grid">
-                    {model.events.map((e) => (
-                      <button className="dash-event" key={e.event.id} onClick={() => open(e.event.name, e.rows)}>
+                    {[...(eventModel?.events || [])].sort((a, b) => String(b.event.startDate || "").localeCompare(String(a.event.startDate || "")) || a.event.name.localeCompare(b.event.name)).map((e) => (
+                      <button className="dash-event" key={e.event.id} onClick={() => setDetail({ title: e.event.name, rows: e.rows, type: "expenses", ledger: { event: e.event.id }, allDates: true })}>
                         <span className="dash-event-name"><i style={{ background: e.event.color }} aria-hidden="true" />{e.event.name}</span>
                         <small>{e.event.startDate ? rangeLabel(e.event.startDate, e.event.endDate || e.event.startDate) : "Dates not set"}</small>
                         <strong className="tabular">{money(e.net)}</strong>
-                        <span>Your cost in this period · {plural(e.rows.length, "expense", "expenses")}</span>
+                        <span>Your cost · {plural(e.rows.length, "expense", "expenses")}</span>
                         <span className="dash-track" aria-hidden="true">
                           <span className="dash-net" style={{ width: (100 * e.net) / Math.max(1, e.gross) + "%" }} />
                         </span>
@@ -492,10 +606,10 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                       </button>
                     ))}
                   </div>
-                  {!model.events.length && (
+                  {!eventModel?.events.length && (
                     <div className="empty-state">
-                      <h2>No event spending in this period.</h2>
-                      <p>Change the dates or filters, or link transactions to an event on the Events page.</p>
+                      <h2>No event spending yet.</h2>
+                      <p>Link transactions to an event on the Events page{selected.length ? ", or clear the filters" : ""}.</p>
                     </div>
                   )}
                 </>
@@ -510,7 +624,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
         </>
       )}
       {detail && (
-        <WorkspaceModal title={detail.title} className="dash-dialog" size={detail.type === "methods" ? "" : "wide"} onClose={() => setDetail(null)}>
+        <WorkspaceModal title={detail.title} className="dash-dialog" size={detail.type === "methods" ? "" : "wide"} onClose={() => setDetail(null)} footer={ledgerLink(detail)}>
           {detail.type === "methods" ? (
             <div className="dash-methods">
               {[
@@ -571,17 +685,21 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                     <span>
                       <strong>{row.description}</strong>
                       <small>{dayLabel(row.date)} · {row.account}</small>
+                      {detail.type !== "balances" && !fee && !excess && (row.tagsAutomatic ? <span className="dash-row-tags"><span className="dash-unsorted-badge">Unsorted</span></span> : rowTags(row.review.tags))}
                     </span>
                     <strong className="tabular">{detail.type === "balances" ? money(row.balanceCents) : signedMoney(row.amountCents < 0 ? -cents : cents, currency)}</strong>
                   </summary>
                   <p>
                     {fee ? "Transfer fee portion · " : excess ? "Extra received portion · " : ""}
-                    Whole amount {signedMoney(row.amountCents, currency)} · {row.review.kind === "unreviewed" ? "not sorted yet" : row.review.kind}
+                    Whole amount {signedMoney(row.amountCents, currency)}
                   </p>
                   {row.review.allocations.map((a) => (
                     <p key={a.id}>Applied to {source.records.find((t) => t.id === a.id)?.description || "an expense"} · {money(a.cents)}</p>
                   ))}
-                  {!row.manual && <button className="sm" onClick={() => original(row.id)}><Icon name="file-text" size={16} />Original record</button>}
+                  <div className="dash-row-actions">
+                    {onOrganize && detail.type !== "balances" && !row.deleted && <button className="sm" onClick={() => organize(row.id)}>Organize<Icon name="arrow-right" size={16} /></button>}
+                    {!row.manual && <button className="sm ghost" onClick={() => original(row.id)}><Icon name="file-text" size={16} />Original record</button>}
+                  </div>
                 </details>
               ))}
               {!detail.rows.length && <p>No matching records.</p>}
@@ -621,7 +739,7 @@ export function Dashboard({ data, onSource, onSnapshots }) {
                   ))}
                 </section>
               ) : detail.category && detailLayout === "vendors" ? (
-                vendorGroups(drill.expenses).map((g) => (
+                vendorGroups(drill.expenses).map((g) => g.rows.length === 1 ? renderExpense(g.rows[0]) : (
                   <details className="dash-vendor" key={g.key}>
                     <summary>
                       <span>

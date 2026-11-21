@@ -4,8 +4,10 @@ import {
   nearEvent,
   eventDateLabel,
   shiftDate,
+  costBreakdown,
 } from "../electron/review/event-model.mjs";
 import { CostBreakdown } from "./CostBreakdown.jsx";
+import { eventStart, eventPaymentSuggestions } from "./events-model.js";
 import { Segmented } from "./ui.jsx";
 import { money as currencyMoney, dayLabel, weekdayLabel, rangeLabel, plural } from "./format.js";
 import "./event-calendar.css";
@@ -16,6 +18,12 @@ const monthLabel = (month) =>
     year: "numeric",
     timeZone: "UTC",
   });
+// A day's total in a calendar cell: whole dollars, compact past a thousand, signed.
+const dayTotal = (cents, currency = "CAD") =>
+  (cents > 0 ? "+" : cents < 0 ? "−" : "") +
+  new Intl.NumberFormat("en-CA", { style: "currency", currency, notation: Math.abs(cents) >= 100000 ? "compact" : "standard", maximumFractionDigits: Math.abs(cents) >= 100000 ? 1 : 0 }).format(Math.abs(cents) / 100);
+// What a day shows: its spending, or what came in when nothing went out.
+const daySum = (rows) => { const out = rows.filter((t) => t.amountCents < 0).reduce((n, t) => n + t.amountCents, 0); return out || rows.reduce((n, t) => n + Math.max(0, t.amountCents), 0); };
 function moveMonth(month, direction) {
   const date = new Date(month + "-15T12:00:00Z");
   date.setUTCMonth(date.getUTCMonth() + direction);
@@ -43,6 +51,7 @@ export function EventCalendar({
       new Date().toISOString().slice(0, 7),
   );
   const [day, setDay] = useState("");
+  const [nearby, setNearby] = useState(false);
   const [view, setView] = useState("calendar"),
     [buffer, setBuffer] = useState(true),
     [query, setQuery] = useState("");
@@ -64,7 +73,9 @@ export function EventCalendar({
   );
   const selectedDay = day.startsWith(month)
     ? day
-    : Object.keys(byDay)
+    : event && eventStart(event).startsWith(month)
+      ? eventStart(event)
+      : Object.keys(byDay)
         .sort()
         .find((d) => event && nearEvent(d, event, buffer ? 1 : 0)) ||
       Object.keys(byDay).sort()[0] ||
@@ -82,6 +93,7 @@ export function EventCalendar({
   const suggestions = event
     ? live.filter((t) => !linked(t) && nearEvent(t.date, event, buffer ? 1 : 0))
     : [];
+  const paymentSuggestions = event && view === "costs" ? eventPaymentSuggestions(event, records, people) : [];
   const incoming = members.filter(
     (t) => !t.deleted && t.amountCents > 0 && t.review.kind !== "transfer",
   );
@@ -94,26 +106,34 @@ export function EventCalendar({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
       />
-      <div className="event-choices">
-        {groups
+      <div className="event-list" role="list" aria-label="Your events, newest first">
+        {[...groups]
           .filter((e) => e.name.toLowerCase().includes(query.toLowerCase()))
-          .map((e) => (
-            <button
-              key={e.id}
-              className="sm"
-              aria-pressed={event?.id === e.id}
-              style={{ "--event-color": e.color }}
-              onClick={() => {
-                onSelectEvent(e.id);
-                setDay("");
-                if (e.startDate || e.endDate)
-                  setMonth((e.startDate || e.endDate).slice(0, 7));
-              }}
-            >
-              <i />
-              {e.name}
-            </button>
-          ))}
+          .sort((a, b) => eventStart(b).localeCompare(eventStart(a)) || a.name.localeCompare(b.name))
+          .map((e) => {
+            const cost = costBreakdown(records.filter((t) => !t.deleted && t.review.groups.includes(e.id)), records)[0];
+            return (
+              <button
+                key={e.id}
+                role="listitem"
+                className="event-list-row"
+                aria-pressed={event?.id === e.id}
+                style={{ "--event-color": e.color }}
+                onClick={() => {
+                  onSelectEvent(e.id);
+                  setDay("");
+                  setNearby(false);
+                  if (eventStart(e)) setMonth(eventStart(e).slice(0, 7));
+                }}
+              >
+                <span className="event-list-name"><i aria-hidden="true" />{e.name}</span>
+                <small>{eventStart(e) ? rangeLabel(eventStart(e), e.endDate || eventStart(e)) : "No dates yet"}</small>
+                <span className="event-list-figure"><small>Your share</small><b className="tabular">{!cost ? "—" : cost.unknown === cost.rows.length ? "Not recorded" : currencyMoney(cost.own, cost.currency)}</b></span>
+                <span className="event-list-figure"><small>Still owed</small><b className="tabular">{!cost ? "—" : cost.unknown === cost.rows.length ? "Not recorded" : currencyMoney(cost.owed, cost.currency)}</b></span>
+                <span className="event-list-figure"><small>Spent</small><b className="tabular">{cost ? currencyMoney(cost.gross, cost.currency) : "—"}</b></span>
+              </button>
+            );
+          })}
       </div>
       {event && (
         <div className="event-context">
@@ -145,13 +165,15 @@ export function EventCalendar({
               </label>
               <button
                 disabled={!suggestions.length}
+                aria-pressed={nearby && suggestions.length > 0}
                 onClick={() => {
+                  if (nearby) { setNearby(false); return; }
                   const date = suggestions.map((t) => t.date).sort()[0];
                   setMonth(date.slice(0, 7));
-                  setDay(date);
+                  setNearby(true);
                 }}
               >
-                {suggestions.length ? `Show ${plural(suggestions.length, "nearby transaction", "nearby transactions")}` : "No nearby transactions left"}
+                {!suggestions.length ? "No nearby transactions left" : nearby ? "Back to the day" : `Show ${plural(suggestions.length, "nearby transaction", "nearby transactions")}`}
               </button>
               <small>Framed days fall within the event's dates. Dates come from your bank exports.</small>
             </div>
@@ -204,20 +226,20 @@ export function EventCalendar({
                   date ? (
                     <button
                       key={date}
-                      aria-label={[weekdayLabel(date), byDay[date]?.length ? plural(byDay[date].length, "transaction", "transactions") : "no transactions", byDay[date]?.some(linked) ? "some linked to this event" : "", event && nearEvent(date, event, buffer ? 1 : 0) ? "within the event's dates" : ""].filter(Boolean).join(", ")}
+                      aria-label={[weekdayLabel(date), byDay[date]?.length ? `${plural(byDay[date].length, "transaction", "transactions")}, ${dayTotal(daySum(byDay[date]), byDay[date][0].currency)} ${daySum(byDay[date]) < 0 ? "spent" : "received"}` : "no transactions", byDay[date]?.some(linked) ? "some linked to this event" : "", event && nearEvent(date, event, buffer ? 1 : 0) ? "within the event's dates" : ""].filter(Boolean).join(", ")}
                       aria-pressed={selectedDay === date}
                       className={
                         event && nearEvent(date, event, buffer ? 1 : 0)
                           ? "near-event"
                           : ""
                       }
-                      onClick={() => setDay(date)}
+                      onClick={() => { setDay(date); setNearby(false); }}
                     >
                       <span>{Number(date.slice(-2))}</span>
                       {!!byDay[date]?.length && (
                         <>
                           <div className="event-day-dots">
-                            <strong>{byDay[date].length}</strong>
+                            <strong>{dayTotal(daySum(byDay[date]), byDay[date][0].currency)}</strong>
                             {[...new Set(byDay[date].map((t) => t.color))].map(
                               (color) => (
                                 <i key={color} style={{ background: color }} />
@@ -236,9 +258,35 @@ export function EventCalendar({
                 )}
               </div>
               <p className="form-help">
-                Each day shows how many transactions it has, a dot for each account, and a check when some are linked to this event.
+                Each day shows what was spent (or what came in, when nothing went out), a dot for each account, and a check when some are linked to this event.
               </p>
             </div>
+            {nearby && suggestions.length > 0 ? (
+            <aside className="event-day-panel" aria-label="Nearby transactions">
+              <div className="section-title">
+                <h3>Nearby, not linked yet</h3>
+                <small>{plural(suggestions.length, "transaction", "transactions")}</small>
+              </div>
+              <button className="sm" disabled={busy} onClick={() => link(suggestions)}>{`Link all ${suggestions.length} to ${event.name}`}</button>
+              {Object.entries(Object.groupBy(suggestions, (t) => t.date)).sort(([a], [b]) => a.localeCompare(b)).map(([date, rows]) => (
+                <section className="event-nearby-day" key={date} aria-label={weekdayLabel(date)}>
+                  <h4>{weekdayLabel(date)}</h4>
+                  {rows.map((t) => (
+                    <article key={t.id}>
+                      <div>
+                        <strong>{t.description}</strong>
+                        <small>{t.account}</small>
+                      </div>
+                      <b className="tabular">{currencyMoney(t.amountCents, t.currency)}</b>
+                      <div className="event-row-actions">
+                        <button className="sm" disabled={busy} aria-label={`Link ${t.description}`} onClick={() => link([t])}>Link</button>
+                      </div>
+                    </article>
+                  ))}
+                </section>
+              ))}
+            </aside>
+            ) : (
             <aside className="event-day-panel" aria-label="Day transactions">
               <div className="section-title">
                 <h3>{weekdayLabel(selectedDay)}</h3>
@@ -291,6 +339,7 @@ export function EventCalendar({
                 </article>
               ))}
             </aside>
+            )}
           </div>
         </>
       ) : (
@@ -327,10 +376,25 @@ export function EventCalendar({
                 </div>
               );
             })}
-            {!incoming.length && (
+            {!incoming.length && !paymentSuggestions.length && (
               <p className="form-help">
                 Link money in from the calendar, or open it on the Organize desk. Repayments often arrive after the event.
               </p>
+            )}
+            {paymentSuggestions.length > 0 && (
+              <section className="event-payment-suggestions" aria-label="Might be for this event">
+                <h4>Might be for this event</h4>
+                {paymentSuggestions.map(({ row: t, person }) => (
+                  <div key={t.id}>
+                    <span>
+                      <strong>{person.name} sent {currencyMoney(t.amountCents, t.currency)} on {dayLabel(t.date, { year: false })}</strong>
+                      <small>{t.description} · {t.account}</small>
+                    </span>
+                    <button className="sm" onClick={() => onPayment(t, event.id)}>Open in Organize<Icon name="arrow-right" size={16} /></button>
+                  </div>
+                ))}
+                <p className="form-help">Nothing is applied from here. On the Organize desk, the payment can settle what {paymentSuggestions.length === 1 ? `${paymentSuggestions[0].person.name} owes` : "they owe"}.</p>
+              </section>
             )}
           </div>
         </>

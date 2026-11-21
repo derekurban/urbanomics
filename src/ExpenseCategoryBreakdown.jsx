@@ -1,12 +1,15 @@
-import { tagOrder } from "../electron/review/tag-model.mjs";
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { vendorGroups } from "./dashboard-model.js";
+import { vendorGroups, UNCATEGORIZED } from "./dashboard-model.js";
+import { plural } from "./format.js";
+
+// Share of the period, as a whole percentage; a sliver reads "<1%" rather than "0%".
+export const shareOf = (part, whole) => (!whole || part <= 0 ? "" : part * 100 < whole ? "<1%" : `${Math.round((100 * part) / whole)}%`);
 
 // Categories on one shared scale: your cost in the category's color, what was paid back in the same color
 // at lower strength. Hovering (after 300ms, like the package Tooltip) or focusing shows the top vendors;
 // clicking opens the full breakdown, which carries the same information for every input.
-export function ExpenseCategoryBreakdown({ categories, tags, layer, money, onOpen }) {
+export function ExpenseCategoryBreakdown({ categories, tags, layer, money, onOpen, onOrganizeUnsorted }) {
   const [hover, setHover] = useState(null),
     [position, setPosition] = useState({ left: 0, top: 0 });
   const tip = useRef(null),
@@ -68,6 +71,7 @@ export function ExpenseCategoryBreakdown({ categories, tags, layer, money, onOpe
       .filter((e) => e.gross > 0);
   const top = hover ? vendorGroups(scopedRows(hover.group)).slice(0, 3) : [];
   const max = Math.max(1, ...categories.map((c) => c.gross));
+  const whole = categories.reduce((n, c) => n + c.net, 0);
   const events = (group) => ({
     onMouseEnter: (e) => show(e, group),
     onMouseLeave: leave,
@@ -86,22 +90,27 @@ export function ExpenseCategoryBreakdown({ categories, tags, layer, money, onOpe
                     t.parentId === c.id ||
                     (c.id === "dashboard:ungrouped" && !categories.some((category) => category.id === t.parentId) && t.flowType !== "income" && t.kind === "category"),
                 )
-                .sort(tagOrder)
             : [];
         const category = { ...c, tagIds: children.length ? children.map((t) => t.id) : [c.id] };
         return (
-          <article className="dash-category-breakdown" key={c.id} style={{ "--c": c.color }}>
-            <button className="dash-bar" {...events(category)}>
-              <span className="dash-between">
-                <span><i style={{ background: c.color }} />{c.name}</span>
+          <article className={`dash-category-breakdown${c.id === UNCATEGORIZED ? " is-unsorted" : ""}`} key={c.id} style={{ "--c": c.color }}>
+            <div className="dash-line">
+              <button className="dash-bar" {...events(category)} aria-label={`${c.name}: ${money(c.net)}${shareOf(c.net, whole) ? `, ${shareOf(c.net, whole)} of the period` : ""}${c.id === UNCATEGORIZED ? `, ${plural(c.rows.length, "expense", "expenses")} not sorted yet` : ""}`}>
+                <span className="dash-bar-name">
+                  {c.id === UNCATEGORIZED ? <i className="dash-hatch" aria-hidden="true" /> : <i style={{ background: c.color }} />}
+                  <span>{c.name}{c.id === UNCATEGORIZED && <small> · {plural(c.rows.length, "expense", "expenses")}</small>}</span>
+                </span>
+                <span className="dash-track" aria-hidden="true">
+                  <span className="dash-net" style={{ width: `${(100 * c.net) / max}%` }} />
+                  <span className="dash-repaid" style={{ width: `${(100 * c.repaid) / max}%` }} />
+                </span>
                 <strong className="tabular">{money(c.net)}</strong>
-              </span>
-              <span className="dash-track" aria-hidden="true">
-                <span className="dash-net" style={{ width: `${(100 * c.net) / max}%` }} />
-                <span className="dash-repaid" style={{ width: `${(100 * c.repaid) / max}%` }} />
-              </span>
-              <small className="tabular">{money(c.gross)} spent{c.repaid ? ` · ${money(c.repaid)} paid back` : ""}</small>
-            </button>
+                <small className="tabular dash-share">{shareOf(c.net, whole)}</small>
+              </button>
+              {c.id === UNCATEGORIZED && onOrganizeUnsorted && (
+                <button className="sm dash-organize-these" onClick={onOrganizeUnsorted}>Organize these</button>
+              )}
+            </div>
             {children.length > 0 && (
               <div className="dash-tag-chips" aria-label={`Tags in ${c.name}`}>
                 {children.map((t) => (

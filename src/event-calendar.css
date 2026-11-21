@@ -2,6 +2,29 @@
    event and account colours are user data. */
 .event-workspace { display: grid; gap: var(--space-4); }
 .event-search { max-width: 360px; }
+/* Every event, newest first: name and dates, then your share, what is still owed and what was spent. */
+.event-list { display: grid; padding: var(--space-2); border-radius: var(--radius-xl); background: var(--surface); box-shadow: var(--shadow-rest); }
+.event-list-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) repeat(3, minmax(96px, auto)); align-items: center; gap: var(--space-4); min-height: 0; padding: var(--space-3); border-radius: var(--radius-md); background: transparent; box-shadow: inset 0 -0.5px 0 var(--line); text-align: left; font-weight: var(--weight-regular); }
+.event-list-row:last-child { box-shadow: none; }
+.event-list-row:hover:not(:disabled) { background: var(--sunk); }
+.event-list-row:active:not(:disabled) { transform: none; }
+.event-list-row[aria-pressed="true"] { background: var(--accent-subtle); box-shadow: inset 0 0 0 0.5px var(--accent-line); color: var(--ink); }
+.event-list-name { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; font-weight: var(--weight-medium); }
+.event-list-name i { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--event-color); flex: none; }
+.event-list-row > small { color: var(--ink-tertiary); }
+.event-list-figure { display: grid; justify-items: end; gap: 0; }
+.event-list-figure small { font-size: var(--type-caption-size); color: var(--ink-tertiary); }
+.event-list-figure b { font-weight: var(--weight-medium); }
+.event-nearby-day { display: grid; }
+.event-nearby-day h4 { margin: var(--space-2) 0 0; color: var(--ink-secondary); }
+.event-nearby-day article { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-1) var(--space-3); padding: var(--space-3) 0; box-shadow: inset 0 0.5px 0 var(--line); }
+.event-nearby-day article > div:first-child { display: grid; gap: 2px; min-width: 0; }
+.event-nearby-day article strong { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.event-nearby-day article small { color: var(--ink-tertiary); }
+.event-payment-suggestions { display: grid; gap: var(--space-1); margin-top: var(--space-2); }
+.event-payment-suggestions h4 { margin: 0; }
+.event-payment-suggestions > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: var(--space-4); padding: var(--space-3) 0; box-shadow: inset 0 0.5px 0 var(--line); }
+.event-payment-suggestions > div > span { display: grid; gap: 2px; min-width: 0; }
 .event-choices { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .event-choices button.sm { gap: var(--space-2); }
 .event-choices i { width: 8px; height: 8px; border-radius: var(--radius-full); background: var(--event-color); flex: none; }
@@ -40,7 +63,7 @@
 .event-calendar-grid > button.near-event { box-shadow: inset 0 0 0 1px var(--line-strong); }
 .event-calendar-grid > button[aria-pressed="true"] { background: var(--accent-subtle); box-shadow: inset 0 0 0 1.5px var(--accent-strong); color: var(--ink); }
 .event-calendar-grid button > span { font-size: var(--type-caption-size); color: var(--ink-secondary); }
-.event-day-dots strong { margin-right: var(--space-1); font-size: var(--type-caption-size); font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
+.event-day-dots strong { margin-right: var(--space-1); font-size: var(--type-caption-size); white-space: nowrap; font-weight: var(--weight-medium); font-variant-numeric: tabular-nums; }
 .event-day-dots { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
 .event-day-dots i { width: 6px; height: 6px; border-radius: var(--radius-full); }
 .event-day-dots b { display: grid; place-items: center; color: var(--accent-strong); }
@@ -90,7 +113,12 @@
 }
 @media (max-width: 720px) {
   .event-calendar-panel, .event-day-panel, .event-incoming, .cost-breakdown { padding: var(--space-4); }
-  .event-calendar-grid > button { min-height: 56px; padding: var(--space-1); }
+  .event-calendar-grid > button { min-height: 56px; padding: var(--space-1); min-width: 0; overflow: hidden; }
   .event-incoming > div, .cost-person { grid-template-columns: minmax(0, 1fr) auto; }
+  .event-list-row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-1) var(--space-3); }
+  .event-list-name, .event-list-row > small { grid-column: 1 / -1; }
+  .event-list-figure { justify-items: start; }
+  .event-payment-suggestions > div { grid-template-columns: minmax(0, 1fr); }
+  .event-payment-suggestions > div > button { justify-self: start; }
   .event-incoming > div > button, .cost-person small { grid-column: 1 / -1; justify-self: start; }
 }

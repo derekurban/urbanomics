@@ -23,14 +23,17 @@ export function CostBreakdown({ expenses, records, people = [], onPayment, previ
             byPerson.set(s.id, entry);
           }
         const persons = [...byPerson.values()].sort((a, b) => nameOf(a.id).localeCompare(nameOf(b.id)));
+        const owing = persons.filter((p) => p.share - p.paid > 0);
         const splitLabel = (r) => !r.review?.shares ? "No split yet" : String(r.review.sharesSource || "").startsWith("event:") ? "Even split" : "Own split";
         return (
           <div key={t.currency}>
+            {/* What it cost you leads: your share, who still owes, then what was spent and paid back. */}
             <StatRow items={[
-              { label: totals.length > 1 ? `Spent · ${t.currency}` : "Spent", value: money(t.gross, t.currency) },
-              { label: "Paid back", value: money(t.repaid, t.currency) },
-              { label: "Not yet paid back", value: money(t.fronted, t.currency) },
-              { label: "Still owed to you", value: t.unknown === t.rows.length ? "Not recorded" : money(t.owed, t.currency), delta: t.unknown ? `${plural(t.unknown, "expense has", "expenses have")} no split` : "From recorded splits", emphasis: true },
+              { label: totals.length > 1 ? `Your share · ${t.currency}` : "Your share", value: t.unknown === t.rows.length ? "Not recorded" : money(t.own, t.currency), delta: t.unknown ? `${plural(t.unknown, "expense has", "expenses have")} no split yet` : "From recorded splits", emphasis: t.unknown < t.rows.length },
+              ...(owing.length && owing.length <= 2
+                ? owing.map((p) => ({ label: `${nameOf(p.id)} owes`, value: money(p.share - p.paid, t.currency), delta: `Share ${money(p.share, t.currency)} · paid ${money(p.paid, t.currency)}` }))
+                : [{ label: "Still owed to you", value: t.unknown === t.rows.length ? "Not recorded" : money(t.owed, t.currency), delta: persons.length ? (owing.length ? `From ${plural(owing.length, "person", "people")}` : "Everyone has paid") : "No one shares these yet" }]),
+              { label: "Spent", value: money(t.gross, t.currency), delta: t.repaid ? `${money(t.repaid, t.currency)} paid back so far` : "Nothing paid back yet" },
             ]} />
             {persons.length > 0 && (
               <div className="cost-people">

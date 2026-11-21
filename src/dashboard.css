@@ -4,6 +4,7 @@
 .dash-workspace { min-width: 0; }
 .dash-loading { color: var(--ink-secondary); }
 .dash-caption { font-size: var(--type-caption-size); line-height: var(--type-caption-leading); color: var(--ink-tertiary); margin: var(--space-2) 0 0; }
+.dash-sentence { margin: calc(var(--space-3) * -1) 0 var(--space-5); max-width: var(--measure); font: var(--font-body); color: var(--ink); }
 .dash-range { margin: 0 0 var(--space-5); font: var(--font-label); color: var(--ink-secondary); }
 
 /* Period: year, months, all dates, custom range. Toggles tint with the accent when on. */
@@ -48,6 +49,25 @@
 .dash-track > span { display: block; height: 100%; }
 .dash-net { background: var(--c, var(--ink-tertiary)); }
 .dash-repaid { background: var(--c, var(--ink-tertiary)); opacity: 0.35; }
+/* One compact line per entry: name, bar, the person's cost and its share of the period. */
+.dash-line { display: flex; align-items: center; gap: var(--space-2); }
+.dash-line > .dash-bar { flex: 1 1 auto; grid-template-columns: minmax(0, 1.1fr) minmax(48px, 1fr) minmax(88px, auto) 40px; align-items: center; gap: var(--space-3); }
+.dash-bar-name { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 0; }
+.dash-bar-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dash-bar > strong { text-align: right; }
+.dash-share { text-align: right; }
+.dash-hatch, .dash-bar i.dash-hatch { background: repeating-linear-gradient(135deg, var(--sunk) 0 2px, var(--ink-tertiary) 2px 3px); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+.is-unsorted .dash-track { background: transparent; box-shadow: inset 0 0 0 0.5px var(--line); }
+.is-unsorted .dash-net { background: repeating-linear-gradient(135deg, var(--sunk) 0 6px, var(--line-strong) 6px 7px); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+.is-unsorted .dash-bar-name > span { color: var(--ink-secondary); }
+.dash-organize-these { flex: none; }
+.dash-moves-note { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2) var(--space-3); margin: calc(var(--space-2) * -1) 0 var(--space-4); padding: var(--space-2) var(--space-3); border-radius: var(--radius-md); background: var(--warning-subtle); box-shadow: inset 0 0 0 0.5px var(--warning-line); font-size: var(--type-caption-size); color: var(--ink); }
+.dash-moves-note > svg { color: var(--ink-secondary); flex: none; }
+.dash-moves-note > span { flex: 1 1 240px; }
+.dash-row-tags { display: flex; flex-wrap: wrap; gap: var(--space-1); margin-top: 2px; }
+.dash-row-tags > span { font-size: var(--type-caption-size); line-height: var(--type-caption-leading); padding: 0 var(--space-2); border-radius: var(--radius-xs); background: var(--sunk); color: var(--ink-secondary); }
+.dash-row-tags > .dash-unsorted-badge { background: var(--warning-subtle); color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--warning-line); }
+.dash-row-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); margin-bottom: var(--space-3); }
 .dash-tag-chips { display: flex; flex-wrap: wrap; gap: var(--space-1); padding: var(--space-1) 0 var(--space-2); }
 .dash-tag-chip { display: inline-flex; align-items: center; gap: var(--space-2); min-height: var(--control-sm); padding: 0 var(--space-2); border-radius: var(--radius-sm); background: var(--sunk); box-shadow: none; font-size: var(--type-caption-size); font-weight: var(--weight-regular); color: var(--ink-secondary); }
 .dash-tag-chip:hover:not(:disabled) { background: var(--sunk); color: var(--ink); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
@@ -114,6 +134,15 @@
 .dash-columns { display: flex; align-items: flex-end; justify-content: center; gap: 2px; padding: 0 var(--space-1); }
 .dash-column { display: flex; flex-direction: column-reverse; width: 100%; max-width: 32px; border-radius: 3px 3px 0 0; overflow: hidden; transform-origin: 50% 100%; animation: dash-grow var(--duration-slow) var(--ease-settle) backwards; animation-delay: calc(var(--i, 0) * 24ms); }
 .dash-column i { display: block; width: 100%; }
+.dash-column i.dash-hatch { background: repeating-linear-gradient(135deg, var(--sunk) 0 4px, var(--line-strong) 4px 5px); box-shadow: inset 0 0 0 0.5px var(--line-strong); }
+.dash-axis-zero { margin-top: auto; }
+/* The hovered month's stack, segment by segment. */
+.dash-chart-card { position: absolute; z-index: 2; top: 0; left: var(--at); transform: translateX(-50%); display: grid; gap: var(--space-1); min-width: 200px; max-width: 280px; padding: var(--space-3); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-float); font-size: var(--type-caption-size); pointer-events: none; animation: dash-pop var(--duration-base) var(--ease-out); }
+.dash-chart-card.is-start { transform: none; }
+.dash-chart-card.is-end { transform: translateX(-100%); }
+.dash-chart-card > span { display: grid; grid-template-columns: 8px minmax(0, 1fr) auto; align-items: center; gap: var(--space-2); color: var(--ink-secondary); }
+.dash-chart-card > span > i { width: 8px; height: 8px; border-radius: var(--radius-full); }
+.dash-chart-card b { color: var(--ink); font-weight: var(--weight-medium); }
 .dash-in { background: var(--ink-secondary); }
 .dash-out { background: var(--data-neutral); }
 .dash-month-bar.is-partial .dash-column { opacity: 0.55; }
@@ -228,6 +257,9 @@
 }
 @media (max-width: 720px) {
   .dash-panel { padding: var(--space-4); }
+  .dash-line { flex-wrap: wrap; }
+  .dash-line > .dash-bar { grid-template-columns: minmax(0, 1fr) auto 36px; }
+  .dash-line > .dash-bar > .dash-track { grid-column: 1 / -1; grid-row: 2; }
   .dash-year-chart { height: 200px; grid-template-columns: 44px minmax(0, 1fr); }
   .dash-plot { gap: 2px; }
   .dash-month-label { font-size: var(--type-caption-size); }
@@ -235,10 +267,11 @@
   .dash-month-initial { display: inline; }
   .dash-months > button.sm { min-width: 0; min-height: var(--control-md); flex: 1 0 calc(16.66% - 2px); }
   .dash-network-scroll { display: none; }
+  .dash-chart-card { display: none; }
   .dash-network-list { display: block; }
   .dash-detail-costs { grid-template-columns: minmax(0, 1fr); }
   .dash-ghost-tiles { grid-template-columns: minmax(0, 1fr); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dash-column, .dash-ghost-chart > i, .dash-spend-tooltip { animation: none; }
+  .dash-column, .dash-ghost-chart > i, .dash-spend-tooltip, .dash-chart-card { animation: none; }
 }
