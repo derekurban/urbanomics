@@ -315,7 +315,7 @@ function App() {
           {page === "dashboard" && (
             <Dashboard data={data} onSnapshots={() => go("snapshots")} onSource={openSource} />
           )}
-          {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={() => openOrganize()} onOpenSnapshot={async (target) => { try { const saved = await api.snapshot(target.id); setMonth(target.month); setAccountFilter(target.accountId); setRevision(saved); go("transactions"); } catch (e) { setError(e.message); } }} />}
+          {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={() => openOrganize(null, "unsorted")} onOpenSnapshot={async (target) => { try { const saved = await api.snapshot(target.id); setMonth(target.month); setAccountFilter(target.accountId); setRevision(saved); go("transactions"); } catch (e) { setError(e.message); } }} />}
           {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={() => go("snapshots")} onTransactions={(accountId, month = "") => { setRevision(null); setMonth(month); setAccountFilter(accountId); go("transactions"); }} onSource={openSource} />}
           {page === "organize" && <OrganizeDesk data={data} run={run} onSource={openSource} target={organizeTarget} onSettings={() => { setOrganizeSection("transfers"); go("settings", "transfers"); }} />}
           {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSettings={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} />}

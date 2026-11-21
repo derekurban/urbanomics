@@ -88,7 +88,9 @@ const {csv} = require('../electron/imports/parsers.cjs');
     assert.match(await shape('Desk transfer out'), /Transfer to Desk savings \$500\.00, Transfer fee \$2\.00/);
     await page.getByRole('button', {name: 'Undo'}).click(); await settle(); assert.notEqual(row('Desk transfer in').review.kind, 'transfer');
     await main('Desk transfer out').click(); await describe().fill('savings'); await page.getByRole('option', {name: /^To Desk savings/}).waitFor(); await page.keyboard.press('Enter'); await settle();
-    assert.equal(row('Desk transfer out').review.kind, 'transfer'); await shot('07-linked');
+    assert.equal(row('Desk transfer out').review.kind, 'transfer');
+    assert.equal(await page.locator('.od-row.is-open', {hasText: 'Desk transfer out'}).count(), 0, 'linking a move is a first sort, so the desk moves on');
+    await page.keyboard.press('Escape'); await main('Desk transfer out').click(); await shot('07-linked');
     await page.getByRole('button', {name: 'Unlink', exact: true}).click(); await settle(); assert.notEqual(row('Desk transfer out').review.kind, 'transfer');
     await page.keyboard.press('Escape');
     // Batch: two coffees at once, then undo restores both.
