@@ -6,7 +6,7 @@ export const currencyMoney = money;
 
 // What a group of expenses cost, what was paid back, and who still owes what. Only recorded splits
 // count toward what's owed; expenses without one are named, not guessed.
-export function CostBreakdown({ expenses, records, people = [], onPayment, preview = false }) {
+export function CostBreakdown({ expenses, records, people = [], onPayment, preview = false, renderSplit }) {
   const totals = costBreakdown(expenses, records);
   if (!totals.length) return <p className="form-help">Link expenses to see what they cost and who paid back.</p>;
   const nameOf = (id) => people.find((p) => p.id === id)?.name || "Someone";
@@ -65,6 +65,7 @@ export function CostBreakdown({ expenses, records, people = [], onPayment, previ
                     </span>
                   </summary>
                   <p className="form-help">Your share {r.own === null ? "isn't recorded" : money(r.own, t.currency)} · still owed {r.owed === null ? "not recorded" : money(r.owed, t.currency)}</p>
+                  {renderSplit && !r.deleted && renderSplit(r)}
                   {r.payments.map((p) => (
                     <div className="cost-payment" key={p.id}>
                       <span>

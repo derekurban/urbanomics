@@ -7,6 +7,7 @@ import {
   costBreakdown,
 } from "../electron/review/event-model.mjs";
 import { CostBreakdown } from "./CostBreakdown.jsx";
+import { SplitBox } from "./SplitBox.jsx";
 import { eventStart, eventPaymentSuggestions } from "./events-model.js";
 import { Segmented } from "./ui.jsx";
 import { money as currencyMoney, dayLabel, weekdayLabel, rangeLabel, plural } from "./format.js";
@@ -42,6 +43,7 @@ export function EventCalendar({
   onEdit,
   onPayment,
   onSource,
+  act,
 }) {
   const event = groups.find((e) => e.id === selectedEvent) || groups[0];
   const [month, setMonth] = useState(
@@ -349,6 +351,7 @@ export function EventCalendar({
             records={records}
             people={people}
             onPayment={(t) => onPayment(t, event.id)}
+            renderSplit={act ? (r) => { const row = records.find((x) => x.id === r.id); return row ? <SplitBox row={row} records={records} people={people} event={event} busy={busy} act={act} /> : null; } : undefined}
           />
           <div className="event-incoming">
             <h3>Money in for this event</h3>

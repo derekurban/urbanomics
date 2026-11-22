@@ -122,3 +122,23 @@
   .event-payment-suggestions > div > button { justify-self: start; }
   .event-incoming > div > button, .cost-person small { grid-column: 1 / -1; justify-self: start; }
 }
+
+/* The Split box inside an expense under Costs & repayments (src/SplitBox.jsx), like the Organize card's. */
+.ev-split { display: grid; gap: var(--space-2); margin: 0 var(--space-2) var(--space-3) calc(16px + var(--space-5)); padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); max-width: 640px; }
+.ev-split-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); flex-wrap: wrap; }
+.ev-split-head small { color: var(--ink-secondary); }
+.ev-split-lines { display: grid; gap: var(--space-2); }
+.ev-split-line { display: grid; grid-template-columns: minmax(0, 1fr) 7em 5.5em minmax(5em, auto); align-items: center; gap: var(--space-2); }
+.ev-split-line > small { color: var(--ink-secondary); text-align: right; white-space: nowrap; }
+.ev-split-field { display: flex; align-items: center; gap: var(--space-1); }
+.ev-split-field input { width: 100%; min-width: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.ev-split-field span { color: var(--ink-secondary); }
+.ev-split-people, .ev-split-actions { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); }
+.ev-split-person { display: inline-flex; align-items: center; gap: var(--space-2); justify-self: start; min-width: 0; }
+.ev-split-person i { width: 8px; height: 8px; border-radius: 50%; background: var(--part, var(--data-neutral)); flex: none; }
+.ev-split-person[aria-pressed="false"] { color: var(--ink-secondary); }
+@media (max-width: 720px) {
+  .ev-split { margin-left: 0; }
+  .ev-split-line { grid-template-columns: minmax(0, 1fr) 5.5em 5.5em; }
+  .ev-split-line > small { grid-column: 1 / -1; text-align: left; }
+}
