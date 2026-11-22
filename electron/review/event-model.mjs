@@ -84,13 +84,17 @@ export function costBreakdown(expenses, records) {
                   ),
                 0,
               )
-          : null;
+          : 0;
+        // An expense with no split is yours alone: your share is what it cost, less any refund (money back
+        // from no one), and nobody owes on it.
+        const refunded = payments.filter((p) => !p.review.personId).reduce((n, p) => n + p.applied, 0);
         return {
           ...expense,
           gross,
           repaid,
           fronted: gross - repaid,
-          own: shares ? shares.find((s) => s.id === "me")?.cents || 0 : null,
+          own: shares ? shares.find((s) => s.id === "me")?.cents || 0 : gross - refunded,
+          solo: !shares,
           owed,
           payments,
         };
@@ -104,7 +108,7 @@ export function costBreakdown(expenses, records) {
       fronted: total("fronted"),
       own: total("own"),
       owed: total("owed"),
-      unknown: rows.filter((r) => r.own === null).length,
+      solo: rows.filter((r) => r.solo).length,
     };
   });
 }

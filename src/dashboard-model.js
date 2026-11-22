@@ -425,7 +425,8 @@ export function dashboard(
       net,
       payments: payments.filter((p) => p.selected > 0),
       owed:
-        owedTotal === null ? null : portion(apportion(owedTotal, remaining)),
+        owedTotal === null ? 0 : portion(apportion(owedTotal, remaining)),
+      // With no split the expense is yours alone: your share is what it cost after any refund.
       own: shares
         ? portion(
             apportion(
@@ -433,7 +434,8 @@ export function dashboard(
               grossParts,
             ),
           )
-        : null,
+        : net,
+      split: !!shares,
       provisional: !transfer && row.review.kind === "unreviewed",
     });
   }
@@ -544,8 +546,8 @@ export function dashboard(
     net: sum(list, (e) => e.net),
     owed: sum(list, (e) => e.owed || 0),
     own: sum(list, (e) => e.own || 0),
-    known: list.filter((e) => e.owed !== null).length,
-    unknown: list.filter((e) => !e.fee && e.owed === null).length,
+    known: list.filter((e) => e.split).length,
+    unknown: list.filter((e) => !e.fee && !e.split).length,
   });
   const events = entities
     .filter((e) => e.kind === "group")

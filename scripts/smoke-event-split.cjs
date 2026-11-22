@@ -45,6 +45,9 @@ const { startWebServer } = require("../electron/web-server.cjs");
     // Too much is refused with a message, nothing saved.
     await pct.fill("100"); await pct.press("Enter");
     await until(() => row("TRIP CABIN").review.shares.find((s) => s.id === sam)?.cents === 30000, "100%");
+    // An expense with no split counts as yours: the souvenir's $40.00 is your whole share now that Sam covers the cabin.
+    await page.waitForFunction(() => document.querySelector(".event-list-row .event-list-figure b")?.textContent === "$40.00");
+    await page.locator(".cost-breakdown").getByText("Includes 1 expense with no split, all yours").waitFor();
     await page.setViewportSize({ width: 390, height: 844 }); await page.waitForTimeout(500);
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false, "no sideways scroll on a phone");
     await shot("03-phone");

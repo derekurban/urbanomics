@@ -141,8 +141,13 @@ test("cost breakdown separates fronted cash, agreed shares and payer debts witho
     [alex],
   );
   assert.equal(all.length, 2);
-  assert.equal(all[0].unknown, 1);
+  assert.equal(all[0].solo, 1, "an expense with no split is yours alone");
   assert.equal(all[0].gross, 38000);
   assert.equal(all[1].repaid, 0);
-  assert.equal(all[0].rows.find((r) => r.id === "unknown").own, null);
+  const solo = all[0].rows.find((r) => r.id === "unknown");
+  assert.deepEqual([solo.own, solo.owed], [2000, 0]);
+  assert.equal(all[0].own, 12000 + 2000, "the cabin share plus the unsplit expense");
+  // A refund (money back from no one) lowers your share of an unsplit expense.
+  const refund = { id: "refund", amountCents: 500, currency: "CAD", review: { kind: "repayment", personId: "", allocations: [{ id: "unknown", cents: 500 }] } };
+  assert.equal(costBreakdown([expense("unknown", 2000, null)], [refund])[0].own, 1500);
 });

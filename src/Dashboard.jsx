@@ -233,8 +233,8 @@ export function Dashboard({ data, onSource, onSnapshots, onOrganize, onTransacti
       </summary>
       <dl className="dash-detail-costs">
         <div><dt>Spent</dt><dd>{money(e.gross)}</dd></div>
-        <div><dt>Your share</dt><dd>{e.own === null ? "Not recorded" : money(e.own)}</dd></div>
-        <div><dt>Still owed to you</dt><dd>{e.owed === null ? "Not recorded" : money(e.owed)}</dd></div>
+        <div><dt>Your share</dt><dd>{money(e.own)}{e.split ? "" : " (no split)"}</dd></div>
+        <div><dt>Still owed to you</dt><dd>{money(e.owed)}</dd></div>
       </dl>
       {e.payments.map((p) => (
         <div className="dash-payment" key={p.row.id}>
@@ -504,7 +504,7 @@ export function Dashboard({ data, onSource, onSnapshots, onOrganize, onTransacti
                     </section>
                     <section className="dash-panel">
                       <div className="dash-panel-heading"><h2>People and events</h2></div>
-                      <button className="dash-relation" onClick={() => open("Still owed to you", model.expenses.filter((e) => e.owed !== null), "owed")}>
+                      <button className="dash-relation" onClick={() => open("Still owed to you", model.expenses.filter((e) => e.split), "owed")}>
                         <span>Still owed to you</span>
                         <strong>{model.known ? money(model.owed) : "Not recorded"}</strong>
                         <small>
@@ -615,7 +615,7 @@ export function Dashboard({ data, onSource, onSnapshots, onOrganize, onTransacti
                           <span>Spent {money(e.gross)}</span>
                           <span>Paid back {money(e.repaid)}</span>
                         </span>
-                        <small>Still owed to you: {e.known ? money(e.owed) : "not recorded"}</small>
+                        <small>Still owed to you: {money(e.owed)}</small>
                       </button>
                     ))}
                   </div>

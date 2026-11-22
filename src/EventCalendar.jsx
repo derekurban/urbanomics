@@ -130,8 +130,8 @@ export function EventCalendar({
               >
                 <span className="event-list-name"><i aria-hidden="true" />{e.name}</span>
                 <small>{eventStart(e) ? rangeLabel(eventStart(e), e.endDate || eventStart(e)) : "No dates yet"}</small>
-                <span className="event-list-figure"><small>Your share</small><b className="tabular">{!cost ? "—" : cost.unknown === cost.rows.length ? "Not recorded" : currencyMoney(cost.own, cost.currency)}</b></span>
-                <span className="event-list-figure"><small>Still owed</small><b className="tabular">{!cost ? "—" : cost.unknown === cost.rows.length ? "Not recorded" : currencyMoney(cost.owed, cost.currency)}</b></span>
+                <span className="event-list-figure"><small>Your share</small><b className="tabular">{!cost ? "—" : currencyMoney(cost.own, cost.currency)}</b></span>
+                <span className="event-list-figure"><small>Still owed</small><b className="tabular">{!cost ? "—" : currencyMoney(cost.owed, cost.currency)}</b></span>
                 <span className="event-list-figure"><small>Spent</small><b className="tabular">{cost ? currencyMoney(cost.gross, cost.currency) : "—"}</b></span>
               </button>
             );
