@@ -78,6 +78,8 @@
   "suggestVendors": "ai:suggest-vendors",
   "suggestOrganize": "ai:suggest-organize",
   "suggestOrganizeBatch": "ai:suggest-organize-batch",
+  "savedSuggestions": "ai:suggestions",
+  "markSuggestion": "ai:suggestion-mark",
   "backupWorkspace": "admin:backup",
   "workspaceBackups": "admin:backups"
 }

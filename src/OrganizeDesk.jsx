@@ -223,6 +223,27 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     serverRows.current = rows; publish(rows); setLoaded(true); return rows;
   }
   useEffect(() => { load(true).catch(e => setLoadError(e.message)); }, [data]);
+  /* Claude's answers, dismissals and what it applied are kept in the workspace (ai:suggestions), so they come
+     back after the app closes, reloads or updates. Loaded once per app session, after the ledger, skipping rows
+     that are gone and suggestions that point at a tag, person or other half that no longer exists. */
+  const keepSuggestion = (id, change) => { api().markSuggestion?.(id, change).catch(() => {}); };
+  useEffect(() => {
+    if (!loaded || organizeStore.hydrated || !api().savedSuggestions) return;
+    organizeStore.hydrated = true;
+    api().savedSuggestions().then(list => {
+      const rows = new Map(stateRef.current.map(r => [r.id, r])), ents = entities;
+      const exists = (id, kind) => ents.some(e => e.id === id && e.kind === kind);
+      const valid = x => x.kind === 'tag' ? exists(x.id, 'category') : ['settle', 'share', 'payee'].includes(x.kind) ? exists(x.id, 'person') : x.kind === 'twin' ? rows.has(x.id) : true;
+      for (const s of list) {
+        if (!rows.has(s.transactionId)) continue;
+        if (s.autoApplied) autoApplied.current.add(s.transactionId);
+        if (suggestions.current.has(s.transactionId)) continue;
+        if (s.status === 'dismissed') suggestions.current.set(s.transactionId, {status: 'dismissed'});
+        else if (s.result) suggestions.current.set(s.transactionId, {status: 'done', result: {...s.result, suggestions: (s.result.suggestions || []).filter(valid)}});
+      }
+      storeChanged();
+    }).catch(() => { organizeStore.hydrated = false; });
+  }, [loaded]);
   useEffect(() => () => { generation.current++; }, []);
   // Toasts about this page stay on it: leaving Organize closes them, and a batch that finished meanwhile
   // shows its summary on return.
@@ -385,7 +406,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   useEffect(() => {
     if (!autoApply || !openRow || !unsorted(openRow) || openAnswer?.status !== 'done' || autoApplied.current.has(openRow.id) || batchRun.current) return;
     const list = autoPlan(openRow, openAnswer.result).apply; if (!list.length) return;
-    autoApplied.current.add(openRow.id); storeChanged();
+    autoApplied.current.add(openRow.id); keepSuggestion(openRow.id, {autoApplied: true}); storeChanged();
     applySuggestions(openRow, list, {advance: false});
   }, [openAnswer, autoApply]);
   const days = []; for (const r of shownRows) { const g = days.at(-1); if (g && g.date === r.date) g.rows.push(r); else days.push({date: r.date, rows: [r]}); }
@@ -724,7 +745,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           if (!list.length) { settleRow(row.id, 'review'); continue; }
           const twin = list.find(s => s.kind === 'twin');
           if (twin) { run.claimed.add(twin.id); run.claimed.add(row.id); }
-          if (await H().applySuggestions(find(H().stateRef.current, row.id), list, {advance: false})) { autoApplied.current.add(row.id); run.appliedIds.add(row.id); if (plan.hold.length) run.held++; settleRow(row.id, 'applied'); }
+          if (await H().applySuggestions(find(H().stateRef.current, row.id), list, {advance: false})) { autoApplied.current.add(row.id); H().keepSuggestion(row.id, {autoApplied: true}); run.appliedIds.add(row.id); if (plan.hold.length) run.held++; settleRow(row.id, 'applied'); }
           else settleRow(row.id, 'review');
         }
         setSuggestTick(n => n + 1); show();
@@ -823,7 +844,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   /* Same again's "Tag them too": one batch, one Undo step. */
   function tagMany(ids, tag, flowKind) { const wasOpen = open; batchTag(tag, ids, flowKind); if (wasOpen && ids.includes(wasOpen) && flow) closeEditor(true); }
   // A running batch, and toasts' actions, work through the desk that is mounted now.
-  organizeStore.host = {stateRef, queue, freshView, aiContext, autoPlan, applySuggestions, setFilter, tagMany, alwaysLike};
+  organizeStore.host = {stateRef, queue, freshView, aiContext, autoPlan, applySuggestions, setFilter, tagMany, alwaysLike, keepSuggestion};
 
   if (loadError && !state.length) return <section className="organize-desk workspace-page"><div className="page-heading"><div><h1>Organize</h1></div></div><Alert>{loadError}</Alert></section>;
   const empty = loaded && !state.length && !loadError;
@@ -888,7 +909,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
                     onSettleExpenses={() => setSettling(r.id)} vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
-                    smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
+                    smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); keepSuggestion(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
           </li>

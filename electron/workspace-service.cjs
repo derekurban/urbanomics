@@ -119,6 +119,8 @@ function createWorkspaceService({
   handle("ai:suggest-vendors", () => assistant.suggestVendors());
   handle("ai:suggest-organize", (context) => assistant.suggestOrganize(context));
   handle("ai:suggest-organize-batch", (contexts) => assistant.suggestOrganizeBatch(contexts));
+  handle("ai:suggestions", () => assistant.saved());
+  handle("ai:suggestion-mark", (id, change) => assistant.mark(id, change));
   handle("review:cash-save", (values) => store.review.saveCash(values));
   handle("review:cash-void", (id, version) =>
     store.review.voidCash(id, version),

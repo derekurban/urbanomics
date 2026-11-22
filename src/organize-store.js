@@ -1,4 +1,5 @@
-// What the Organize desk learns from Claude, kept for the app session rather than the page: the
+// What the Organize desk learns from Claude, kept for the app session rather than the page (the answers,
+// dismissals and what Claude applied are also saved in the workspace and loaded back on the next session): the
 // suggestions per row, the rows Claude organized, the tags it created and a running batch. Leaving
 // Organize and coming back finds them as they were, and a batch keeps its progress and Stop button.
 // Rows put off with Later stay out of the advance order for the session too.
@@ -18,6 +19,7 @@ export const organizeStore = {
   mounted: 0,
   lastOpen: null,           // the row last open, for n
   version: 0,               // bumped on every change, for memoised views
+  hydrated: false,          // whether the suggestions kept in the workspace have been loaded this session
 };
 export function changed() { organizeStore.version++; for (const listen of listeners) listen(); }
 export function setBatch(batch) { organizeStore.batch = batch; changed(); }
@@ -31,6 +33,6 @@ export function useOrganizeStore() {
 export function resetOrganizeStore() {
   if (organizeStore.run) return false;
   organizeStore.suggestions.clear(); organizeStore.autoApplied.clear(); organizeStore.createdTags.clear(); organizeStore.later.clear();
-  organizeStore.batch = null; organizeStore.summary = null; organizeStore.lastOpen = null; changed();
+  organizeStore.batch = null; organizeStore.summary = null; organizeStore.lastOpen = null; organizeStore.hydrated = false; changed();
   return true;
 }

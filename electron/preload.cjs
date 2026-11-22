@@ -109,6 +109,8 @@ contextBridge.exposeInMainWorld("urbanomics", {
   suggestVendors: () => invoke("ai:suggest-vendors"),
   suggestOrganize: (context) => invoke("ai:suggest-organize", context),
   suggestOrganizeBatch: (contexts) => invoke("ai:suggest-organize-batch", contexts),
+  savedSuggestions: () => invoke("ai:suggestions"),
+  markSuggestion: (id, change) => invoke("ai:suggestion-mark", id, change),
   updatesState: () => invoke("updates:state"),
   checkForUpdates: () => invoke("updates:check"),
   installUpdate: () => invoke("updates:install"),

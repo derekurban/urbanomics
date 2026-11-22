@@ -43,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 23) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 24) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -307,6 +307,9 @@ class ImportStore {
     this.layouts = new (require('./layouts.cjs').ImportLayouts)(this);
     this.transferLab = new TransferLabStore(this);
     if (this.db.prepare('PRAGMA user_version').get().user_version < 23) this.db.exec('PRAGMA user_version=23');
+    // Schema 24: Claude's Organize suggestions, dismissals and what it applied, kept privately per transaction.
+    if (this.db.prepare('PRAGMA user_version').get().user_version < 24)
+      this.db.exec("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS assistant_suggestions (transaction_id TEXT PRIMARY KEY, status TEXT NOT NULL, payload TEXT NOT NULL, updated TEXT NOT NULL); PRAGMA user_version=24; COMMIT;");
     // Aliases and transaction rules become vendors once; also after a seed written by an older version.
     this.vendors.convertLegacy();
     this.recover();

@@ -152,15 +152,46 @@ function createAssistant({ store, provider, secrets = null, env = process.env, l
   const cache = new Map(), inflight = new Map();
   const keyOf = (ctx, choice) => createHash("sha256").update(JSON.stringify([ctx, choice])).digest("hex");
   const remember = (key, result) => { cache.set(key, result); if (cache.size > 2000) cache.delete(cache.keys().next().value); };
+  /* Answers, dismissals and what Claude applied are kept in the workspace (private table
+     assistant_suggestions, one row per transaction), so they survive closing the app, a reload or an update.
+     The Organize desk loads them back with saved(). */
+  const keep = (id, entry) => { try { store.db.prepare("INSERT INTO assistant_suggestions (transaction_id,status,payload,updated) VALUES (?,?,?,?) ON CONFLICT(transaction_id) DO UPDATE SET status=excluded.status,payload=excluded.payload,updated=excluded.updated").run(id, entry.status, JSON.stringify(entry.payload || {}), new Date().toISOString()); } catch (error) { log("keep-failed", { reason: error.message }); } };
+  const keepAnswer = (result) => {
+    if (!result?.transactionId || result.missing) return result;
+    const old = saved().find((s) => s.transactionId === result.transactionId);
+    const { cached, ...answer } = result;
+    keep(result.transactionId, { status: "done", payload: { result: answer, autoApplied: !!old?.autoApplied } });
+    return result;
+  };
+  function saved() {
+    const live = new Set(store.db.prepare("SELECT id FROM transactions UNION SELECT id FROM cash_receipts WHERE voidedAt IS NULL").all().map((r) => r.id));
+    const rows = store.db.prepare("SELECT * FROM assistant_suggestions").all(), out = [];
+    for (const r of rows) {
+      if (!live.has(r.transaction_id)) { store.db.prepare("DELETE FROM assistant_suggestions WHERE transaction_id=?").run(r.transaction_id); continue; }
+      let payload = {};
+      try { payload = JSON.parse(r.payload); } catch {}
+      out.push({ transactionId: r.transaction_id, status: r.status, result: payload.result || null, autoApplied: !!payload.autoApplied });
+    }
+    return out;
+  }
+  /* change: { status: "dismissed" } after Dismiss, { autoApplied: true } after Claude applied it, { clear: true } to forget. */
+  function mark(transactionId, change = {}) {
+    if (typeof transactionId !== "string" || !transactionId) throw new Error("Choose a transaction.");
+    if (change.clear) { store.db.prepare("DELETE FROM assistant_suggestions WHERE transaction_id=?").run(transactionId); return true; }
+    const old = saved().find((s) => s.transactionId === transactionId);
+    const status = change.status === "dismissed" ? "dismissed" : old?.status || "done";
+    keep(transactionId, { status, payload: { result: old?.result || null, autoApplied: change.autoApplied === true || !!old?.autoApplied } });
+    return true;
+  }
   async function organizeOne(ctx, choice) {
     const key = keyOf(ctx, choice);
-    if (cache.has(key)) return { ...cache.get(key), cached: true };
+    if (cache.has(key)) return keepAnswer({ ...cache.get(key), cached: true });
     if (!inflight.has(key)) inflight.set(key, (async () => {
       try {
         const { value, run } = await ask("organize", prompts.organizePrompt(ctx), prompts.organizeSchema);
         const result = { ...prompts.validateOrganize(value, ctx), run, transactionId: ctx.transaction.id };
         remember(key, result);
-        return result;
+        return keepAnswer(result);
       } finally { inflight.delete(key); }
     })());
     return inflight.get(key);
@@ -184,13 +215,13 @@ function createAssistant({ store, provider, secrets = null, env = process.env, l
         remember(keyOf(ctx, choice), { ...prompts.validateOrganize(answer, ctx), run: { ...run, batch: fresh.length }, transactionId: ctx.transaction.id });
       }
     }
-    return ctxs.map((ctx) => cache.get(keyOf(ctx, choice)) ? { ...cache.get(keyOf(ctx, choice)), cached: !fresh.includes(ctx) } : { transactionId: ctx.transaction.id, missing: true });
+    return ctxs.map((ctx) => cache.get(keyOf(ctx, choice)) ? keepAnswer({ ...cache.get(keyOf(ctx, choice)), cached: !fresh.includes(ctx) }) : { transactionId: ctx.transaction.id, missing: true });
   }
   async function test() {
     const choice = ready().features.organize;
     const result = await claude.exec({ prompt: "Reply with the word ready.", schema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false }, model: choice.model, effort: choice.effort || undefined, timeout: 90000 });
     return { reply: result.value.reply, ms: result.ms, model: choice.model };
   }
-  return { settings, saveSettings, saveKey, clearKey, state, suggestTags, suggestVendors, suggestOrganize, suggestOrganizeBatch, test, models: () => claude.listModels(), dispose: () => claude.dispose?.() };
+  return { settings, saveSettings, saveKey, clearKey, state, suggestTags, suggestVendors, suggestOrganize, suggestOrganizeBatch, saved, mark, test, models: () => claude.listModels(), dispose: () => claude.dispose?.() };
 }
 module.exports = { createAssistant, FEATURES, DEFAULT_CHOICE };

@@ -296,3 +296,32 @@ test("requests run up to the chosen number at once, never more than 32", async (
   peak = 0; claude.setConcurrency(4); await burst(); assert.equal(peak, 4);
   peak = 0; claude.setConcurrency(100); await burst(); assert.equal(peak, 32, "the setting is capped");
 });
+
+test("Organize suggestions, dismissals and what Claude applied are kept in the workspace", async (t) => {
+  const { store, tags } = workspace(t);
+  const claude = fakeClaude({ summary: "Groceries.", suggestions: [{ kind: "tag", id: tags.groceries, name: "", categoryId: "", cents: 0, reason: "History.", confidence: "high" }] });
+  const assistant = createAssistant({ store, provider: claude, env: {} });
+  assistant.saveSettings({ consent: true });
+  const [one, two] = store.review.records().filter((r) => r.amountCents < 0);
+  const context = (row) => ({ transaction: { id: row.id, name: row.description, amountCents: row.amountCents, currency: row.currency, date: row.date, account: row.account, unsortedCents: -row.amountCents, parts: [] }, candidates: { tags: [{ id: tags.groceries, name: "Groceries" }], people: [], events: [], twins: [], categories: [] }, history: [] });
+  await assistant.suggestOrganize(context(one));
+  await assistant.suggestOrganizeBatch([context(two)]);
+  // A new session (the app restarted or updated) finds both answers.
+  const later = createAssistant({ store, provider: fakeClaude({}), env: {} });
+  let saved = later.saved();
+  assert.deepEqual(saved.map((s) => s.transactionId).sort(), [one.id, two.id].sort());
+  assert.ok(saved.every((s) => s.status === "done" && s.result.suggestions[0].id === tags.groceries && !("cached" in s.result)));
+  later.mark(one.id, { status: "dismissed" });
+  later.mark(two.id, { autoApplied: true });
+  saved = createAssistant({ store, provider: fakeClaude({}), env: {} }).saved();
+  assert.equal(saved.find((s) => s.transactionId === one.id).status, "dismissed");
+  assert.equal(saved.find((s) => s.transactionId === two.id).autoApplied, true);
+  // Asking again replaces a dismissal; forgetting removes the row; a deleted transaction's row is dropped.
+  await assistant.suggestOrganize(context(one));
+  assert.equal(later.saved().find((s) => s.transactionId === one.id).status, "done");
+  later.mark(two.id, { clear: true });
+  assert.equal(later.saved().some((s) => s.transactionId === two.id), false);
+  store.db.prepare("INSERT INTO assistant_suggestions VALUES ('gone','done','{}','2026-10-01')").run();
+  assert.equal(later.saved().some((s) => s.transactionId === "gone"), false);
+  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM assistant_suggestions WHERE transaction_id='gone'").get().n, 0);
+});
