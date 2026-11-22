@@ -36,7 +36,7 @@ test("configuration SQL round-trips definitions but excludes all transaction and
         ? { startDate: "2026-08-15", endDate: "2026-08-17" }
         : {}),
     });
-  store.aliases.save({ name: "Sample merchant", pattern: "^MERCHANT's" });
+  store.vendors.save({ name: "Sample merchant", matchers: [{ mode: "starts", text: "MERCHANT's" }, { mode: "contains", text: "O'Brien" }] });
   const file = path.join(root, "synthetic.csv");
   fs.writeFileSync(
     file,
@@ -96,7 +96,7 @@ test("configuration SQL round-trips definitions but excludes all transaction and
   assert.equal(fs.readFileSync(output, "utf8"), sql);
 });
 
-test("schema 8 globalizes legacy aliases without changing financial records and exposes new overlaps", (t) => {
+test("legacy scoped aliases become global vendors on upgrade without changing financial records, and overlaps clash", (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "urbanomics-global-"));
   let store = new ImportStore(root);
   t.after(() => {
@@ -116,21 +116,19 @@ test("schema 8 globalizes legacy aliases without changing financial records and 
   store.close();
   store = new ImportStore(root);
   assert.deepEqual(
-    store.aliases.rules().map((r) => [r.accountId, r.version]),
+    store.vendors.list().map((v) => [v.id, v.name, v.matchers]),
     [
-      ["", 4],
-      ["", 5],
+      ["one", "Merchant A", [{ mode: "starts", text: "MERCHANT" }]],
+      ["two", "Merchant B", [{ mode: "starts", text: "MERCHANT" }]],
     ],
   );
   const row = { accountId: a, description: "MERCHANT 123" };
-  assert.equal(store.aliases.decorate([row])[0].description, row.description);
-  assert.equal(store.aliases.decorate([row])[0].aliasConflicts.length, 2);
+  assert.equal(store.vendors.decorate([row])[0].description, row.description);
+  assert.equal(store.vendors.decorate([row])[0].vendorConflicts.length, 2);
   assert.deepEqual(store.db.prepare("SELECT * FROM accounts").all(), accounts);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 22);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 23);
+  assert.equal(store.db.prepare("SELECT COUNT(*) n FROM transaction_aliases").get().n, 0);
   store.close();
   store = new ImportStore(root);
-  assert.deepEqual(
-    store.aliases.rules().map((r) => r.version),
-    [4, 5],
-  );
+  assert.deepEqual(store.vendors.list().map((v) => v.version), [1, 1]);
 });

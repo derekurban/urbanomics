@@ -39,12 +39,12 @@ export function EntityEditor({ entity, onClose, act, error, entities = [], usage
   const paletteName = flowType === "income" ? "Income" : parent?.name || "Ungrouped tags";
   const children = entity.kind === "bucket" ? entities.filter((e) => e.parentId === entity.id).length : 0;
   const inUse = usage && (usage.transactions > 0 || usage.rules > 0);
-  const blocked = inUse && (entity.kind === "category" || entity.kind === "person") ? `${entity.name} is on ${[usage.transactions ? plural(usage.transactions, "transaction") : "", usage.rules ? plural(usage.rules, "rule") : ""].filter(Boolean).join(" and ")}. Remove it from ${usage.transactions + usage.rules === 1 ? "that" : "those"} first.` : children ? `${entity.name} still has ${plural(children, "tag")}. Move ${children === 1 ? "it" : "them"} to another category first.` : "";
+  const blocked = inUse && (entity.kind === "category" || entity.kind === "person") ? `${entity.name} is on ${[usage.transactions ? plural(usage.transactions, "transaction") : "", usage.rules ? plural(usage.rules, "vendor") : ""].filter(Boolean).join(" and ")}. Remove it from ${usage.transactions + usage.rules === 1 ? "that" : "those"} first.` : children ? `${entity.name} still has ${plural(children, "tag")}. Move ${children === 1 ? "it" : "them"} to another category first.` : "";
   const deleteText = entity.kind === "group"
     ? "Its transactions stay, with their current splits; they're just no longer grouped under this event."
-    : entity.kind === "person" ? "No transaction or rule mentions them, so nothing else changes."
+    : entity.kind === "person" ? "No transaction or vendor mentions them, so nothing else changes."
     : entity.kind === "bucket" ? "The category goes; there's nothing left in it."
-    : "The tag goes. No transaction or rule uses it.";
+    : "The tag goes. No transaction or vendor uses it.";
   const Label = label[0].toUpperCase() + label.slice(1);
   // Tags that take their colour from this palette, in tag order, for the live preview.
   const paletteTags = !isPalette ? [] : orderedTags(entities.filter((t) => t.kind === "category" && !t.systemRole && (entity.kind === "bucket" ? tagType(t) === "expense" && t.parentId === entity.id : entity.id === "income" ? tagType(t) === "income" : tagType(t) === "expense" && !t.parentId)));

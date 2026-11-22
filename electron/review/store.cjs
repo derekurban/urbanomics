@@ -99,7 +99,7 @@ class ReviewStore {
       );
   }
   records() {
-    const imported = this.imports.aliases.decorate(
+    const imported = this.imports.vendors.decorate(
       this.db
         .prepare(
           "SELECT t.*,a.name AS account,a.color,a.deletedAt,r.payload AS review,r.version FROM transactions t JOIN accounts a ON a.id=t.account_id LEFT JOIN review_items r ON r.transaction_id=t.id ORDER BY t.date DESC,t.rowid DESC",
@@ -247,7 +247,6 @@ class ReviewStore {
     if (kind === "group" && (!dates.startDate || !dates.endDate))
       throw new Error("Events need both a start date and an end date.");
     if (existing && tagType(existing) !== flowType) {
-      if(this.imports.transactionRules?.rules().some(r=>r.template?.tags.some(p=>p.id===existing.id)))throw new Error('Update template rules before changing this tag type.');
       if (
         this.records().some(
           (r) =>
@@ -257,16 +256,6 @@ class ReviewStore {
       )
         throw new Error(
           "This type conflicts with saved transactions. Create a separate tag instead.",
-        );
-      if (
-        this.db
-          .prepare(
-            "SELECT id FROM transaction_rules WHERE categoryId=? AND direction=?",
-          )
-          .get(existing.id, flowType === "income" ? "out" : "in")
-      )
-        throw new Error(
-          "Update conflicting rule directions before changing this tag's type.",
         );
     }
     // Legacy kind=category identifies assignable tags. Buckets never own portions.
@@ -427,19 +416,13 @@ class ReviewStore {
   removeEntity(id) {
     const entity = this.entities().find((e) => e.id === id);
     if (!entity) throw new Error("Item not found.");
-    if(this.imports.transactionRules?.rules().some(r=>r.template&&(r.template.tags.some(p=>p.id===id)||r.template.groups.includes(id))))throw new Error('This item is used by a template. Update or delete that rule first.');
     if (entity.systemRole) throw new Error("System tags cannot be deleted. You can rename them.");
     if (entity.kind === "palette")
       throw new Error("This shared palette cannot be deleted.");
-    if (
-      this.db
-        .prepare(
-          "SELECT id FROM transaction_rules WHERE categoryId=? OR personId=?",
-        )
-        .get(id, id)
-    )
+    const vendor = this.db.prepare("SELECT name FROM vendors WHERE tagId=? OR personId=? ORDER BY name").get(id, id);
+    if (vendor)
       throw new Error(
-        "This item is mapped by a transaction rule. Update or delete that rule first.",
+        `The vendor “${vendor.name}” gives new transactions this ${entity.kind === "person" ? "person" : "tag"}. Change that vendor first.`,
       );
     if (
       entity.kind === "bucket" &&
@@ -496,15 +479,15 @@ class ReviewStore {
     if (tagType(source) !== tagType(target)) throw new Error("Merge expense tags into expense tags and income tags into income tags.");
     return this.atomic(() => {
       const rows = this.records().filter((r) => r.review.tags.some((p) => p.id === source.id));
-      const rules = this.imports.transactionRules?.rules().filter((r) => r.categoryId === source.id || r.template?.tags.some((p) => p.id === source.id)) || [];
+      const vendors = this.db.prepare("SELECT id,name,version FROM vendors WHERE tagId=?").all(source.id);
       let backup = null;
-      if (rows.length || rules.length) {
+      if (rows.length || vendors.length) {
         const fs = require("node:fs"), path = require("node:path");
         const directory = path.join(this.imports.root, "backups", "admin");
         fs.mkdirSync(directory, { recursive: true });
         backup = path.join(directory, "before-merge-tags-" + randomUUID() + ".json");
         fs.writeFileSync(backup, JSON.stringify({ action: "merge-tags", created: this.imports.now().toISOString(), source: { id: source.id, name: source.name }, target: { id: target.id, name: target.name },
-          records: rows.map(({ id, version, review, manual }) => ({ id, version, review, manual: !!manual })), rules }, null, 2), { flag: "wx" });
+          records: rows.map(({ id, version, review, manual }) => ({ id, version, review, manual: !!manual })), vendors }, null, 2), { flag: "wx" });
       }
       for (const row of rows) {
         const tags = [];
@@ -514,18 +497,9 @@ class ReviewStore {
         }
         this.write(row.id, { ...row.review, tags }, row.version);
       }
-      for (const rule of rules) {
-        let template = rule.template;
-        if (template) {
-          const tags = [];
-          for (const p of template.tags) { const id = p.id === source.id ? target.id : p.id, same = tags.find((t) => t.id === id); if (same) same.weight += p.weight; else tags.push({ ...p, id }); }
-          template = { ...template, tags };
-        }
-        this.db.prepare("UPDATE transaction_rules SET categoryId=?, template=?, version=version+1 WHERE id=?")
-          .run(rule.categoryId === source.id ? target.id : rule.categoryId, template ? JSON.stringify(template) : null, rule.id);
-      }
+      this.db.prepare("UPDATE vendors SET tagId=?, version=version+1 WHERE tagId=?").run(target.id, source.id);
       this.db.prepare("DELETE FROM review_entities WHERE id=?").run(source.id);
-      return { moved: rows.length, rules: rules.length, backup };
+      return { moved: rows.length, vendors: vendors.length, backup };
     });
   }
   saveCash(values) {

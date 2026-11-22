@@ -26,8 +26,8 @@ test('local browser host persists isolated changes and deduplicates CSV uploads'
     assert.equal(state.ok, true);
     assert.equal(state.value.records.length, 15);
     const record = state.value.records.find(t => t.amountCents < 0);
-    assert.equal((await call('transactionRulesState')).ok,true);
-    const coverage=await call('transactionRuleCoverage',[record.id]);assert.equal(coverage.ok,true);assert.equal(coverage.value.transactionId,record.id);
+    assert.equal((await call('vendors')).ok,true);
+    const preview=await call('previewVendor',[{name:'Web test vendor',matchers:[{mode:'exact',text:record.originalDescription??record.description}]}]);assert.equal(preview.ok,true);assert.ok(preview.value.matches.some(m=>m.id===record.id));
     const saved = await call('saveEntity', ['category', { name: 'Web test tag', color: '#8fa68b' }]);
     assert.equal(saved.ok, true);
     assert.equal((await call('organize', [[{ id: record.id, version: record.version,

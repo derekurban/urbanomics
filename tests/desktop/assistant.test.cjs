@@ -101,39 +101,41 @@ test("organize answers point only at offered candidates, and cents add up", () =
   assert.throws(() => prompts.cleanOrganizeContext(null), /Choose a transaction/);
 });
 
-test("alias suggestions compile to the editor's patterns and keep only ones that match", () => {
+test("vendor suggestions keep matchers that match something and drop repeats", () => {
   const seen = [];
-  const preview = ({ name, pattern }) => { seen.push(pattern); return pattern === "^GREEN MARKET" ? { matches: [{ description: "GREEN MARKET #0021" }, { description: "GREEN MARKET #0021", deleted: true }], conflicts: [], duplicates: [] } : { matches: [], conflicts: [], duplicates: [] }; };
-  const result = prompts.validateAliases({ suggestions: [
-    { name: "Green Market", mode: "starts", text: "GREEN MARKET", reason: "Store numbers vary." },
-    { name: "Nothing", mode: "contains", text: "ZZZ", reason: "Matches nothing." },
-    { name: "Green market", mode: "exact", text: "GREEN MARKET #0021", reason: "Same name twice." },
+  const preview = ({ matchers }) => { seen.push(matchers.map((m) => m.mode + ":" + m.text).join("|")); return matchers.some((m) => m.text === "GREEN MARKET") ? { matches: [{ description: "GREEN MARKET #0021" }, { description: "GREEN MARKET #0021", deleted: true }], conflicts: [], duplicates: [] } : { matches: [], conflicts: [], duplicates: [] }; };
+  const result = prompts.validateVendors({ suggestions: [
+    { name: "Green Market", matchers: [{ mode: "starts", text: "GREEN MARKET" }, { mode: "contains", text: "GRN MKT" }], reason: "Store numbers vary." },
+    { name: "Nothing", matchers: [{ mode: "contains", text: "ZZZ" }], reason: "Matches nothing." },
+    { name: "Green market", matchers: [{ mode: "exact", text: "GREEN MARKET #0021" }], reason: "Same name twice." },
+    { name: "Empty", matchers: [{ mode: "starts", text: " " }], reason: "No text." },
   ] }, preview);
-  assert.deepEqual(seen, ["^GREEN MARKET", "ZZZ"]);
+  assert.deepEqual(seen, ["starts:GREEN MARKET|contains:GRN MKT", "contains:ZZZ"]);
   assert.equal(result.suggestions.length, 1);
+  assert.equal(result.suggestions[0].matchers.length, 2);
   assert.equal(result.suggestions[0].matches, 1, "archived rows don't count");
   assert.equal(prompts.compileAliasRule({ mode: "ends", text: "a.b" }), "a\\.b$");
 });
 
-test("merging tags moves portions and rules, deletes the source and keeps a recovery copy", (t) => {
+test("merging tags moves portions and vendors, deletes the source and keeps a recovery copy", (t) => {
   const { store, tags, root } = workspace(t);
   const bean = recordsOf(store, /BEAN COUNTER/).filter((r) => r.review.tags.some((p) => p.id === tags.diningOut));
   assert.ok(bean.length > 0);
   // A row with both tags sums into one portion.
   const both = recordsOf(store, /JUNIPER BISTRO/).find((r) => r.date.startsWith("2026-08"));
   store.review.organize([{ id: both.id, version: both.version, tags: [{ id: tags.restaurants, cents: 5000 }, { id: tags.diningOut, cents: Math.abs(both.amountCents) - 5000 }] }]);
-  const rule = store.transactionRules.save({ name: "Coffee", matchType: "regex", pattern: "^SQ \\*BEAN", aliasIds: [], direction: "out", categoryId: tags.diningOut, personId: "", enabled: true });
+  const { id: vendor } = store.vendors.save({ name: "Bean Counter", matchers: [{ mode: "starts", text: "SQ *BEAN" }], tagId: tags.diningOut });
   assert.throws(() => store.review.mergeTags(tags.diningOut, tags.paycheck), /expense tags into expense tags/);
   assert.throws(() => store.review.mergeTags(tags.diningOut, tags.diningOut), /two different tags/);
   const result = store.review.mergeTags(tags.diningOut, tags.restaurants);
-  assert.equal(result.moved, bean.length + 1); assert.equal(result.rules, 1);
+  assert.equal(result.moved, bean.length + 1); assert.equal(result.vendors, 1);
   assert.ok(fs.existsSync(result.backup) && result.backup.startsWith(path.join(root, "workspace", "backups", "admin")));
   assert.equal(name(store, tags.diningOut), undefined, "the source tag is gone");
   const after = store.review.records().find((r) => r.id === both.id);
   assert.deepEqual(after.review.tags, [{ id: tags.restaurants, cents: Math.abs(both.amountCents) }]);
   assert.equal(after.version, both.version + 2, "each rewrite is a new version");
   for (const r of bean) assert.deepEqual(store.review.records().find((x) => x.id === r.id).review.tags.map((p) => p.id), [tags.restaurants]);
-  assert.equal(store.transactionRules.rules().find((r) => r.id === rule).categoryId, tags.restaurants);
+  assert.equal(store.vendors.list().find((v) => v.id === vendor).tagId, tags.restaurants);
 });
 
 test("settings, consent and the chosen model reach Claude; organize answers are reused", async (t) => {

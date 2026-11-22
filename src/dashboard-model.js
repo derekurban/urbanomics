@@ -159,8 +159,8 @@ export function vendorGroups(expenses) {
     const name = (e.fee ? "Transfer fee · " : "") + e.row.description;
     const key =
       (e.fee ? "fee:" : "") +
-      (e.row.aliasId
-        ? `alias:${e.row.aliasId}`
+      (e.row.vendorId
+        ? `vendor:${e.row.vendorId}`
         : `name:${e.row.description.trim().toLocaleLowerCase()}`);
     if (!groups.has(key))
       groups.set(key, { key, name, gross: 0, repaid: 0, net: 0, rows: [] });

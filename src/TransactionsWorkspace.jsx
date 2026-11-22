@@ -61,7 +61,7 @@ export function TransactionsWorkspace({data,run,busy,onSource,onOrganize,initial
  ]}/>}
  <div className="ledger-controls">
   <div className="ledger-toolbar">
-   <label className="ledger-search"><Icon name="search" size={16}/><input aria-label="Search transactions" placeholder="Search names, aliases or bank descriptions" value={filters.query} onChange={e=>change("query",e.target.value)}/></label>
+   <label className="ledger-search"><Icon name="search" size={16}/><input aria-label="Search transactions" placeholder="Search names, vendors or bank descriptions" value={filters.query} onChange={e=>change("query",e.target.value)}/></label>
    <select aria-label="Transaction month" value={filters.month} onChange={e=>{setFilters(f=>({...f,month:e.target.value,from:"",through:""}));setPage(0);}}><option value="">All months</option>{[...new Set(live.map(r=>r.date.slice(0,7)))].sort().reverse().map(m=><option key={m} value={m}>{monthLabel(m)}</option>)}</select>
    <select aria-label="Transaction account" value={filters.account} onChange={e=>change("account",e.target.value)}><option value="">All accounts</option>{[...new Map(live.map(r=>[r.accountId||"cash",r.account||"Cash"])).entries()].map(([id,name])=><option key={id} value={id}>{name}</option>)}</select>
    {currencies.length>1&&<select aria-label="Transaction currency" value={currency} onChange={e=>change("currency",e.target.value)}>{currencies.map(c=><option key={c}>{c}</option>)}</select>}

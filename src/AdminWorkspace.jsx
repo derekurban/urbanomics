@@ -26,7 +26,7 @@ export function AdminWorkspace({ data, act, busy }) {
       {tags.confirmation && (
         <ConfirmDialog title={`Reset the tags on ${plural(tags.confirmation.count, "transaction")}?`} confirmLabel={tags.working ? "Resetting…" : "Reset tags"} busy={tags.working || busy} disabled={!tags.confirmation.count} error={tags.error} onClose={tags.close} onConfirm={() => tags.confirm()}>
           <p>Every tag and its split amount comes off, across all months{tags.confirmation.archived ? `, ${plural(tags.confirmation.archived, "transaction")} in deleted accounts` : ""}{tags.confirmation.cash ? ` and ${plural(tags.confirmation.cash, "cash receipt")}` : ""}.</p>
-          <p>Your tags and categories, events, people, repayments, transfer links, aliases and rules stay, and so do the original files.</p>
+          <p>Your tags and categories, events, people, repayments, transfer links and vendors stay, and so do the original files.</p>
           <p className="form-help">A recovery copy is saved first, in the backups/admin folder of your workspace. There's no undo button.</p>
         </ConfirmDialog>
       )}

@@ -6,6 +6,7 @@ const { createHash } = require("node:crypto");
 const prompts = require("./prompts.mjs");
 const { createClaude, EFFORTS, MAX_AT_ONCE, validModel } = require("./claude.cjs");
 
+// "aliases" is the stored key of the vendor suggestions (Suggest vendors), kept so saved choices carry over.
 const FEATURES = ["tags", "restructure", "aliases", "organize"];
 // Organize runs once per transaction, so it takes the fast model that held up in the benchmark
 // (docs/assistant.md); the three one-off reviews take the most capable everyday model.
@@ -119,8 +120,8 @@ function createAssistant({ store, provider, secrets = null, env = process.env, l
     const entities = store.review.entities(), known = new Set(entities.filter((e) => e.kind === "category" && !e.systemRole).map((e) => e.id));
     const records = store.review.records().filter((r) => !r.deleted).map((r) => ({ ...r, review: { ...r.review, tags: (r.review.tags || []).filter((p) => known.has(p.id)) } }));
     const ruleRefs = new Map();
-    for (const rule of store.transactionRules?.rules() || [])
-      for (const id of new Set([rule.categoryId, ...(rule.template?.tags || []).map((p) => p.id)].filter(Boolean))) ruleRefs.set(id, (ruleRefs.get(id) || 0) + 1);
+    for (const vendor of store.vendors?.list() || [])
+      if (vendor.tagId) ruleRefs.set(vendor.tagId, (ruleRefs.get(vendor.tagId) || 0) + 1);
     return { entities, records, ruleRefs };
   }
   async function ask(feature, prompt, schema) {
@@ -141,11 +142,11 @@ function createAssistant({ store, provider, secrets = null, env = process.env, l
     const now = workspace();
     return { ...prompts.validateMissingTags(value, now.entities, now.records), run };
   }
-  async function suggestAliases() {
-    const current = store.aliases.state();
-    if (!current.unaliased.filter((r) => !r.deleted).length) throw new Error("Every transaction already has an alias.");
-    const { value, run } = await ask("aliases", prompts.aliasPrompt(current.unaliased, current.rules), prompts.aliasSchema);
-    return { ...prompts.validateAliases(value, (values) => store.aliases.preview(values)), run };
+  async function suggestVendors() {
+    const current = store.vendors.state();
+    if (!current.unmatched.filter((r) => !r.deleted).length) throw new Error("Every transaction already has a vendor.");
+    const { value, run } = await ask("aliases", prompts.vendorPrompt(current.unmatched, current.vendors), prompts.vendorSchema);
+    return { ...prompts.validateVendors(value, (values) => store.vendors.preview(values)), run };
   }
   // Smart organizing answers are remembered for the session by what was asked, so reopening a row is instant.
   const cache = new Map(), inflight = new Map();
@@ -190,6 +191,6 @@ function createAssistant({ store, provider, secrets = null, env = process.env, l
     const result = await claude.exec({ prompt: "Reply with the word ready.", schema: { type: "object", properties: { reply: { type: "string" } }, required: ["reply"], additionalProperties: false }, model: choice.model, effort: choice.effort || undefined, timeout: 90000 });
     return { reply: result.value.reply, ms: result.ms, model: choice.model };
   }
-  return { settings, saveSettings, saveKey, clearKey, state, suggestTags, suggestAliases, suggestOrganize, suggestOrganizeBatch, test, models: () => claude.listModels(), dispose: () => claude.dispose?.() };
+  return { settings, saveSettings, saveKey, clearKey, state, suggestTags, suggestVendors, suggestOrganize, suggestOrganizeBatch, test, models: () => claude.listModels(), dispose: () => claude.dispose?.() };
 }
 module.exports = { createAssistant, FEATURES, DEFAULT_CHOICE };

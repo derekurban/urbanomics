@@ -5,9 +5,8 @@ const { randomUUID } = require("node:crypto");
 const { DatabaseSync } = require("node:sqlite");
 const { colors, prefixPattern, appearance } = require("./account-rules.cjs");
 const { ReviewStore } = require("../review/store.cjs");
-const { AliasStore } = require("../review/aliases.cjs");
+const { VendorStore } = require("../review/vendors.cjs");
 const { TransferLabStore } = require("../review/transfer-lab.cjs");
-const { TransactionRuleStore } = require("../review/transaction-rules.cjs");
 const { parseExport, hash, routingKey, csv } = require("./parsers.cjs");
 
 function lastCompleteMonth(now = new Date()) {
@@ -44,7 +43,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 22) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 23) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -167,7 +166,9 @@ class ImportStore {
         CREATE TABLE IF NOT EXISTS cash_receipts (id TEXT PRIMARY KEY,date TEXT NOT NULL,description TEXT NOT NULL,amountCents INTEGER NOT NULL,currency TEXT NOT NULL,payload TEXT NOT NULL,version INTEGER NOT NULL,updated TEXT NOT NULL,voidedAt TEXT);
         PRAGMA user_version=10; COMMIT;`);
     }
-    this.aliases = new AliasStore(this);
+    // Vendors (schema 23) name transactions for every later step, including the migrations below.
+    this.db.exec("CREATE TABLE IF NOT EXISTS vendors (id TEXT PRIMARY KEY, name TEXT NOT NULL, matchers TEXT NOT NULL DEFAULT '[]', tagId TEXT NOT NULL DEFAULT '', personId TEXT NOT NULL DEFAULT '', version INTEGER NOT NULL)");
+    this.vendors = new VendorStore(this);
     this.review = new ReviewStore(this);
     this.admin = new AdminStore(this);
     if (this.db.prepare("PRAGMA user_version").get().user_version < 11) {
@@ -305,7 +306,9 @@ class ImportStore {
     }
     this.layouts = new (require('./layouts.cjs').ImportLayouts)(this);
     this.transferLab = new TransferLabStore(this);
-    this.transactionRules = new TransactionRuleStore(this);
+    if (this.db.prepare('PRAGMA user_version').get().user_version < 23) this.db.exec('PRAGMA user_version=23');
+    // Aliases and transaction rules become vendors once; also after a seed written by an older version.
+    this.vendors.convertLegacy();
     this.recover();
   }
   close() {
@@ -822,7 +825,7 @@ class ImportStore {
             )
             .run(job.source_hash, job.account_id, row.record, txId);
         }
-        this.transactionRules.applyNew(addedIds);
+        this.vendors.applyNew(addedIds);
         result.months = [...affected].sort();
         this.db
           .prepare("INSERT INTO imports VALUES (?,?,?,?,?,?,?)")

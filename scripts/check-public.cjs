@@ -30,7 +30,7 @@ const patterns = [
   { re: /\b(?:gh[pousr]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|tskey-[A-Za-z0-9-]{10,}|sk-[A-Za-z0-9]{20,})\b/g, why: "token" },
   { re: /[A-Za-z]:[\\/]Users[\\/](?!x\b)[^\\/\s"']+/g, why: "user profile path" },
   { re: /[A-Za-z]:[\\/]Working[\\/]/g, why: "machine-specific path" },
-  { re: /^INSERT INTO "(?:review_entities|accounts|transaction_aliases|transaction_rules|rules)"/m, why: "configuration SQL rows" },
+  { re: /^INSERT INTO "(?:review_entities|accounts|transaction_aliases|transaction_rules|vendors|rules)"/m, why: "configuration SQL rows" },
 ];
 // Synthetic values that tests use on purpose.
 const allowed = { "tests/desktop/remote-access.test.cjs": ["100.64.0.1", "100.64.0.2", "100.127.255.255", "100.64.0.999"], "scripts/check-public.cjs": ["100.64.0.1", "100.64.0.2", "100.127.255.255", "100.64.0.999"] };

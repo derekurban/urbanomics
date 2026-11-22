@@ -13,6 +13,7 @@ import "./shared-ui.css";
 import "./styles.css";
 import { SnapshotsWorkspace } from "./SnapshotsWorkspace.jsx";
 import { AccountsWorkspace } from "./AccountsWorkspace.jsx";
+import { VendorsWorkspace } from "./VendorsWorkspace.jsx";
 import { TransactionsWorkspace } from "./TransactionsWorkspace.jsx";
 import { EventsWorkspace } from "./EventsWorkspace.jsx";
 import { OrganizeDesk } from "./OrganizeDesk.jsx";
@@ -25,11 +26,13 @@ import "./mobile.css";
 import "./workspace-refresh.css";
 
 const api = window.urbanomics;
-const pages = ["dashboard", "snapshots", "organize", "transactions", "events", "accounts", "settings"];
+const pages = ["dashboard", "snapshots", "organize", "transactions", "events", "accounts", "vendors", "settings"];
 // Older addresses keep working: retired pages open their replacements.
 const legacy = { allocations: "organize", experimental: "organize", review: "organize", months: "transactions", data: "snapshots", "snapshots-v2": "snapshots" };
 function readLocation() {
   const [head, section] = location.hash.slice(1).split("/");
+  // Aliases and Rules were Settings sections; Vendors replaced both.
+  if (head === "settings" && (section === "aliases" || section === "rules")) return { page: "vendors", section: "" };
   const page = legacy[head] || (pages.includes(head) ? head : "snapshots");
   // The Dashboard keeps its tab and period after the page name (#dashboard/cash/2026-07).
   if (page === "dashboard") return { page, section: location.hash.slice(1).split("/").slice(1).join("/") };
@@ -61,7 +64,7 @@ function App() {
       const { page: next, section } = readLocation();
       // An address that names no page opens the default page, and the address says so.
       const head = location.hash.slice(1).split("/")[0];
-      if (!pages.includes(head)) history.replaceState(null, "", "#" + next + (next === "settings" ? "/" + (section || "category") : ""));
+      if (!pages.includes(head) || head !== next) history.replaceState(null, "", "#" + next + (next === "settings" ? "/" + (section || "category") : ""));
       setPageState(next);
       if (section && next === "settings") setOrganizeSection(section);
     };
@@ -218,6 +221,7 @@ function App() {
     ["transactions", "list", "Transactions"],
     ["events", "calendar-days", "Events"],
     ["accounts", "wallet", "Accounts"],
+    ["vendors", "store", "Vendors"],
     ["settings", "settings", "Settings", "Preferences"],
   ];
   const updateReady = update?.status === "ready";
@@ -330,10 +334,11 @@ function App() {
           )}
           {page === "snapshots" && <SnapshotsWorkspace data={data} onRefresh={refresh} onReview={() => openOrganize(null, "unsorted")} onOpenSnapshot={async (target) => { try { const saved = await api.snapshot(target.id); setMonth(target.month); setAccountFilter(target.accountId); setRevision(saved); go("transactions"); } catch (e) { setError(e.message); } }} />}
           {page === "accounts" && <AccountsWorkspace data={data} run={run} busy={busy} onSnapshots={() => go("snapshots")} onTransactions={(accountId, month = "") => openTransactions({ account: accountId, month })} onSource={openSource} />}
+          {page === "vendors" && <VendorsWorkspace data={data} run={run} busy={busy} onAssistant={() => { setOrganizeSection("assistant"); go("settings", "assistant"); }} />}
           {page === "organize" && <OrganizeDesk data={data} run={run} onSource={openSource} target={organizeTarget} onSettings={() => { setOrganizeSection("transfers"); go("settings", "transfers"); }} />}
           {page === "events" && <EventsWorkspace data={data} run={run} busy={busy} onOrganize={openOrganize} onSettings={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} />}
           {page === "transactions" && <TransactionsWorkspace key={revision?.id || "current"} data={data} run={run} busy={busy} initialMonth={month} initialAccount={accountFilter} preset={ledgerPreset} snapshot={revision} onCurrent={() => setRevision(null)} onOrganize={openOrganize} onSource={openSource} />}
-          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} onNavigate={(target) => { if (["accounts", "events", "transactions", "snapshots"].includes(target)) go(target); else openOrganize(null, target.startsWith("transfers") ? "transfers" : "transactions"); }} />}
+          {page === "settings" && <OrganizeWorkspace data={data} run={run} busy={busy} section={organizeSection} onSection={(section) => { setOrganizeSection(section); go("settings", section); }} onSource={openSource} onNavigate={(target) => { if (["accounts", "vendors", "events", "transactions", "snapshots"].includes(target)) go(target); else openOrganize(null, target.startsWith("transfers") ? "transfers" : "transactions"); }} />}
         </main>
       </div>
       <ToastRegion />

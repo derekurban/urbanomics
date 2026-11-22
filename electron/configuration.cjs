@@ -35,20 +35,9 @@ const tables = {
     "sortOrder",
     "participants",
   ],
-  transaction_aliases: ["id", "name", "pattern", "version"],
-  transaction_rules: [
-    "template",
-    "matchType",
-    "aliasIds",
-    "id",
-    "name",
-    "pattern",
-    "categoryId",
-    "personId",
-    "direction",
-    "enabled",
-    "version",
-  ],
+  // Vendors replace aliases and transaction rules (schema 23). Seeds from older exports still carry those
+  // tables; the store converts them into vendors after seeding.
+  vendors: ["id", "name", "matchers", "tagId", "personId", "version"],
 };
 const quote = (value) =>
   value === null
@@ -60,7 +49,7 @@ const quote = (value) =>
 function configurationSQL(db) {
   const lines = [
     "-- Urbanomics configuration v1. Apply only to an empty, initialized workspace.",
-    "-- Accounts, filename rules, categories, events, people, aliases, transaction rules and transfer-lab setup only.",
+    "-- Accounts, filename rules, categories, events, people, vendors and transfer-lab setup only.",
     "BEGIN IMMEDIATE;",
   ];
   for (const [table, columns] of Object.entries(tables)) {
@@ -108,6 +97,8 @@ function seedConfiguration(db, file) {
   // Never apply it on top of a user's existing workspace.
   for (const table of [
     ...Object.keys(tables),
+    "transaction_aliases",
+    "transaction_rules",
     "transactions",
     "sources",
     "review_items",

@@ -9,13 +9,12 @@ import {orderDescribe, describeSections, splitForAutoApply, mutuallyUnique, next
 import {organizeStore, useOrganizeStore, changed as storeChanged, setBatch as setStoreBatch} from './organize-store.js';
 import {InfoDot} from './snapshots-v2-atoms.jsx';
 import {categoryColors} from './category-colors.js';
-import {find, money, total, rest, segments, cap, add, resize, remove, repayment, paired, mapRecords, templateWeights} from './allocation-model.js';
+import {find, money, total, rest, segments, cap, add, resize, remove, repayment, paired, mapRecords} from './allocation-model.js';
 import {tagType, orderedTags} from '../electron/review/tag-model.mjs';
 import {isOther} from '../electron/review/system-tags.mjs';
 import {pendingTransfers, withinBand, transferPairBand} from '../electron/review/transfer-model.mjs';
 import {splitShares} from '../electron/review/share-model.mjs';
-import {TransactionRuleReuse} from './TransactionRuleReuse.jsx';
-import {TransactionTemplateEditor} from './TransactionTemplateEditor.jsx';
+import {VendorEditor, givesLabel} from './VendorsWorkspace.jsx';
 import {notify, notify as showToast, dismissToast} from './toast.jsx';
 import {Alert} from './ui.jsx';
 import {dayLabel, rangeLabel, plural as count} from './format.js';
@@ -151,7 +150,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const [state, setState] = useState([]), [entities, setEntities] = useState([]), [config, setConfig] = useState(null), [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(null), [selected, setSelected] = useState([]), [anchor, setAnchor] = useState(null);
   const [filter, setFilter] = useState('all'), [accountFilter, setAccountFilter] = useState([]), [query, setQuery] = useState(''), [limit, setLimit] = useState(PAGE), [flow, setFlow] = useState(true);
-  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [template, setTemplate] = useState(null), [ruleRevision, setRuleRevision] = useState(0), [batchQuery, setBatchQuery] = useState('');
+  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [vendorEdit, setVendorEdit] = useState(null), [vendors, setVendors] = useState([]), [batchQuery, setBatchQuery] = useState('');
   const generation = useRef(0), stateRef = useRef(state), listRef = useRef(null);
   const serverRows = useRef([]), pendingDesired = useRef(new Map()), queue = useRef(Promise.resolve());
   stateRef.current = state;
@@ -215,10 +214,10 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   function load(withConfig = false) { const run = loadOnce(withConfig); latestLoad.current = run; return run; }
   async function loadOnce(withConfig) {
     const seq = ++generation.current;
-    const [result, lab] = await Promise.all([api().reviewState(), withConfig || !config ? api().transferLabState().catch(() => null) : null]);
+    const [result, lab, vendorList] = await Promise.all([api().reviewState(), withConfig || !config ? api().transferLabState().catch(() => null) : null, api().vendorList().catch(() => null)]);
     if (seq !== generation.current) return latestLoad.current;
     const colors = categoryColors(result.entities);
-    setEntities(colors); if (lab) setConfig(lab.config); setRuleRevision(n => n + 1);
+    setEntities(colors); if (lab) setConfig(lab.config); if (vendorList) setVendors(vendorList);
     const rows = mapRecords(result.records, colors).filter(r => !r.deleted);
     serverRows.current = rows; publish(rows); setLoaded(true); return rows;
   }
@@ -495,8 +494,14 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     if (!present && completes && flow && find(stateRef.current, row.id) && rest(find(stateRef.current, row.id)) === 0) closeEditor(true);
     return ok;
   }
-  /* "Always": the rule editor, filled in from this row as it is now. */
-  function alwaysLike(id) { const r = find(stateRef.current, id), rule = r && captureTemplate(r); if (rule) setTemplate(rule); }
+  /* "Always": the vendor editor for this row's name, with its one tag (and the person it paid) filled in, so
+     new transactions from the same place get the same. An existing vendor opens with the tag swapped in. */
+  function alwaysLike(id) {
+    const r = find(stateRef.current, id); if (!r) return;
+    const tags = r.layers.filter(l => l.kind === 'tag'), vendor = vendors.find(v => v.id === r.raw.vendorId) || null;
+    const seed = {description: r.raw.originalDescription || r.name, tagId: tags.length === 1 ? tags[0].target : vendor?.tagId || '', personId: r.amount < 0 ? r.raw.review.assignedPersonId || vendor?.personId || '' : vendor?.personId || ''};
+    setVendorEdit({vendor, seed});
+  }
   /* Create tag '<text>': a new ungrouped tag for this direction, applied at once. */
   async function createTag(row, name) {
     const flowType = row.amount > 0 ? 'income' : 'expense';
@@ -777,10 +782,6 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     if (on && !readiness(assistant.state).ok) { notify({id: 'assistant-setup', title: "Claude isn't ready", description: readiness(assistant.state).reason, tone: 'warning'}); return; }
     saveAssistantSettings({smartOrganize: on}).catch(e => setToast({message: e.message, error: true}));
   }
-  function captureTemplate(r) {
-    try { const portions = templateWeights(total(r), r.layers.filter(l => l.kind === 'tag').map(l => ({id: l.target, cents: l.cents}))); return {sample: r.raw.originalDescription || r.name, name: r.name.slice(0, 70), matchType: r.raw.aliasId ? 'aliases' : 'regex', aliasIds: r.raw.aliasId ? [r.raw.aliasId] : [], pattern: '^' + (r.raw.originalDescription || r.name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), direction: r.amount > 0 ? 'in' : 'out', categoryId: '', personId: r.raw.review.assignedPersonId || r.person || '', enabled: true, template: {tags: portions, groups: [], autoReview: false}}; }
-    catch { return null; }
-  }
   const batchFlow = selected.length > 1 ? (find(state, selected[0])?.amount > 0 ? 'income' : 'expense') : null;
   const batchTags = batchFlow ? tagChoices.filter(t => tagType(t) === batchFlow && t.name.toLowerCase().includes(batchQuery.toLowerCase())) : [];
   function batchTag(tag, picked = selected, flowKind = batchFlow) {
@@ -862,7 +863,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemove={layer => layer.kind === 'transfer' || layer.kind === 'fee' || layer.kind === 'principal' ? unlinkRow(r.id) : change(r.id, rows => remove(rows, r.id, layer.id), 'Part removed')}
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
-                    capture={() => captureTemplate(r)} onTemplate={setTemplate} ruleRevision={ruleRevision}
+                    vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
                     smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
@@ -881,13 +882,26 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           <button type="button" className="sm ghost" onClick={() => setSelected([])}>Clear selection</button>
         </div>
       )}
-      {template && <TransactionTemplateEditor rule={template} entities={entities} onClose={() => setTemplate(null)} onSaved={async () => { notify({title: 'Rule saved', description: 'Manage it under Settings, Rules.', tone: 'success'}); setRuleRevision(n => n + 1); await run(async () => true); }} />}
+      {vendorEdit && <VendorEditor key={vendorEdit.vendor?.id || 'new'} vendor={vendorEdit.vendor} seed={vendorEdit.seed} entities={entities} onClose={() => setVendorEdit(null)} onSaved={() => run(async () => true)} />}
     </section>
   );
 }
 
+/* The vendor slot: which vendor names this row and what its new transactions get, with one step to make
+   this row's tag the vendor's (or to make a vendor from this row). */
+function VendorSlot({row, vendors, entities, onVendor, onEdit}) {
+  const clashes = row.raw.vendorConflicts || [], vendor = vendors.find(v => v.id === row.raw.vendorId);
+  const tags = row.layers.filter(l => l.kind === 'tag'), tag = tags.length === 1 ? entities.find(e => e.id === tags[0].target) : null;
+  if (clashes.length) return <><small className="od-quiet">Matches {clashes.map(c => c.name).join(' and ')}, so it gets neither. Make one more specific.</small><div className="od-slot-actions">{clashes.map(c => { const v = vendors.find(x => x.id === c.id); return v ? <button key={c.id} type="button" className="link" onClick={() => onEdit(v)}>Edit {c.name}</button> : null; })}</div></>;
+  if (vendor) {
+    const gives = givesLabel(vendor, entities);
+    return <><small className="od-quiet">{vendor.name}{gives ? ` · new ones get ${gives}` : ' · gives new ones nothing yet'}</small><div className="od-slot-actions">{tag && vendor.tagId !== tag.id && <button type="button" className="link" onClick={onVendor}>Always tag it {tag.name}</button>}<button type="button" className="link" onClick={() => onEdit(vendor)}>Edit vendor</button></div></>;
+  }
+  return <><small className="od-quiet">{tag ? `Not a vendor yet. Make one and new transactions from it get ${tag.name}.` : 'Not a vendor yet.'}</small><div className="od-slot-actions"><button type="button" className="link" onClick={onVendor}>Make it a vendor</button></div></>;
+}
+
 /* The parts-first card: the box, the typed part rows with amount boxes, and fixed slots at the right. */
-function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, capture, onTemplate, ruleRevision, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
+function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, vendors, onVendor, onEditVendor, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
   const inputRef = useRef(null), [showDetails, setShowDetails] = useState(false), detailsId = React.useId();
   // Which of Claude's suggestions are unchecked; Enter in an empty describe box applies the rest.
   const [off, setOff] = useState({});
@@ -940,7 +954,7 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
         <div className="od-slot"><div className="od-slot-head"><b>Event</b>{event?.startDate && <small>{rangeLabel(event.startDate, event.endDate)}</small>}</div>
           <div className="od-chips-wrap">{nearEvents.map(e => <button key={e.id} type="button" className={'od-event' + (row.groups.includes(e.id) ? ' is-on' : '')} style={{'--part': e.color}} aria-pressed={row.groups.includes(e.id)} onClick={() => onEvent(e)}><Icon name="calendar-days" size={16} />{e.name}</button>)}{!events.length && <small className="od-quiet">No events yet. Create one on the Events page.</small>}</div>
         </div>
-        {!linked && <div className="od-slot"><div className="od-slot-head"><b>Rule</b></div>{row.layers.some(l => l.kind === 'tag') ? <TransactionRuleReuse transaction={row} entities={entities} capture={capture} onEdit={onTemplate} revision={ruleRevision} /> : <small className="od-quiet">Tag it, then remember the settings for next time.</small>}</div>}
+        {!linked && <div className="od-slot"><div className="od-slot-head"><b>Vendor</b></div><VendorSlot row={row} vendors={vendors} entities={entities} onVendor={onVendor} onEdit={onEditVendor} /></div>}
         <div className="od-slot is-quiet"><button type="button" className="link" aria-expanded={showDetails} aria-controls={detailsId} onClick={() => setShowDetails(v => !v)}>{showDetails ? 'Hide details' : 'Details'}</button>{showDetails && <div className="od-details" id={detailsId}><span>{row.raw.originalDescription || row.name}</span><span>{row.account}</span><span>{dayLabel(row.date)}</span>{!row.manual && <button type="button" className="link" onClick={() => onSource(row.id)}>Original record</button>}{config && <span>Transfers match within ±{config.basisPoints / 100}% and {count(config.maxDays, 'day', 'days')}. {onSettings && <button type="button" className="link" onClick={onSettings}>Change</button>}</span>}</div>}</div>
       </div>
     </div>

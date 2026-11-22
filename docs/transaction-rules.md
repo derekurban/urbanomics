@@ -1,5 +1,7 @@
 # Transaction rules
 
+> Superseded on November 21, 2026 by [vendors](vendors.md): a vendor's tag and person replace rules and transaction templates, and the Rules section and the desk's Rule slot were removed. This page is design history.
+
 Organize → Rules manages global mappings with two match modes: **Aliases / vendors**, a searchable multi-selection of saved alias identities, or **Regex**, an RE2 pattern over the original bank description. Either mode maps to one tag and/or person, with an optional direction (any/in/out), enabled flag, name and optimistic version. Regexes retain case-insensitive Unicode matching, the 256-character limit and compiled-expression cache. No mappings are inferred from personal records or seeded as examples.
 
 Alias mode matches any selected vendor only when a transaction resolves to exactly one alias across all saved alias definitions. Ambiguous aliases are skipped by alias-based rules; independent regex rules still follow their normal matching behavior. Rules reference stable alias IDs, so renaming or refining a vendor changes future matching without copying its regex into each rule. Alias edits never retroactively change assignments. Removing an alias referenced by any rule, including a disabled rule, is blocked until its references are removed. Switching a rule to Regex clears saved alias references; switching to Aliases clears its saved pattern.

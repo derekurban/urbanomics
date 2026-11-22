@@ -47,7 +47,7 @@ test("typed tags migrate configuration without rewriting records and enforce sep
   );
   s.close();
   s = new ImportStore(path.join(root, "data"));
-  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 22);
+  assert.equal(s.db.prepare("PRAGMA user_version").get().user_version, 23);
   assert.deepEqual(s.review.records(), before);
   assert.deepEqual(s.db.prepare("SELECT * FROM snapshots").all(), snapshots);
   assert.equal(
@@ -122,38 +122,15 @@ test("typed tags migrate configuration without rewriting records and enforce sep
     "unreviewed",
     "tagging does not infer income purpose",
   );
-  assert.throws(
-    () =>
-      s.transactionRules.normalize({
-        name: "Wrong direction",
-        pattern: "Synthetic",
-        categoryId: income,
-        direction: "out",
-      }),
-    /direction conflicts/,
-  );
   save(credit.id, []);
   save(debit.id, []);
-  s.transactionRules.save({
-    name: "Expense mapping",
-    pattern: "^Synthetic",
-    categoryId: expense,
-  });
-  s.transactionRules.save({
-    name: "Income mapping",
-    pattern: "^Synthetic",
-    categoryId: income,
-  });
-  const preview = s.transactionRules.state();
-  assert.equal(preview.candidates.length, 2);
-  assert.equal(s.transactionRules.apply(preview.token).applied, 2);
+  // A vendor's tag goes only on money moving its way: an income tag lands on the credit, not the debit.
+  const applied = s.vendors.save({ name: "Synthetic", matchers: [{ mode: "starts", text: "Synthetic" }], tagId: income }, { applyExisting: true });
+  assert.equal(applied.applied, 1);
+  assert.equal(s.review.records().find((r) => r.id === debit.id).review.tags.length, 0);
   assert.equal(
     s.review.records().find((r) => r.id === credit.id).review.tags[0].id,
     income,
-  );
-  assert.equal(
-    s.review.records().find((r) => r.id === debit.id).review.tags[0].id,
-    expense,
   );
 });
 

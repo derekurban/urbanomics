@@ -27,7 +27,7 @@ export function TagHierarchy({ entities, usage, edit, act, busy, error, onSugges
   const fresh = lens === "expense" && !buckets.length && !tags.length;
   const usageLine = (id) => {
     const u = usage.get(id);
-    return [plural(u?.active || 0, "transaction"), u?.rules ? plural(u.rules, "rule") : ""].filter(Boolean).join(" · ");
+    return [plural(u?.active || 0, "transaction"), u?.rules ? plural(u.rules, "vendor") : ""].filter(Boolean).join(" · ");
   };
   const groupName = (id) => (id ? buckets.find((b) => b.id === id)?.name || "its category" : "Ungrouped tags");
   const siblingIds = (list, parentId, flowType = "expense") =>

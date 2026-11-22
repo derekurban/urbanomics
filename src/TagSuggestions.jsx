@@ -164,7 +164,7 @@ function Restructure({ result, picked, setPicked, blocked, outcomes, applied, ed
                       {type === "create-tag" && c.vendors.length > 0 && <div className="cx-chips">{c.vendors.slice(0, 8).map((v) => <span key={v.name} className="cx-chip" title={v.name}>{v.name}{v.count > 1 ? ` × ${v.count}` : ""}</span>)}{c.vendors.length > 8 && <span className="cx-chip">+{c.vendors.length - 8} more</span>}</div>}
                       {type === "create-tag" && <div className="cx-meta"><span>Fits {plural(c.transactions, "transaction")}</span>{c.unsorted.length > 0 && <label className="cx-check"><input type="checkbox" checked={!!edits[c.key]?.tagUnsorted} disabled={done} onChange={(e) => setEdits((x) => ({ ...x, [c.key]: { tagUnsorted: e.target.checked } }))} />Also tag the {plural(c.unsorted.length, "untagged one")}</label>}</div>}
                       {(type === "merge" || off) && <div className="cx-meta">
-                        {type === "merge" && <span>Its transactions and rules move to {c.intoName}, then {c.name} is deleted. A recovery copy is kept.</span>}
+                        {type === "merge" && <span>Its transactions and vendors move to {c.intoName}, then {c.name} is deleted. A recovery copy is kept.</span>}
                         {off && <span>Needs: {(c.needs || []).map((k) => byKey.get(k)?.name).join(", ")}</span>}
                       </div>}
                       <Outcome value={outcomes[c.key]} />

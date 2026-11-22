@@ -1,5 +1,7 @@
 # Transaction aliases
 
+> Superseded on November 21, 2026 by [vendors](vendors.md): aliases were converted into vendors and the Aliases section was removed. This page is design history.
+
 Organize → Aliases manages readable transaction names separately from imported source data. The account-alias shortcut opens Organize → Accounts, which retains account names, filename-prefix regexes, filename tests and routing safeguards.
 
 The management list uses compact rows with names and match counts together, the regex underneath and Edit alongside. Long names and rules truncate visually with full text on hover and in the editor. Unaliased transactions place the amount beside the description, with account/date on a second line; previews use tighter spacing.

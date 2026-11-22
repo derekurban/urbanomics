@@ -22,9 +22,9 @@ test('automatic Other preserves ledger, rules replace defaults, explicit Other c
  assert.ok(needsTagging(view('Dinner')));
  assert.equal(JSON.stringify(store.review.records()),before);
  const tag=store.review.entity('category',{name:'Dining',color:'#123456'});
- const r=store.transactionRules.save({name:'Dinner rule',pattern:'^Dinner',categoryId:tag,personId:'',direction:'out',enabled:true});
- const preview=store.transactionRules.state();assert.equal(preview.candidates.find(c=>c.id===row('Dinner').id).status,'ready');
- store.transactionRules.apply(preview.token);assert.equal(view('Dinner').review.tags[0].id,tag);assert.equal(needsTagging(view('Dinner')),false);
+ const draft={name:'Dinner',matchers:[{mode:'starts',text:'Dinner'}],tagId:tag};
+ assert.ok(Object.keys(store.vendors.preview(draft).matches.find(m=>m.id===row('Dinner').id).changes).length);
+ store.vendors.save(draft,{applyExisting:true});assert.equal(view('Dinner').review.tags[0].id,tag);assert.equal(needsTagging(view('Dinner')),false);
  const pay=row('Pay');store.review.financial(pay.id,pay.version,{kind:'income',tags:[{id:OTHER_INCOME,cents:pay.amountCents}]});
  assert.equal(view('Pay').review.incomeType,'');assert.equal(needsTagging(view('Pay')),false);
  store.admin.untagAll(store.admin.preview().token);

@@ -281,7 +281,7 @@ export function monthsCovered(rows, roles, dateFormat) {
   return [...new Set(rows.map((r) => parseDate(r[d], dateFormat)?.slice(0, 7)).filter(Boolean))].sort();
 }
 
-/* ---------- plain-language rules for bank descriptions (aliases and transaction rules) ----------
+/* ---------- plain-language rules for bank descriptions (vendor matchers use the same forms) ----------
    Description patterns are searched anywhere in the text, ignoring case (RE2 "iu"), so the sentence
    compiles without the filename forms' trailing wildcard. Anything else stays a custom pattern. */
 export function compileTextRule(rule) {

@@ -6,7 +6,7 @@ import {
   ArrowLeftRight, RefreshCw, Layers, LayoutDashboard, List, Settings, Tags, Wallet, X, Search, Link2, Undo2, User, Users, Pin, PinOff,
   FileDown, FileX, FileText, ArrowLeft, ArrowRight, ArrowUpRight, CircleCheck, CircleDashed, CircleAlert, TriangleAlert, Info, CircleHelp,
   GripVertical, FolderOpen, Download, Trash2, Pencil, SlidersHorizontal, CornerDownLeft, RotateCcw, Palette, Unlink, Upload,
-  Sparkles, Terminal, LogIn, LogOut, GitMerge, FolderPlus, LoaderCircle,
+  Sparkles, Terminal, LogIn, LogOut, GitMerge, FolderPlus, LoaderCircle, Store,
 } from 'lucide';
 
 const icons = {
@@ -14,6 +14,6 @@ const icons = {
   ArrowLeftRight, RefreshCw, Layers, LayoutDashboard, List, Settings, Tags, Wallet, X, Search, Link2, Undo2, User, Users, Pin, PinOff,
   FileDown, FileX, FileText, ArrowLeft, ArrowRight, ArrowUpRight, CircleCheck, CircleDashed, CircleAlert, TriangleAlert, Info, CircleHelp,
   GripVertical, FolderOpen, Download, Trash2, Pencil, SlidersHorizontal, CornerDownLeft, RotateCcw, Palette, Unlink, Upload,
-  Sparkles, Terminal, LogIn, LogOut, GitMerge, FolderPlus, LoaderCircle,
+  Sparkles, Terminal, LogIn, LogOut, GitMerge, FolderPlus, LoaderCircle, Store,
 };
 window.lucide = { ...(window.lucide || {}), icons: { ...(window.lucide?.icons || {}), ...icons } };

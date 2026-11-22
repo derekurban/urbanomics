@@ -8,7 +8,7 @@ October 2, 2026. The Urbanomics source is published on GitHub. Everything person
 | --- | --- | --- |
 | Code, docs, tests, synthetic fixtures, prototypes, smoke scripts, builder configs | this repository | yes |
 | `configuration/README.md` (explains the export) | this repository | yes |
-| Configuration export `workspace.sql` (accounts, people, events, aliases, rules, palettes) | the private `urbanomics-configuration` repository, in the folder `workspace.json` names | no, ignored here (`/configuration/*`, `*.sql`) |
+| Configuration export `workspace.sql` (accounts, people, events, vendors, palettes) | the private `urbanomics-configuration` repository, in the folder `workspace.json` names | no, ignored here (`/configuration/*`, `*.sql`) |
 | Ledger, archives, snapshots, backups, logs (`private/desktop`), browser verification workspace (`private/browser`), validation screenshots (`private/validation`) | `private/` | no (`private/`, unanchored) |
 | `%APPDATA%\Urbanomics\workspace.json` (where the app looks for the workspace, optional update token) | application data | no (`workspace.json`) |
 | `remote-access.json`, `remote-status.json` (Tailscale remote access) | `private/desktop` | no |

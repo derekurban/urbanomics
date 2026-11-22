@@ -6,12 +6,9 @@ import { categoryColors } from "./category-colors.js";
 import React, { useEffect, useMemo, useState } from "react";
 import { TagHierarchy } from "./TagHierarchy.jsx";
 import { EntityEditor } from "./EntityEditor.jsx";
-import { AliasesWorkspace } from "./AliasesWorkspace.jsx";
-import { RulesWorkspace } from "./RulesWorkspace.jsx";
 import { TransferLab } from "./TransferLab.jsx";
 import { AssistantWorkspace } from "./AssistantWorkspace.jsx";
 import { TagSuggestions } from "./TagSuggestions.jsx";
-import { AliasSuggestions } from "./AliasSuggestions.jsx";
 import { SetupChecklist } from "./SetupChecklist.jsx";
 import { useAssistant, readiness } from "./assistant.js";
 import { notify } from "./toast.jsx";
@@ -25,8 +22,6 @@ const api = window.urbanomics;
 const sections = [
   ["category", "Categories & tags", "Tags say what a transaction is; categories group expense tags for the Dashboard, and each category's palette colours its tags."],
   ["person", "People", "People you share expenses with or who pay you back. Shares and repayments on the Organize desk refer to them."],
-  ["aliases", "Aliases", "Readable names for bank descriptions. They change how transactions are shown, never the original records."],
-  ["rules", "Rules", "Tags and people applied to new imports whose bank description matches. Transactions you already have change only when you apply a rule to them."],
   ["transfers", "Transfers", "How Organize finds the other half of a transfer between your accounts. It offers matches within these settings; nothing links without you."],
   ["assistant", "Assistant", "Suggestions from Claude, through your own Anthropic API key. Claude reads only what a feature needs, and nothing changes until you approve it."],
   ["appearance", "Appearance", "Light, dark, or the same as this device."],
@@ -62,9 +57,9 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
     let live = true;
     setExtras(null);
     setExtrasError("");
-    attempt(() => api.transactionRulesState()).then(
-      (rules) => { if (live) setExtras({ rules }); },
-      (e) => { if (live) { setExtras({ rules: null }); setExtrasError(e?.message || String(e)); } },
+    attempt(() => api.vendors()).then(
+      (vendors) => { if (live) setExtras({ vendors }); },
+      (e) => { if (live) { setExtras({ vendors: null }); setExtrasError(e?.message || String(e)); } },
     );
     return () => { live = false; };
   }, [data]);
@@ -89,8 +84,9 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
         map.set(id, u);
       }
     }
-    for (const rule of extras?.rules?.rules || []) {
-      for (const id of [rule.categoryId, rule.personId, ...(rule.template?.tags || []).map((p) => p.id), ...(rule.template?.groups || [])].filter(Boolean)) {
+    // A vendor that gives a tag or person counts as a use, so neither can be deleted from under it.
+    for (const vendor of extras?.vendors?.vendors || []) {
+      for (const id of [vendor.tagId, vendor.personId].filter(Boolean)) {
         const u = map.get(id) || { active: 0, archived: 0 };
         u.rules = (u.rules || 0) + 1;
         map.set(id, u);
@@ -152,12 +148,8 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
       {extrasError && <Alert>{extrasError}</Alert>}
       {section === "assistant" ? <AssistantWorkspace /> : section === "about" ? <AboutWorkspace /> : section === "appearance" ? <AppearanceWorkspace /> : section === "admin" ? (
         <AdminWorkspace data={data} act={act} busy={busy} />
-      ) : section === "aliases" ? (
-        <AliasesWorkspace data={data} run={run} busy={busy} onAccounts={() => go("accounts")} onSuggest={() => suggest("aliases")} />
       ) : section === "transfers" ? (
         <TransferLab records={records} act={act} busy={busy || !state} onSource={onSource || (() => {})} />
-      ) : section === "rules" ? (
-        <RulesWorkspace data={data} run={run} busy={busy} onSection={go} onNavigate={onNavigate} />
       ) : section === "person" ? (
         <section className="settings-people" aria-label="People">
           <div className="og-toolbar">
@@ -189,8 +181,8 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
                       <h3 title={person.name}>{person.name}</h3>
                       <small>
                         {u.transactions || u.rules
-                          ? [u.transactions ? plural(u.transactions, "transaction") : "", u.rules ? plural(u.rules, "rule") : "", archived ? `${archived} in deleted accounts` : ""].filter(Boolean).join(" · ")
-                          : "Not on any transaction or rule yet"}
+                          ? [u.transactions ? plural(u.transactions, "transaction") : "", u.rules ? plural(u.rules, "vendor") : "", archived ? `${archived} in deleted accounts` : ""].filter(Boolean).join(" · ")
+                          : "Not on any transaction or vendor yet"}
                       </small>
                     </div>
                     <button className="sm" disabled={busy} aria-label={`Edit person ${person.name}`} onClick={() => edit(person)}>Edit</button>
@@ -205,7 +197,6 @@ export function OrganizeWorkspace({ data, run, busy, section, onSection, onNavig
       )}
       </div>
       {(suggesting === "missing" || suggesting === "restructure") && <TagSuggestions mode={suggesting} entities={entities} onClose={() => setSuggesting(null)} />}
-      {suggesting === "aliases" && <AliasSuggestions onClose={() => setSuggesting(null)} />}
       {editing && (
         <EntityEditor
           key={editing.id || editing.kind}

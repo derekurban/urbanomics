@@ -74,8 +74,7 @@ else {
         "accounts",
         "rules",
         "review_entities",
-        "transaction_aliases",
-        "transaction_rules",
+        "vendors",
         "transfer_lab_config",
         "transactions",
         "sources",
@@ -94,7 +93,7 @@ else {
             "workspace.sql",
           );
         const seed = fs.existsSync(localSeed) ? localSeed : bundledSeed;
-        if (fs.existsSync(seed)) seedConfiguration(store.db, seed);
+        if (fs.existsSync(seed)) { seedConfiguration(store.db, seed); store.vendors.convertLegacy(); }
       }
       store.scanDropbox();
       updates = createUpdateManager({

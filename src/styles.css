@@ -49,7 +49,15 @@
 }
 .dev-tag > .dev-tag-short { padding: 0 var(--space-1); opacity: 0; }
 .sidebar-label { transition: opacity var(--duration-fast) var(--ease-out); }
-.sidebar nav { display: grid; gap: 2px; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+/* On a short window the list scrolls with the wheel or keyboard, but never shows a scrollbar: in the 64px
+   rail one would cover the icons. Short windows also tighten the spacing so all eight items usually fit. */
+.sidebar nav { display: grid; gap: 2px; overflow-y: auto; overflow-x: hidden; min-height: 0; scrollbar-width: none; }
+.sidebar nav::-webkit-scrollbar { display: none; }
+@media (min-width: 721px) and (max-height: 820px) {
+  .sidebar { padding-top: var(--space-4); }
+  .sidebar .navigation-group { padding-top: var(--space-2); }
+  .sidebar .nav-item { min-height: var(--control-md); }
+}
 .navigation-group { font: var(--font-caption); color: var(--ink-tertiary); padding: var(--space-4) var(--space-3) var(--space-1); }
 .sidebar .navigation-group:first-child { padding-top: var(--space-2); }
 .nav-item {

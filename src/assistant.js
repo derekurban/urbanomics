@@ -47,7 +47,7 @@ export function readiness(state) {
 export const featureLabels = {
   tags: ["Suggest missing tags", "Looks at your transactions and proposes tags (and categories) you don't have yet."],
   restructure: ["Suggest a restructure", "Proposes renames, moves, merges and new categories for the tags you have."],
-  aliases: ["Suggest aliases", "Proposes readable names for bank descriptions, with the sentence that recognizes them."],
+  aliases: ["Suggest vendors", "Groups bank descriptions that are the same place under one vendor name, with the matchers that recognize them."],
   organize: ["Smart organizing", "Suggests tags, people, a transfer twin and an event when you open a transaction in Organize."],
 };
 export const effortLabels = { low: "Low", medium: "Medium", high: "High", xhigh: "Extra high", max: "Maximum" };

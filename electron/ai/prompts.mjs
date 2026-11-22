@@ -3,6 +3,8 @@
 // answers that point at things that exist. Nothing here writes; every suggestion is applied later through
 // the app's usual versioned saves, after the person approves it.
 
+import { compileMatcher } from "../review/vendor-model.mjs";
+
 const PREAMBLE = [
   "You help organize a personal finance ledger in a desktop app called Urbanomics.",
   "Work only from the data in this message.",
@@ -120,7 +122,7 @@ export function restructurePrompt(entities, records, ruleRefs = new Map()) {
   const usage = tagUsage(records), { tags, buckets } = taxonomy(entities);
   const detail = (t) => {
     const u = usage.get(t.id), top = u ? [...u.vendors].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([n]) => `"${clip(n, 40)}"`).join(", ") : "";
-    return `  - [${t.id}] ${t.name} · ${u?.count || 0} transactions${ruleRefs.get(t.id) ? ` · used by ${ruleRefs.get(t.id)} rule(s)` : ""}${top ? ` · e.g. ${top}` : ""}`;
+    return `  - [${t.id}] ${t.name} · ${u?.count || 0} transactions${ruleRefs.get(t.id) ? ` · given by ${ruleRefs.get(t.id)} vendor(s)` : ""}${top ? ` · e.g. ${top}` : ""}`;
   };
   const lines = [];
   for (const b of buckets) { lines.push(`- Category [${b.id}] ${b.name}`); for (const t of tags.filter((x) => x.parentId === b.id)) lines.push(detail(t)); }
@@ -218,46 +220,48 @@ export function validateRestructure(value, entities, records, ruleRefs = new Map
   return { summary: clip(value?.summary, 600), changes: final };
 }
 
-/* ---------- aliases ---------- */
-const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-/** The same sentence-to-pattern rule the Aliases editor uses (compileTextRule in src/import-analysis.mjs). */
-export function compileAliasRule({ mode, text }) {
-  const e = escapeRegex(String(text || "").trim());
-  if (!e) return "";
-  return mode === "contains" ? e : mode === "ends" ? `${e}$` : mode === "exact" ? `^${e}$` : `^${e}`;
-}
-export const aliasSchema = strict({
-  suggestions: { type: "array", items: strict({ name: str, mode: { type: "string", enum: ["starts", "contains", "ends", "exact"] }, text: str, reason: str }) },
+/* ---------- vendors ---------- */
+/** The same sentence-to-pattern rule vendor matchers use. */
+export const compileAliasRule = ({ mode, text }) => compileMatcher({ mode, text });
+const matcherItem = strict({ mode: { type: "string", enum: ["starts", "contains", "ends", "exact"] }, text: str });
+export const vendorSchema = strict({
+  suggestions: { type: "array", items: strict({ name: str, matchers: { type: "array", items: matcherItem }, reason: str }) },
 });
-export function aliasPrompt(unaliased, rules, limit = 400) {
+const describe = (m) => `${m.mode === "contains" ? "contains" : m.mode === "ends" ? "ends with" : m.mode === "exact" ? "is exactly" : "starts with"} "${m.text}"`;
+export function vendorPrompt(unmatched, vendors, limit = 400) {
   const groups = new Map();
-  for (const r of unaliased) { if (r.deleted) continue; const g = groups.get(r.description) || { name: r.description, count: 0 }; g.count++; groups.set(r.description, g); }
+  for (const r of unmatched) { if (r.deleted) continue; const g = groups.get(r.description) || { name: r.description, count: 0 }; g.count++; groups.set(r.description, g); }
   const list = [...groups.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)).slice(0, limit);
   return [PREAMBLE, "",
-    "Task: suggest aliases. An alias gives a readable name to bank descriptions that are really the same merchant or payer, for example \"SQ *BEAN COUNTER 1042\" and \"SQ *BEAN COUNTER 2210\" both become \"Bean Counter\". It only changes how transactions are shown.",
-    "Each alias is a readable name plus a plain matching sentence over the original bank description, ignoring case:",
+    "Task: suggest vendors. A vendor gives one readable name to every bank description that is really the same merchant or payer, for example \"SQ *BEAN COUNTER 1042\" and \"BEAN COUNTER ONLINE\" are both the vendor \"Bean Counter\".",
+    "Each vendor is a readable name plus one or more matchers over the original bank description, ignoring case:",
     "- starts: the description starts with text. contains: it contains text. ends: it ends with text. exact: it is exactly text.",
+    "A description belongs to the vendor when any of its matchers matches.",
     "Rules:",
     "- Prefer starts with the stable part of the description (drop store numbers, dates, reference codes and card digits).",
-    "- The text must not match descriptions of a different merchant, and must not overlap an existing alias.",
-    "- Suggest aliases where the readable name is clearly better than the description, most transactions first. At most 25.",
+    "- Use several matchers when the same merchant shows up in differently worded descriptions; one is enough when they share a start.",
+    "- No matcher may match descriptions of a different merchant, or descriptions an existing vendor already covers.",
+    "- Suggest vendors where the readable name is clearly better than the description, most transactions first. At most 25.",
     "- Names are how a person would say the merchant: \"Bean Counter\", \"City Hydro\", \"Paycheque from Northwind\".",
-    "", `Existing aliases: ${rules.length ? rules.map((r) => `${r.name} (${r.pattern})`).join("; ") : "none"}`, "",
-    `Descriptions without an alias (${list.length}):`, ...list.map((g) => `- "${clip(g.name, 120)}" × ${g.count}`)].join("\n");
+    "", `Existing vendors: ${vendors.length ? vendors.map((v) => `${v.name} (${v.matchers.map(describe).join(" or ")})`).join("; ") : "none"}`, "",
+    `Descriptions without a vendor (${list.length}):`, ...list.map((g) => `- "${clip(g.name, 120)}" × ${g.count}`)].join("\n");
 }
-export function validateAliases(value, preview) {
+export function validateVendors(value, preview) {
   const out = [], seen = new Set();
   for (const s of value?.suggestions || []) {
-    const name = clip(s.name, 80), text = clip(s.text, 120), mode = ["starts", "contains", "ends", "exact"].includes(s.mode) ? s.mode : "starts";
-    const pattern = compileAliasRule({ mode, text });
-    if (!name || !pattern || seen.has(pattern) || seen.has(lower(name))) continue;
-    seen.add(pattern); seen.add(lower(name));
+    const name = clip(s.name, 80);
+    const matchers = (Array.isArray(s.matchers) ? s.matchers : []).slice(0, 8)
+      .map((m) => ({ mode: ["starts", "contains", "ends", "exact"].includes(m?.mode) ? m.mode : "starts", text: clip(m?.text, 120) }))
+      .filter((m) => compileAliasRule(m));
+    const key = matchers.map(compileAliasRule).sort().join("|");
+    if (!name || !matchers.length || seen.has(key) || seen.has(lower(name))) continue;
+    seen.add(key); seen.add(lower(name));
     let check;
-    try { check = preview({ name, pattern }); } catch { continue; }
+    try { check = preview({ name, matchers }); } catch { continue; }
     const matches = check.matches.filter((m) => !m.deleted);
     if (!matches.length) continue;
     out.push({
-      key: "a" + out.length, name, mode, text, pattern, reason: clip(s.reason, 240),
+      key: "v" + out.length, name, matchers, reason: clip(s.reason, 240),
       matches: matches.length, examples: [...new Set(matches.map((m) => m.description))].slice(0, 4),
       conflicts: check.conflicts.length, duplicates: check.duplicates.map((d) => d.name),
     });

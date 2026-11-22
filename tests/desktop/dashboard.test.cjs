@@ -118,7 +118,7 @@ test("monthly trends preserve missing months and reconcile category filters and 
   assert.equal(food[6].model.net, 0);
   assert.deepEqual(availableMonths(records, "USD"), ["2026-08"]);
 });
-test("vendor groups merge aliases across raw descriptions, preserve cents, and retain dated payments", async () => {
+test("vendor groups merge vendors across raw descriptions, preserve cents, and retain dated payments", async () => {
   const { vendorGroups } = await import("../../src/dashboard-model.js");
   const rows = [
     {
@@ -126,7 +126,7 @@ test("vendor groups merge aliases across raw descriptions, preserve cents, and r
         id: "a",
         description: "Superstore",
         originalDescription: "STORE 123",
-        aliasId: "alias",
+        vendorId: "vendor",
         date: "2026-08-01",
       },
       gross: 1234,
@@ -138,7 +138,7 @@ test("vendor groups merge aliases across raw descriptions, preserve cents, and r
         id: "b",
         description: "Superstore",
         originalDescription: "STORE 456",
-        aliasId: "alias",
+        vendorId: "vendor",
         date: "2026-08-20",
       },
       gross: 2001,

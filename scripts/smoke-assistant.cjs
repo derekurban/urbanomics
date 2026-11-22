@@ -1,5 +1,5 @@
 // Claude features end to end in the real app: entering the API key, Smart organizing on the Organize desk,
-// Suggest missing tags, Suggest a restructure and Suggest aliases, each approved through its review and
+// Suggest missing tags, Suggest a restructure and Suggest vendors, each approved through its review and
 // checked against the workspace afterwards. Runs against an isolated synthetic workspace
 // (scripts/assistant-demo-data.cjs) with the Anthropic API key in ANTHROPIC_API_KEY, so it costs a few cents
 // on that account and sends only invented data. Records one video per feature under
@@ -93,7 +93,7 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       await pause(page, 800);
       await page.getByLabel("Model for Smart organizing").locator("option").nth(1).waitFor({ state: "attached", timeout: 60000 });
       results.models = await page.getByLabel("Model for Smart organizing").locator("option").allInnerTexts();
-      if (MODEL) for (const feature of ["Suggest missing tags", "Suggest a restructure", "Suggest aliases", "Smart organizing"]) { const model = page.getByLabel("Model for " + feature); await moveTo(page, model); await model.selectOption(MODEL); await pause(page, 500); }
+      if (MODEL) for (const feature of ["Suggest missing tags", "Suggest a restructure", "Suggest vendors", "Smart organizing"]) { const model = page.getByLabel("Model for " + feature); await moveTo(page, model); await model.selectOption(MODEL); await pause(page, 500); }
       const atOnce = page.getByLabel("Requests at once"); await moveTo(page, atOnce); await atOnce.selectOption("24"); await pause(page, 500); await atOnce.selectOption("16"); await pause(page, 500);
       await click(page, page.getByText("Suggest when I open a transaction")); await pause(page, 800);
       await click(page, page.getByRole("button", { name: "Try the connection" }));
@@ -163,22 +163,22 @@ const pointer = () => addEventListener("DOMContentLoaded", () => {
       log("restructure:", results.restructure.join(" · "));
     });
 
-    if (wanted("aliases")) await scene("05-suggest-aliases", server.origin, async (page, origin) => {
-      await page.goto(origin + "/#settings/aliases"); await page.locator(".aliases-workspace").waitFor(); await pause(page, 1200);
-      await click(page, page.getByRole("button", { name: "Suggest aliases" }));
+    if (wanted("aliases")) await scene("05-suggest-vendors", server.origin, async (page, origin) => {
+      await page.goto(origin + "/#vendors"); await page.locator(".vendors-workspace").waitFor(); await pause(page, 1200);
+      await click(page, page.getByRole("button", { name: "Suggest vendors" }));
       await page.locator(".cx-item").first().waitFor({ timeout: 240000 }); await pause(page, 2500);
       // Rename one suggestion before saving, to show the review is editable.
-      const names = page.getByLabel("Alias name"), values = await names.evaluateAll((els) => els.map((e) => e.value));
+      const names = page.getByLabel("Vendor name"), values = await names.evaluateAll((els) => els.map((e) => e.value));
       const pick = values.findIndex((v) => /^Paycheque from /i.test(v));
       if (pick >= 0) { await type(page, names.nth(pick), "Northwind payroll"); await pause(page, 1500); }
       const items = page.locator(".cx-item"), count = await items.count();
       for (let i = 1; i < Math.min(count, 6); i++) { await moveTo(page, items.nth(i)); await pause(page, 500); }
-      await click(page, page.getByRole("button", { name: /^Save \d+ alias(es)?$/ }));
+      await click(page, page.getByRole("button", { name: /^Save \d+ vendors?$/ }));
       await page.getByRole("button", { name: "Close", exact: true }).waitFor({ timeout: 120000 }); await pause(page, 2000);
       results.aliases = await page.locator(".cx-outcome").allInnerTexts();
       await click(page, page.getByRole("button", { name: "Close", exact: true })); await pause(page, 2500);
-      assert.ok(store.aliases.rules().length > 0, "approved aliases were saved");
-      log("aliases:", store.aliases.rules().map((r) => r.name).join(", "));
+      assert.ok(store.vendors.list().length > 0, "approved vendors were saved");
+      log("vendors:", store.vendors.list().map((v) => v.name).join(", "));
     });
 
     if (wanted("batch")) await scene("06-suggest-for-all-unsorted", server.origin, async (page, origin) => {

@@ -29,7 +29,7 @@ function createWorkspaceService({
   };
   const readOnly = new Set([
     "workspace:state", "review:state", "transfer-lab:state", "transfer-lab:preview", "transfer-lab:validate",
-    "aliases:state", "aliases:preview", "transaction-rules:coverage", "transaction-rules:state", "transaction-rules:preview",
+    "vendors:state", "vendors:list", "vendors:preview",
     "admin:reset-preview", "admin:backup", "admin:backups", "admin:untag-preview", "admin:unlink-preview", "admin:shares-preview", "workspace:transactions", "workspace:detail", "workspace:snapshot",
     "workspace:reveal", "workspace:prefix-test", "imports:inspect", "imports:detect-dates", "imports:preview-layout", "imports:layouts",
     "updates:state", "updates:check", "updates:install",
@@ -51,10 +51,8 @@ function createWorkspaceService({
   const configurationChanges = new Set([
     "admin:reset", "imports:save-layout", "imports:remove-layout", "imports:assign",
     "transfer-lab:save",
-    "transaction-rules:save",
-    "transaction-rules:remove",
-    "aliases:save",
-    "aliases:remove",
+    "vendors:save",
+    "vendors:remove",
     "review:entity",
     "review:tag-order",
     "review:hierarchy-starter",
@@ -85,27 +83,14 @@ function createWorkspaceService({
     store.transferLab.apply(values, token, keys),
   );
   handle("review:state", () => store.review.state());
-  handle("aliases:state", () => store.aliases.state());
-  handle("transaction-rules:coverage", (id) => store.transactionRules.coverage(id));
-  handle("transaction-rules:state", () => store.transactionRules.state());
-  handle("transaction-rules:preview", (values) =>
-    store.transactionRules.preview(values),
-  );
-  handle("transaction-rules:save", (values) =>
-    store.transactionRules.save(values),
-  );
-  handle("transaction-rules:remove", (id, version) =>
-    store.transactionRules.remove(id, version),
-  );
-  handle("transaction-rules:apply", (token) =>
-    store.transactionRules.apply(token),
-  );
-  handle("transaction-rules:person", (id, version, personId) =>
-    store.transactionRules.assignPerson(id, version, personId),
-  );
-  handle("aliases:preview", (values) => store.aliases.preview(values));
-  handle("aliases:save", (values) => store.aliases.save(values));
-  handle("aliases:remove", (id, version) => store.aliases.remove(id, version));
+  handle("vendors:state", () => store.vendors.state());
+  handle("vendors:list", () => store.vendors.list());
+  handle("vendors:preview", (values) => store.vendors.preview(values));
+  handle("vendors:save", (values, options) => store.vendors.save(values, options || {}));
+  handle("vendors:remove", (id, version) => store.vendors.remove(id, version));
+  handle("vendors:apply-all", (token) => store.vendors.applyAll(token));
+  handle("vendors:undo-apply", (batch) => store.vendors.undoApply(batch));
+  handle("review:person", (id, version, personId) => store.vendors.assignPerson(id, version, personId));
   handle("admin:reset-preview", () => store.admin.previewReset());
   handle("admin:reset", (token,confirmation) => store.admin.resetWorkspace(token,confirmation));
   // A backup writes a file but changes nothing in the workspace, so it is read-only for the change events.
@@ -130,7 +115,7 @@ function createWorkspaceService({
   handle("ai:key-clear", () => assistant.clearKey());
   handle("ai:test", () => assistant.test());
   handle("ai:suggest-tags", (mode) => assistant.suggestTags(mode === "restructure" ? "restructure" : "missing"));
-  handle("ai:suggest-aliases", () => assistant.suggestAliases());
+  handle("ai:suggest-vendors", () => assistant.suggestVendors());
   handle("ai:suggest-organize", (context) => assistant.suggestOrganize(context));
   handle("ai:suggest-organize-batch", (contexts) => assistant.suggestOrganizeBatch(contexts));
   handle("review:cash-save", (values) => store.review.saveCash(values));
@@ -220,7 +205,7 @@ function createWorkspaceService({
   });
   handle("workspace:dismiss", (id) => store.dismiss(id));
   handle("workspace:transactions", (month) =>
-    store.aliases.decorate(store.transactions(month)),
+    store.vendors.decorate(store.transactions(month)),
   );
   handle("workspace:detail", (id) => store.detail(id));
   handle("workspace:snapshot", (id) => store.snapshot(id));
@@ -257,10 +242,9 @@ function createWorkspaceService({
             "transfer-lab:state",
             "transfer-lab:preview",
             "transfer-lab:validate",
-            "aliases:state",
-            "aliases:preview",
-            "transaction-rules:coverage", "transaction-rules:state",
-            "transaction-rules:preview",
+            "vendors:state",
+            "vendors:list",
+            "vendors:preview",
             "admin:backups",
             "workspace:transactions",
             "workspace:detail",
