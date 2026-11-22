@@ -296,7 +296,7 @@ test("schema 12 upgrade adds empty configuration without changing populated tabl
   const next = new ImportStore(f.root);
   store.db = next.db;
   store.review = next.review;
-  assert.equal(next.db.prepare("PRAGMA user_version").get().user_version, 24);
+  assert.equal(next.db.prepare("PRAGMA user_version").get().user_version, 25);
   for (const [name, rows] of Object.entries(before))
     assert.deepEqual(
       next.db.prepare(`SELECT * FROM "${name}" ORDER BY rowid`).all(),

@@ -17,7 +17,7 @@ import {splitShares} from '../electron/review/share-model.mjs';
 import {VendorEditor, givesLabel} from './VendorsWorkspace.jsx';
 import {SettleDialog} from './SettleDialog.jsx';
 import {notify, notify as showToast, dismissToast} from './toast.jsx';
-import {Alert} from './ui.jsx';
+import {Alert, ConfirmDialog} from './ui.jsx';
 import {dayLabel, rangeLabel, plural as count} from './format.js';
 import {useAssistant, readiness, saveAssistantSettings, seconds, modelLabel} from './assistant.js';
 import './assistant.css';
@@ -151,7 +151,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const [state, setState] = useState([]), [entities, setEntities] = useState([]), [config, setConfig] = useState(null), [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(null), [selected, setSelected] = useState([]), [anchor, setAnchor] = useState(null);
   const [filter, setFilter] = useState('all'), [accountFilter, setAccountFilter] = useState([]), [query, setQuery] = useState(''), [limit, setLimit] = useState(PAGE), [flow, setFlow] = useState(true);
-  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [vendorEdit, setVendorEdit] = useState(null), [settling, setSettling] = useState(null), [vendors, setVendors] = useState([]), [batchQuery, setBatchQuery] = useState('');
+  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [vendorEdit, setVendorEdit] = useState(null), [settling, setSettling] = useState(null), [deleting, setDeleting] = useState(null), [vendors, setVendors] = useState([]), [batchQuery, setBatchQuery] = useState('');
   const generation = useRef(0), stateRef = useRef(state), listRef = useRef(null);
   const serverRows = useRef([]), pendingDesired = useRef(new Map()), queue = useRef(Promise.resolve());
   stateRef.current = state;
@@ -561,6 +561,30 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     for (const o of open) { const take = Math.min(o.left, left); if (take > 0) lines.push({id: o.row.id, cents: take, name: o.row.name}); left -= take; if (!left) break; }
     return change(receipt.id, rows => { const r = find(rows, receipt.id); r.person = personId; for (const l of lines) { const existing = r.layers.find(x => x.kind === 'expense' && x.target === l.id); if (existing) existing.cents += l.cents; else add(rows, receipt.id, 'expense', l.id, l.cents, {color: people.find(p => p.id === personId)?.color}); } }, `${money(amount, receipt.currency)} settled with ${name} · ${lines.length === 1 ? lines[0].name : `${lines.length} expenses`} · ${money(owed - amount, receipt.currency)} still owed`);
   }
+  /* Delete a transaction (a duplicate the bank exported twice, say) after a confirmation. The server keeps it
+     whole, so the toast's Undo puts it back, and importing its file again does not re-add it. */
+  function deleteChosen(row) {
+    let outcome = {};
+    return enqueue(async () => {
+      const server = find(serverRows.current, row.id);
+      try {
+        if (!server) throw Error('This transaction is no longer in the list.');
+        await api().deleteTransaction(server.id, server.version);
+        setOpen(o => o === row.id ? null : o); setSelected(s => s.filter(id => id !== row.id));
+        notify({id: 'organize', title: `Deleted ${row.name}`, description: `${signed(row.amount, row.currency)} · ${row.account} · ${dayLabel(row.date)}`, tone: 'success', duration: 10000, actions: [{label: 'Undo', onClick: () => restoreDeleted(row)}]});
+      } catch (e) { outcome = {error: e.message}; }
+      await load().catch(() => {});
+      return true;
+    }).then(() => outcome);
+  }
+  function restoreDeleted(row) {
+    return enqueue(async () => {
+      try { await api().restoreTransaction(row.id); notify({id: 'organize', title: `Brought back ${row.name}`, tone: 'success', duration: 6000}); }
+      catch (e) { notify({id: 'organize', title: e.message, tone: 'danger', duration: 9000}); }
+      await load().catch(() => {});
+      return true;
+    });
+  }
   /* Settle against chosen expenses (SettleDialog): one server call that may also grow a person's share on the
      expenses, so the receipt and every expense it touches go into one Undo step. */
   function settleChosen(receipt, {personId, lines}) {
@@ -909,7 +933,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemove={layer => layer.kind === 'transfer' || layer.kind === 'fee' || layer.kind === 'principal' ? unlinkRow(r.id) : change(r.id, rows => remove(rows, r.id, layer.id), 'Part removed')}
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
-                    onSettleExpenses={() => setSettling(r.id)} vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
+                    onSettleExpenses={() => setSettling(r.id)} onDelete={() => setDeleting({id: r.id, error: '', busy: false})} vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
                     smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); keepSuggestion(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
@@ -928,6 +952,13 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           <button type="button" className="sm ghost" onClick={() => setSelected([])}>Clear selection</button>
         </div>
       )}
+      {deleting && find(state, deleting.id) && (() => { const row = find(state, deleting.id); return (
+        <ConfirmDialog title="Delete this transaction?" confirmLabel="Delete transaction" busy={deleting.busy} error={deleting.error}
+          onClose={() => !deleting.busy && setDeleting(null)}
+          onConfirm={() => { setDeleting(d => ({...d, busy: true, error: ''})); deleteChosen(row).then(o => setDeleting(d => d && (o.error ? {...d, busy: false, error: o.error} : null))); }}>
+          <p className="od-delete-row"><b>{row.raw.originalDescription || row.name}</b><small>{row.account} · {dayLabel(row.date)} · {signed(row.amount, row.currency)}</small></p>
+          <p>{row.manual ? 'The cash receipt is removed from your ledger.' : 'It leaves your ledger and the Dashboard, with its tags, split and event. The bank file keeps it, and importing that file again won’t bring it back.'} You can undo this right after.</p>
+        </ConfirmDialog>); })()}
       {settling && find(state, settling) && <SettleDialog receipt={find(state, settling)} rows={state} people={people} isLinked={isLinked} guess={guessPerson(find(state, settling))} onSave={values => settleChosen(find(stateRef.current, settling), values)} onClose={() => setSettling(null)} />}
       {vendorEdit && <VendorEditor key={vendorEdit.vendor?.id || 'new'} vendor={vendorEdit.vendor} seed={vendorEdit.seed} entities={entities} onClose={() => setVendorEdit(null)} onSaved={() => run(async () => true)} />}
     </section>
@@ -948,7 +979,7 @@ function VendorSlot({row, vendors, entities, onVendor, onEdit}) {
 }
 
 /* The parts-first card: the box, the typed part rows with amount boxes, and fixed slots at the right. */
-function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, onSettleExpenses, vendors, onVendor, onEditVendor, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
+function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, onSettleExpenses, onDelete, vendors, onVendor, onEditVendor, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
   const inputRef = useRef(null), [showDetails, setShowDetails] = useState(false), detailsId = React.useId();
   // Which of Claude's suggestions are unchecked; Enter in an empty describe box applies the rest.
   const [off, setOff] = useState({});
@@ -1009,7 +1040,7 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
           <div className="od-chips-wrap">{nearEvents.map(e => <button key={e.id} type="button" className={'od-event' + (row.groups.includes(e.id) ? ' is-on' : '')} style={{'--part': e.color}} aria-pressed={row.groups.includes(e.id)} onClick={() => onEvent(e)}><Icon name="calendar-days" size={16} />{e.name}</button>)}{!events.length && <small className="od-quiet">No events yet. Create one on the Events page.</small>}</div>
         </div>
         {!linked && <div className="od-slot"><div className="od-slot-head"><b>Vendor</b></div><VendorSlot row={row} vendors={vendors} entities={entities} onVendor={onVendor} onEdit={onEditVendor} /></div>}
-        <div className="od-slot is-quiet"><button type="button" className="link" aria-expanded={showDetails} aria-controls={detailsId} onClick={() => setShowDetails(v => !v)}>{showDetails ? 'Hide details' : 'Details'}</button>{showDetails && <div className="od-details" id={detailsId}><span>{row.raw.originalDescription || row.name}</span><span>{row.account}</span><span>{dayLabel(row.date)}</span>{!row.manual && <button type="button" className="link" onClick={() => onSource(row.id)}>Original record</button>}{config && <span>Transfers match within ±{config.basisPoints / 100}% and {count(config.maxDays, 'day', 'days')}. {onSettings && <button type="button" className="link" onClick={onSettings}>Change</button>}</span>}</div>}</div>
+        <div className="od-slot is-quiet"><button type="button" className="link" aria-expanded={showDetails} aria-controls={detailsId} onClick={() => setShowDetails(v => !v)}>{showDetails ? 'Hide details' : 'Details'}</button>{showDetails && <div className="od-details" id={detailsId}><span>{row.raw.originalDescription || row.name}</span><span>{row.account}</span><span>{dayLabel(row.date)}</span>{!row.manual && <button type="button" className="link" onClick={() => onSource(row.id)}>Original record</button>}{config && <span>Transfers match within ±{config.basisPoints / 100}% and {count(config.maxDays, 'day', 'days')}. {onSettings && <button type="button" className="link" onClick={onSettings}>Change</button>}</span>}{onDelete && <button type="button" className="link od-delete-link" onClick={onDelete}>Delete transaction…</button>}</div>}</div>
       </div>
     </div>
   );

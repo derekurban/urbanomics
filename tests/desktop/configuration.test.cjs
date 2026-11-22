@@ -126,7 +126,7 @@ test("legacy scoped aliases become global vendors on upgrade without changing fi
   assert.equal(store.vendors.decorate([row])[0].description, row.description);
   assert.equal(store.vendors.decorate([row])[0].vendorConflicts.length, 2);
   assert.deepEqual(store.db.prepare("SELECT * FROM accounts").all(), accounts);
-  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 24);
+  assert.equal(store.db.prepare("PRAGMA user_version").get().user_version, 25);
   assert.equal(store.db.prepare("SELECT COUNT(*) n FROM transaction_aliases").get().n, 0);
   store.close();
   store = new ImportStore(root);

@@ -135,6 +135,9 @@
 .od-chips-wrap { display: flex; flex-wrap: wrap; gap: var(--space-1); }
 .od-event { display: inline-flex; align-items: center; gap: var(--space-1); min-height: var(--control-sm); padding: 0 var(--space-2); border-radius: var(--radius-sm); font-size: var(--type-caption-size); font-weight: var(--weight-regular); }
 .od-event svg { color: var(--part); }
+.od-delete-link { color: var(--danger); }
+.od-delete-row { display: flex; flex-direction: column; gap: var(--space-1); margin: 0 0 var(--space-3); }
+.od-delete-row small { color: var(--ink-secondary); }
 .od-details { display: flex; flex-wrap: wrap; gap: var(--space-1) var(--space-3); font-size: var(--type-caption-size); color: var(--ink-secondary); padding-top: var(--space-1); }
 @media (max-width: 960px) { .od-card { grid-template-columns: 1fr; } }
 

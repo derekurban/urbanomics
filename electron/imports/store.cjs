@@ -8,6 +8,11 @@ const { ReviewStore } = require("../review/store.cjs");
 const { VendorStore } = require("../review/vendors.cjs");
 const { TransferLabStore } = require("../review/transfer-lab.cjs");
 const { parseExport, hash, routingKey, csv } = require("./parsers.cjs");
+// Import matching: the bank's text with spacing and capitals ignored, so a later export that writes
+// "from  NAME" as "from NAME" still finds the row it already gave you.
+const squash = (text) => String(text || "").replace(/\s+/g, " ").trim().toLowerCase();
+const looseKey = (r) => JSON.stringify([r.date, r.time || "", squash(r.description), squash(r.type), squash(r.holder), r.amountCents, r.balanceCents ?? null, r.currency || "CAD"]);
+const DELETED = "deleted:";
 
 function lastCompleteMonth(now = new Date()) {
   return `${now.getMonth() === 0 ? now.getFullYear() - 1 : now.getFullYear()}-${String(now.getMonth() === 0 ? 12 : now.getMonth()).padStart(2, "0")}`;
@@ -43,7 +48,7 @@ class ImportStore {
     ])
       fs.mkdirSync(path.join(this.root, dir), { recursive: true });
     this.db = new DatabaseSync(path.join(this.root, "urbanomics.sqlite"));
-    if (this.db.prepare("PRAGMA user_version").get().user_version > 24) {
+    if (this.db.prepare("PRAGMA user_version").get().user_version > 25) {
       this.db.close();
       throw new Error(
         "This workspace was created by a newer Urbanomics version.",
@@ -310,6 +315,10 @@ class ImportStore {
     // Schema 24: Claude's Organize suggestions, dismissals and what it applied, kept privately per transaction.
     if (this.db.prepare('PRAGMA user_version').get().user_version < 24)
       this.db.exec("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS assistant_suggestions (transaction_id TEXT PRIMARY KEY, status TEXT NOT NULL, payload TEXT NOT NULL, updated TEXT NOT NULL); PRAGMA user_version=24; COMMIT;");
+    // Schema 25: transactions you delete by hand, kept whole so Undo can bring them back and so importing
+    // a file that holds them again does not add them back.
+    if (this.db.prepare('PRAGMA user_version').get().user_version < 25)
+      this.db.exec("BEGIN IMMEDIATE; CREATE TABLE IF NOT EXISTS deleted_transactions (id TEXT PRIMARY KEY, account_id TEXT NOT NULL, fingerprint TEXT NOT NULL, date TEXT NOT NULL, month TEXT NOT NULL, payload TEXT NOT NULL, saved TEXT NOT NULL, deleted TEXT NOT NULL); PRAGMA user_version=25; COMMIT;");
     // Aliases and transaction rules become vendors once; also after a seed written by an older version.
     this.vendors.convertLegacy();
     this.recover();
@@ -738,30 +747,34 @@ class ImportStore {
     for (const row of included) {
       const provenance = this.db
         .prepare(
-          "SELECT transaction_id FROM observations WHERE source_hash=? AND account_id=? AND record=?",
+          "SELECT transaction_id,reason FROM observations WHERE source_hash=? AND account_id=? AND record=?",
         )
         .get(job.source_hash, job.account_id, row.record);
       if (provenance?.transaction_id)
         auto.set(row.record, provenance.transaction_id);
+      else if (provenance?.reason === "deleted")
+        auto.set(row.record, DELETED + row.record);
     }
+    // A row already in the ledger is the same transaction even when a later export spaces or capitalizes its
+    // text differently, so rows are matched on that loose key. Rows you deleted count as already there
+    // (after the live ones), so an import never brings them back.
+    const known = new Map();
+    const remember = (id, payload) => { const key = looseKey(JSON.parse(payload)); if (!known.has(key)) known.set(key, []); known.get(key).push(id); };
+    for (const r of this.db.prepare("SELECT id,payload FROM transactions WHERE account_id=? ORDER BY rowid").all(job.account_id)) remember(r.id, r.payload);
+    for (const r of this.db.prepare("SELECT id,payload FROM deleted_transactions WHERE account_id=? ORDER BY rowid").all(job.account_id)) remember(DELETED + r.id, r.payload);
     const grouped = new Map();
     for (const row of included.filter((r) => !auto.has(r.record))) {
-      if (!grouped.has(row.fingerprint)) grouped.set(row.fingerprint, []);
-      grouped.get(row.fingerprint).push(row);
+      const key = looseKey(row);
+      if (!grouped.has(key)) grouped.set(key, []);
+      grouped.get(key).push(row);
     }
     const conflicts = [];
     const reserved = new Set(auto.values());
-    for (const [fingerprint, rows] of grouped) {
-      const existing = this.db
-        .prepare(
-          "SELECT id FROM transactions WHERE account_id=? AND fingerprint=? ORDER BY rowid",
-        )
-        .all(job.account_id, fingerprint)
-        .map((r) => r.id)
-        .filter((id) => !reserved.has(id));
+    for (const [key, rows] of grouped) {
+      const existing = (known.get(key) || []).filter((id) => !reserved.has(id));
       if (existing.length)
         conflicts.push({
-          fingerprint,
+          fingerprint: rows[0].fingerprint,
           rows,
           existing,
           matches: Math.min(rows.length, existing.length),
@@ -806,6 +819,15 @@ class ImportStore {
       try {
         for (const row of plan.included) {
           let txId = matches.get(row.record);
+          if (txId?.startsWith(DELETED)) {
+            this.db
+              .prepare(
+                "INSERT INTO observations VALUES (?,?,?,NULL,'deleted') ON CONFLICT(source_hash,account_id,record) DO UPDATE SET transaction_id=NULL,reason='deleted'",
+              )
+              .run(job.source_hash, job.account_id, row.record);
+            result.matched++;
+            continue;
+          }
           if (!txId) {
             txId = randomUUID();
             this.db

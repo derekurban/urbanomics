@@ -28,6 +28,8 @@
   "removeEntity": "review:entity-remove",
   "organize": "review:organize",
   "settleExpenses": "review:settle",
+  "deleteTransaction": "review:delete",
+  "restoreTransaction": "review:restore",
   "saveCash": "review:cash-save",
   "voidCash": "review:cash-void",
   "saveFinancial": "review:financial",

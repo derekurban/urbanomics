@@ -564,6 +564,70 @@ class ReviewStore {
         .run(this.imports.now().toISOString(), id);
     });
   }
+  /* Delete a transaction by hand, usually a duplicate the bank exported twice. Refused while it is linked
+     to a transfer or tied to a repayment, so no other row loses its partner. A bank row moves whole (with
+     its review, where it came from and Claude's suggestion) into deleted_transactions: Undo puts it back,
+     and importing a file that holds it again matches it there instead of adding it. The month gets a new
+     snapshot without it; the bank file itself is never changed. A cash receipt is voided as before. */
+  deleteTransaction(id, version) {
+    const result = this.atomic(() => {
+      const row = this.current(id, version), records = this.records();
+      if ((row.review.kind === "transfer" && row.review.transferId) || records.some((r) => r.id !== id && r.review.transferId === id))
+        throw new Error("This transaction is linked to a transfer. Unlink it first, then delete it.");
+      const repaid = records.filter((r) => r.id !== id && r.review.kind === "repayment" && r.review.allocations.some((a) => a.id === id && a.cents > 0));
+      if (repaid.length)
+        throw new Error(`${repaid.length === 1 ? `“${repaid[0].description}”` : `${repaid.length} transactions`} settle${repaid.length === 1 ? "s" : ""} part of this expense. Remove that first, then delete it.`);
+      if (row.review.kind === "repayment" && row.review.allocations.some((a) => a.cents > 0))
+        throw new Error("This money settles expenses. Remove what it settles first, then delete it.");
+      if (row.manual) {
+        this.db.prepare("UPDATE cash_receipts SET voidedAt=?,version=version+1 WHERE id=?").run(this.imports.now().toISOString(), id);
+        return { id, manual: true };
+      }
+      const tx = this.db.prepare("SELECT * FROM transactions WHERE id=?").get(id);
+      const saved = {
+        review: this.db.prepare("SELECT * FROM review_items WHERE transaction_id=?").get(id) || null,
+        observations: this.db.prepare("SELECT source_hash,account_id,record FROM observations WHERE transaction_id=?").all(id),
+        applications: this.db.prepare("SELECT * FROM transaction_rule_applications WHERE transaction_id=?").all(id),
+        suggestion: this.db.prepare("SELECT * FROM assistant_suggestions WHERE transaction_id=?").get(id) || null,
+      };
+      this.db.prepare("INSERT INTO deleted_transactions VALUES (?,?,?,?,?,?,?,?)")
+        .run(id, tx.account_id, tx.fingerprint, tx.date, tx.month, tx.payload, JSON.stringify(saved), this.imports.now().toISOString());
+      this.db.prepare("UPDATE observations SET transaction_id=NULL,reason='deleted' WHERE transaction_id=?").run(id);
+      for (const table of ["transaction_rule_applications", "assistant_suggestions", "review_items"])
+        this.db.prepare(`DELETE FROM ${table} WHERE transaction_id=?`).run(id);
+      this.db.prepare("DELETE FROM transactions WHERE id=?").run(id);
+      this.imports.makeSnapshot(tx.month);
+      return { id, month: tx.month };
+    });
+    this.imports.recover();
+    return result;
+  }
+  restoreTransaction(id) {
+    const result = this.atomic(() => {
+      const cash = this.db.prepare("SELECT id FROM cash_receipts WHERE id=? AND voidedAt IS NOT NULL").get(id);
+      if (cash) {
+        this.db.prepare("UPDATE cash_receipts SET voidedAt=NULL,version=version+1 WHERE id=?").run(id);
+        return { id, manual: true };
+      }
+      const gone = this.db.prepare("SELECT * FROM deleted_transactions WHERE id=?").get(id);
+      if (!gone) throw new Error("That transaction is no longer in the deleted list.");
+      const saved = JSON.parse(gone.saved);
+      this.db.prepare("INSERT INTO transactions VALUES (?,?,?,?,?,?)").run(gone.id, gone.account_id, gone.fingerprint, gone.date, gone.month, gone.payload);
+      if (saved.review)
+        this.db.prepare("INSERT INTO review_items VALUES (?,?,?,?)").run(id, saved.review.payload, saved.review.version + 1, this.imports.now().toISOString());
+      for (const o of saved.observations)
+        this.db.prepare("UPDATE observations SET transaction_id=?,reason=NULL WHERE source_hash=? AND account_id=? AND record=? AND transaction_id IS NULL AND reason='deleted'").run(id, o.source_hash, o.account_id, o.record);
+      for (const a of saved.applications)
+        this.db.prepare("INSERT OR IGNORE INTO transaction_rule_applications VALUES (?,?,?,?)").run(a.id, a.transaction_id, a.created, a.payload);
+      if (saved.suggestion)
+        this.db.prepare("INSERT OR IGNORE INTO assistant_suggestions VALUES (?,?,?,?)").run(saved.suggestion.transaction_id, saved.suggestion.status, saved.suggestion.payload, saved.suggestion.updated);
+      this.db.prepare("DELETE FROM deleted_transactions WHERE id=?").run(id);
+      this.imports.makeSnapshot(gone.month);
+      return { id, month: gone.month };
+    });
+    this.imports.recover();
+    return result;
+  }
   write(id, review, version) {
     if (
       this.db
