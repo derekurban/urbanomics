@@ -353,6 +353,16 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     && `${r.name} ${r.raw.originalDescription || ''} ${r.account}`.toLowerCase().includes(query.trim().toLowerCase()))
     .sort(listOrder), [state, filter, twinFilter, accountFilter, query, (filter === 'suggested' || filter === 'auto') && store.version]);
   useEffect(() => { setLimit(PAGE); }, [filter, accountFilter, query]);
+  /* The next page loads by itself once the end of the list comes within about a screen of the window; the
+     Show more button stays for the keyboard and as a fallback. */
+  const moreRef = useRef(null), hasMore = visible.length > limit;
+  useEffect(() => {
+    const node = moreRef.current;
+    if (!hasMore || !node || typeof IntersectionObserver === 'undefined') return;
+    const watcher = new IntersectionObserver(entries => { if (entries.some(e => e.isIntersecting)) setLimit(n => n + PAGE); }, {rootMargin: '0px 0px 900px 0px'});
+    watcher.observe(node);
+    return () => watcher.disconnect();
+  }, [hasMore, limit]);
   useEffect(() => {
     if (!target?.id || !state.length) return;
     const index = visible.findIndex(r => r.id === target.id);
@@ -942,7 +952,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
         {!visible.length && state.length > 0 && <li className="od-empty">Nothing here. Change the filter or the search.</li>}
         {empty && <li className="od-empty is-start"><p>No transactions yet. Import a bank export and every account lands here, newest first.</p><button type="button" className="primary" onClick={() => { location.hash = '#snapshots'; }}><Icon name="upload" size={16} />Import a bank export</button></li>}
       </ol>
-      {visible.length > limit && <div className="od-more"><button type="button" onClick={() => setLimit(n => n + PAGE)}>Show {Math.min(PAGE, visible.length - limit)} more</button><small>{limit.toLocaleString('en-CA')} of {visible.length.toLocaleString('en-CA')}</small></div>}
+      {visible.length > limit && <div className="od-more" ref={moreRef}><button type="button" onClick={() => setLimit(n => n + PAGE)}>Show {Math.min(PAGE, visible.length - limit)} more</button><small>{limit.toLocaleString('en-CA')} of {visible.length.toLocaleString('en-CA')}</small></div>}
       {!empty && <p className="od-keys"><kbd>↑</kbd><kbd>↓</kbd> move · <kbd>Enter</kbd> open, then type what it is · <kbd>n</kbd> next unsorted · <kbd>s</kbd> later · {starsOn && <><kbd>a</kbd> accept Claude's suggestion · </>}<kbd>x</kbd> or the checkbox selects several · <kbd>Ctrl</kbd><kbd>Z</kbd> undo</p>}
       {selected.length > 1 && (
         <div className="od-batch" role="region" aria-label="Selected rows">
