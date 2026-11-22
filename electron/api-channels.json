@@ -27,6 +27,7 @@
   "saveEntity": "review:entity",
   "removeEntity": "review:entity-remove",
   "organize": "review:organize",
+  "settleExpenses": "review:settle",
   "saveCash": "review:cash-save",
   "voidCash": "review:cash-void",
   "saveFinancial": "review:financial",

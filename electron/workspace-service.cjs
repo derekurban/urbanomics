@@ -107,6 +107,7 @@ function createWorkspaceService({
   handle("review:hierarchy-starter", () => store.review.starterHierarchy());
   handle("review:entity-remove", (id) => store.review.removeEntity(id));
   handle("review:organize", (changes) => store.review.organize(changes));
+  handle("review:settle", (id, version, values) => store.review.settle(id, version, values));
   handle("review:merge-tags", (sourceId, targetId) => store.review.mergeTags(sourceId, targetId));
   handle("ai:state", (refresh) => assistant.state(refresh));
   handle("ai:models", () => assistant.models());

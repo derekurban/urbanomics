@@ -8,8 +8,8 @@
    With nothing typed, the list leads with those, then tags, then everyone else who owes money,
    then events; Enter takes only a lead. A wrong default is worse than none, so when nothing leads,
    nothing is highlighted. With text typed, the old grouping stands and Enter takes the top match. */
-export const DESCRIBE_TITLES = {same: 'Same as last', twin: 'Same money', history: 'Used before for this name', person: 'Settles up', share: 'Shared with', payee: 'Paid a person', tag: 'Tags', event: 'Events', account: 'Own accounts', create: 'New tag'};
-const TYPED = ['twin', 'person', 'share', 'payee', 'tag', 'event', 'account', 'create'];
+export const DESCRIBE_TITLES = {same: 'Same as last', twin: 'Same money', history: 'Used before for this name', reduce: 'Reduce expenses', person: 'Settles up', share: 'Shared with', payee: 'Paid a person', tag: 'Tags', event: 'Events', account: 'Own accounts', create: 'New tag'};
+const TYPED = ['twin', 'reduce', 'person', 'share', 'payee', 'tag', 'event', 'account', 'create'];
 
 export function groupOf(option) {
   if (option.same) return 'same';

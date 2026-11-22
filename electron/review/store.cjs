@@ -691,6 +691,52 @@ class ReviewStore {
     this.applySplitInPlace(row,review,records);
     this.write(id,review,row.version);
   }
+  /* Settle: money in reduces the expenses you pick. From a person it is their repayment, and when it covers
+     more than their share of an expense their share grows out of yours (a custom split). From no one it is a
+     refund or reimbursement. Lines add to what the receipt already settles; everything saves in one
+     transaction, and the usual checks (no more than an expense's amount, no more than a person's share) run
+     over the whole ledger at the end. */
+  settle(id, version, values) {
+    return this.atomic(() => {
+      const personId = typeof values?.personId === "string" ? values.personId : "";
+      const lines = Array.isArray(values?.lines) ? values.lines : [];
+      if (!lines.length || lines.length > 200) throw new Error("Choose at least one expense.");
+      if (new Set(lines.map((l) => l?.id)).size !== lines.length || lines.some((l) => typeof l?.id !== "string" || !Number.isSafeInteger(l.cents) || l.cents <= 0))
+        throw new Error("Enter an amount above zero for each expense.");
+      const receipt = this.current(id, version), names = this.personNames();
+      if (receipt.amountCents <= 0) throw new Error("Only money coming in can settle an expense.");
+      if (receipt.review.kind === "transfer") throw new Error("Unlink the transfer before settling with this money.");
+      if (personId && !names.has(personId)) throw new Error("Choose an existing person.");
+      const existing = receipt.review.kind === "repayment" ? receipt.review.allocations.filter((a) => a.cents > 0) : [];
+      if (existing.length && (receipt.review.personId || "") !== personId)
+        throw new Error(receipt.review.personId ? `This money already settles for ${names.get(receipt.review.personId) || "someone else"}. Remove that first.` : "This money is already a refund. Remove that first.");
+      const records = this.records();
+      for (const line of lines) {
+        const expense = records.find((r) => r.id === line.id && !r.deleted);
+        if (!expense || expense.amountCents >= 0 || !["expense", "unreviewed"].includes(expense.review.kind) || expense.currency !== receipt.currency)
+          throw new Error("Choose expenses in the same currency that aren't transfers.");
+        if (!personId) continue;
+        const paid = records.filter((r) => r.id !== id && r.review.kind === "repayment" && r.review.personId === personId)
+          .reduce((n, r) => n + r.review.allocations.filter((a) => a.id === expense.id).reduce((m, a) => m + a.cents, 0), 0)
+          + existing.filter((a) => a.id === expense.id).reduce((n, a) => n + a.cents, 0) + line.cents;
+        const total = -expense.amountCents;
+        const shares = expense.review.shares?.length ? expense.review.shares.map((s) => ({ ...s })) : [{ id: "me", cents: total }];
+        const mine = shares.find((s) => s.id === "me"), theirs = shares.find((s) => s.id === personId), more = paid - (theirs?.cents || 0);
+        if (more <= 0) continue;
+        if (!mine || mine.cents < more) throw new Error(`${names.get(personId)} can't settle more of ${expense.description} than your share of it.`);
+        mine.cents -= more;
+        if (theirs) theirs.cents += more; else shares.push({ id: personId, cents: more });
+        this.financialWrite(expense.id, expense.version, { kind: "expense", reviewed: true, shares, sharesSource: "manual", personId: "", allocations: [], remainder: 0, transferId: "" });
+      }
+      const fresh = this.records().find((r) => r.id === id);
+      const merged = existing.map((a) => ({ id: a.id, cents: a.cents }));
+      for (const l of lines) { const a = merged.find((x) => x.id === l.id); if (a) a.cents += l.cents; else merged.push({ id: l.id, cents: l.cents }); }
+      const tags = fresh.review.tags || [];
+      if (sum(tags) + sum(merged) > fresh.amountCents) throw new Error("That's more than this money has left. Lower an amount, or remove a tag first.");
+      this.financialWrite(id, fresh.version, { ...fresh.review, tags, allocations: merged, kind: "repayment", reviewed: true, personId, shares: null, remainder: fresh.amountCents - sum(merged) }, 0, true);
+      return { applied: sum(lines), expenses: lines.length };
+    });
+  }
   allocation(id, version, draft) {
     return this.atomic(() => {
       const row=this.current(id,version);
@@ -832,7 +878,8 @@ class ReviewStore {
       review.personId = "";
       review.remainder = 0;
     } else if (
-      !people.has(review.personId) ||
+      // No person: a refund or reimbursement that reduces the expense without settling anyone's share.
+      (review.personId && !people.has(review.personId)) ||
       !Number.isSafeInteger(review.remainder) ||
       review.remainder < 0 ||
       sum(review.allocations) + review.remainder !== row.amountCents
@@ -937,6 +984,7 @@ class ReviewStore {
         if (totals.total > Math.abs(expense.amountCents))
           throw new Error("Repayments exceed the expense amount.");
         for (const [person, cents] of Object.entries(totals.people)) {
+          if (!person) continue;
           const share = expense.review.shares?.find((s) => s.id === person)?.cents || 0;
           if (!share)
             throw new Error(`Share ${expense.description} with ${names.get(person) || "this person"} before applying their repayment.`);

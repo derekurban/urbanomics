@@ -51,6 +51,7 @@ contextBridge.exposeInMainWorld("urbanomics", {
   saveEntity: (kind, values) => invoke("review:entity", kind, values),
   removeEntity: (id) => invoke("review:entity-remove", id),
   organize: (changes) => invoke("review:organize", changes),
+  settleExpenses: (id, version, values) => invoke("review:settle", id, version, values),
   saveCash: (values) => invoke("review:cash-save", values),
   voidCash: (id, version) => invoke("review:cash-void", id, version),
   saveFinancial: (id, version, values) =>

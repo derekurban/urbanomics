@@ -15,6 +15,7 @@ import {isOther} from '../electron/review/system-tags.mjs';
 import {pendingTransfers, withinBand, transferPairBand} from '../electron/review/transfer-model.mjs';
 import {splitShares} from '../electron/review/share-model.mjs';
 import {VendorEditor, givesLabel} from './VendorsWorkspace.jsx';
+import {SettleDialog} from './SettleDialog.jsx';
 import {notify, notify as showToast, dismissToast} from './toast.jsx';
 import {Alert} from './ui.jsx';
 import {dayLabel, rangeLabel, plural as count} from './format.js';
@@ -54,7 +55,7 @@ const natureOf = (row, l) => l.kind === 'tag' ? (row.amount > 0 ? 'Receive' : 'S
 /* Parts of one row's amount, colored for the strip. Repayments take the person's color. */
 function parts(state, row, entities) {
   const person = entities.find(e => e.id === row.person);
-  return segments(state, row).map(l => l.kind === 'expense' ? {...l, color: person?.color || l.color, name: `${person?.name || 'Repayment'} · ${l.name}`} : l.kind === 'default' ? {...l, name: 'Unsorted'} : l);
+  return segments(state, row).map(l => l.kind === 'expense' ? {...l, color: person?.color || l.color, name: `${person?.name || 'Refund'} · ${l.name}`} : l.kind === 'default' ? {...l, name: 'Unsorted'} : l);
 }
 /* What a person still owes you, oldest expense first. */
 function owedBy(state, personId, except) {
@@ -150,7 +151,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const [state, setState] = useState([]), [entities, setEntities] = useState([]), [config, setConfig] = useState(null), [loadError, setLoadError] = useState('');
   const [open, setOpen] = useState(null), [selected, setSelected] = useState([]), [anchor, setAnchor] = useState(null);
   const [filter, setFilter] = useState('all'), [accountFilter, setAccountFilter] = useState([]), [query, setQuery] = useState(''), [limit, setLimit] = useState(PAGE), [flow, setFlow] = useState(true);
-  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [vendorEdit, setVendorEdit] = useState(null), [vendors, setVendors] = useState([]), [batchQuery, setBatchQuery] = useState('');
+  const [saving, setSaving] = useState(0), [history, setHistory] = useState([]), [vendorEdit, setVendorEdit] = useState(null), [settling, setSettling] = useState(null), [vendors, setVendors] = useState([]), [batchQuery, setBatchQuery] = useState('');
   const generation = useRef(0), stateRef = useRef(state), listRef = useRef(null);
   const serverRows = useRef([]), pendingDesired = useRef(new Map()), queue = useRef(Promise.resolve());
   stateRef.current = state;
@@ -516,6 +517,8 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
   const toggleEvent = (row, event) => change(row.id, rows => { const r = find(rows, row.id); r.groups = r.groups.includes(event.id) ? [] : [event.id]; }, row.groups.includes(event.id) ? `Removed from ${event.name}` : row.groups.length ? `Moved to ${event.name}` : `Added to ${event.name}`);
   function evenShares(rows, row, personIds) { const paid = Object.fromEntries(personIds.map(id => [id, repayment(rows, row.id, id)])); return Object.fromEntries(splitShares(total(row), personIds, paid).map(s => [s.id, s.cents])); }
   const personName = id => people.find(p => p.id === id)?.name || 'someone';
+  // A person whose first name is in the description, for the Settle dialog's From.
+  const guessPerson = row => row ? people.find(p => { const first = p.name.split(' ')[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); return first.length > 1 && new RegExp(`\\b${first}\\b`, 'i').test(row.raw.originalDescription || row.name); })?.id || '' : '';
   const repayersOf = (rows, id) => [...new Set(rows.filter(x => x.layers.some(l => l.kind === 'expense' && l.target === id && l.cents > 0)).map(x => x.person).filter(Boolean))];
   function toggleShare(row, person) {
     const repayers = repayersOf(state, row.id), current = [...new Set([...sharedWith(row), ...repayers])], removing = current.includes(person.id);
@@ -536,6 +539,24 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
     for (const o of open) { const take = Math.min(o.left, left); if (take > 0) lines.push({id: o.row.id, cents: take, name: o.row.name}); left -= take; if (!left) break; }
     return change(receipt.id, rows => { const r = find(rows, receipt.id); r.person = personId; for (const l of lines) { const existing = r.layers.find(x => x.kind === 'expense' && x.target === l.id); if (existing) existing.cents += l.cents; else add(rows, receipt.id, 'expense', l.id, l.cents, {color: people.find(p => p.id === personId)?.color}); } }, `${money(amount, receipt.currency)} settled with ${name} · ${lines.length === 1 ? lines[0].name : `${lines.length} expenses`} · ${money(owed - amount, receipt.currency)} still owed`);
   }
+  /* Settle against chosen expenses (SettleDialog): one server call that may also grow a person's share on the
+     expenses, so the receipt and every expense it touches go into one Undo step. */
+  function settleChosen(receipt, {personId, lines}) {
+    const before = [receipt, ...lines.map(l => find(stateRef.current, l.id)).filter(Boolean)].map(snapshot), first = !receipt.layers.length && !receipt.raw.review.assignedPersonId;
+    let outcome = {};
+    return enqueue(async () => {
+      const server = find(serverRows.current, receipt.id);
+      try {
+        if (!server) throw Error('This transaction is no longer in the list.');
+        const result = await api().settleExpenses(server.id, server.version, {personId, lines});
+        setHistory(h => [...h.slice(-29), {rows: before}]);
+        const who = personId ? personName(personId) : '';
+        setToast({message: `${money(result.applied, receipt.currency)} ${who ? `settled with ${who}` : 'refunded'} · ${lines.length === 1 ? find(stateRef.current, lines[0].id)?.name || '1 expense' : `${lines.length} expenses`}`});
+      } catch (e) { outcome = {error: e.message}; }
+      await load().catch(() => {});
+      return true;
+    }).then(() => { if (!outcome.error && first && flow) { const after = find(stateRef.current, receipt.id); if (after && rest(after) === 0) closeEditor(true); } return outcome; });
+  }
   /* The describe box's options for a row, each marked with why it might be the answer (a twin, history,
      a person the description names, the choice just made on a row with the same name). organize-rules.mjs
      orders them and decides what Enter takes. */
@@ -548,6 +569,8 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
       const query = q.trim().toLowerCase(), hit = s => !query || (s || '').toLowerCase().includes(query), out = [];
       if (!locked) for (const t of twins(row)) if (!query || hit(t.account) || hit('move') || hit('transfer')) out.push({kind: 'twin', id: t.id, label: `${row.amount < 0 ? 'To' : 'From'} ${t.account}`, hint: `${t.name} · ${dayLabel(t.date)} · ${signed(t.amount, t.currency)}`, color: t.color});
       if (!locked && row.amount > 0) for (const p of people) { const owed = balanceOf(state, p.id, row.id); if ((!query && (owed > 0 || p.id === guess?.id)) || (query && (hit(p.name) || hit('settle') || hit('repay') || hit('paid')))) out.push({kind: 'person', id: p.id, label: `${p.name} settles up`, hint: owed > 0 ? `owes you ${money(owed, row.currency)}${rest(row) < owed ? ` · ${money(rest(row), row.currency)} of it here` : ''}` : 'owes nothing · share an expense first', color: p.color, disabled: !owed, guess: !query && p.id === guess?.id}); }
+      // Settle against expenses: pick the expenses this money reduces (a refund, or someone paying you back).
+      if (!locked && row.amount > 0 && query && ['settle', 'refund', 'reimburse', 'reduce', 'offset', 'repay', 'pay back', 'paid back', 'expense'].some(w => hit(w))) out.push({kind: 'reduce', id: 'reduce', label: 'Settle against expenses…', hint: 'Pick the expenses this money reduces: a refund, a reimbursement or someone paying you back', color: 'var(--data-neutral)'});
       if (!locked && row.amount < 0) for (const p of people) if ((query && (hit(p.name) || hit('paid') || hit('back'))) || (!query && p.id === guess?.id)) out.push({kind: 'payee', id: p.id, label: `Paid ${p.name}`, hint: 'Your cost, paid to a person', color: p.color, on: row.raw.review.assignedPersonId === p.id, guess: !query});
       if (!locked && row.amount < 0) for (const p of people) if ((query && (hit(p.name) || hit('shared') || hit('split') || hit('owes'))) || (!query && p.id === guess?.id)) { const on = sharedWith(row).includes(p.id), paid = repayment(state, row.id, p.id); out.push({kind: 'share', id: p.id, label: `Shared with ${p.name}`, hint: on ? `${p.name} owes ${money(row.shares[p.id], row.currency)}${paid ? ` · ${money(paid, row.currency)} settled` : ''}` : paid ? `Has settled ${money(paid, row.currency)} · joins the split` : 'Even split by default', color: p.color, on, guess: !query}); }
       if (!locked) { if (!query) for (const t of history) out.push({kind: 'tag', id: t.id, label: t.name, hint: t.parentId ? bucketName(t.parentId) : flowKind === 'income' ? 'Income' : 'Ungrouped', color: t.color, on: row.layers.some(l => l.id === 'tag:' + t.id), history: true});
@@ -572,6 +595,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
       // A first sort moves on, as a first tag does: paying a person, linking a move, settling the whole receipt.
       else if (o.kind === 'payee') { setPayee(row, o.id); if (first && flow && row.raw.review.assignedPersonId !== o.id) closeEditor(true); }
       else if (o.kind === 'twin') { linkPair(row.id, o.id); if (flow && !isLinked(row)) closeEditor(true, [o.id]); }
+      else if (o.kind === 'reduce') setSettling(row.id);
       else if (o.kind === 'person') { settle(row, o.id); const after = find(stateRef.current, row.id); if (first && flow && after && rest(after) === 0) closeEditor(true); }
     };
   }
@@ -863,7 +887,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
                     onRemove={layer => layer.kind === 'transfer' || layer.kind === 'fee' || layer.kind === 'principal' ? unlinkRow(r.id) : change(r.id, rows => remove(rows, r.id, layer.id), 'Part removed')}
                     onRemoveSettlement={() => change(r.id, rows => { const x = find(rows, r.id); x.layers = x.layers.filter(l => l.kind !== 'expense'); }, 'Settlement removed')}
                     onConfirm={() => change(r.id, () => {}, 'Confirmed')}
-                    vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
+                    onSettleExpenses={() => setSettling(r.id)} vendors={vendors} onVendor={() => alwaysLike(r.id)} onEditVendor={v => setVendorEdit({vendor: v})}
                     smart={assistantReady && (smart || !!suggestions.current.get(r.id))} suggestion={suggestions.current.get(r.id) || null} onAsk={() => askClaude(r, true)} onApplySuggestions={list => applySuggestions(r, list)} onLater={() => putOff(r.id)} onDismissSuggestions={() => { suggestions.current.set(r.id, {status: 'dismissed'}); setSuggestTick(n => n + 1); }} />}
                 </li>);
             })}</ol>
@@ -882,6 +906,7 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
           <button type="button" className="sm ghost" onClick={() => setSelected([])}>Clear selection</button>
         </div>
       )}
+      {settling && find(state, settling) && <SettleDialog receipt={find(state, settling)} rows={state} people={people} isLinked={isLinked} guess={guessPerson(find(state, settling))} onSave={values => settleChosen(find(stateRef.current, settling), values)} onClose={() => setSettling(null)} />}
       {vendorEdit && <VendorEditor key={vendorEdit.vendor?.id || 'new'} vendor={vendorEdit.vendor} seed={vendorEdit.seed} entities={entities} onClose={() => setVendorEdit(null)} onSaved={() => run(async () => true)} />}
     </section>
   );
@@ -901,7 +926,7 @@ function VendorSlot({row, vendors, entities, onVendor, onEdit}) {
 }
 
 /* The parts-first card: the box, the typed part rows with amount boxes, and fixed slots at the right. */
-function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, vendors, onVendor, onEditVendor, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
+function Editor({row, shown, state, entities, people, events, busy, config, onSettings, onSource, describe, onPick, onEvent, onShare, onShareAmount, onSplitEvenly, onFollowEvent, onPayee, onUnlink, onClose, onAmount, onSettleAmount, onRemove, onRemoveSettlement, onConfirm, onSettleExpenses, vendors, onVendor, onEditVendor, smart, suggestion, onAsk, onApplySuggestions, onDismissSuggestions, onLater}) {
   const inputRef = useRef(null), [showDetails, setShowDetails] = useState(false), detailsId = React.useId();
   // Which of Claude's suggestions are unchecked; Enter in an empty describe box applies the rest.
   const [off, setOff] = useState({});
@@ -939,10 +964,17 @@ function Editor({row, shown, state, entities, people, events, busy, config, onSe
             <button type="button" className="icon ghost sm" aria-label="Remove settlement" onClick={onRemoveSettlement}><Icon name="x" size={16} /></button>
             <div className="od-alloc">{settled.map(l => <span key={l.id}><span>{find(state, l.target)?.name || 'Expense'}<small> · {dayLabel(find(state, l.target)?.date)}</small></span><span className="num">{plain(l.cents)}</span></span>)}</div>
           </div>}
+          {!settler && settled.length > 0 && <div className="od-part-row is-settle">
+            <span className="od-nature">Offset</span><i /><b>Refund</b><small>reduces {settled.length === 1 ? 'one expense' : `${settled.length} expenses`}</small>
+            <span className="od-amount is-static">{plain(settledTotal)}</span>
+            <button type="button" className="icon ghost sm" aria-label="Remove refund" onClick={onRemoveSettlement}><Icon name="x" size={16} /></button>
+            <div className="od-alloc">{settled.map(l => <span key={l.id}><span>{find(state, l.target)?.name || 'Expense'}<small> · {dayLabel(find(state, l.target)?.date)}</small></span><span className="num">{plain(l.cents)}</span></span>)}</div>
+          </div>}
           {!linked && gap > 0 && <div className="od-part-row is-gap"><span className="od-nature" /><i /><b>Unsorted</b><span className="od-amount is-static">{plain(gap)}</span></div>}
           {linked && other && <p className="od-linked"><Icon name="link-2" size={16} /><span>Moved {row.amount < 0 ? 'to' : 'from'} <b>{other.account}</b> · {other.name} on {dayLabel(other.date)}.</span><button type="button" className="sm" disabled={busy} onClick={onUnlink}><Icon name="unlink" size={16} />Unlink</button></p>}
           {!linked && !partRows.length && !settled.length && <p className="od-quiet">{row.amount > 0 ? (row.manual ? 'Nothing yet. A tag makes it income; a person settles what they owe.' : 'Nothing yet. A tag makes it income; a person settles what they owe; an account makes it a move.') : 'Nothing yet. A tag makes it spending; an account makes it a move.'}</p>}
         </div>
+        {!linked && row.amount > 0 && gap > 0 && onSettleExpenses && <button type="button" className="link od-settle-link" onClick={onSettleExpenses}>Settle against expenses…</button>}
         {received > 0 && <p className="od-note">{money(received, row.currency)} paid back so far · {money(total(row) - received, row.currency)} still yours to recover.</p>}
       </div>
       <div className="od-card-side">

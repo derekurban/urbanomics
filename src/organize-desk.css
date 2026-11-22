@@ -195,3 +195,27 @@
   .od-batch-slots { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .od-claude-panel { animation: none; } .od-progress-bar i { transition: none; } }
+
+/* Settle against expenses: the link on money in, and the dialog that picks the expenses this money reduces. */
+.od-settle-link { justify-self: start; margin-top: var(--space-2); font-size: var(--type-caption-size); }
+.od-settle { display: grid; gap: var(--space-3); }
+.od-settle-receipt { display: grid; gap: 2px; margin: 0; }
+.od-settle-receipt b { font-weight: var(--weight-medium); }
+.od-settle-receipt small, .od-settle .form-help { color: var(--ink-tertiary); margin: 0; }
+.od-settle-controls { display: flex; flex-wrap: wrap; align-items: end; gap: var(--space-2) var(--space-3); }
+.od-settle-controls > label:first-child { display: grid; gap: var(--space-1); }
+.od-settle-search { position: relative; flex: 1 1 240px; display: flex; align-items: center; }
+.od-settle-search svg { position: absolute; left: var(--space-3); color: var(--ink-tertiary); pointer-events: none; }
+.od-settle-search input { width: 100%; padding-left: calc(var(--space-3) + var(--space-4) + var(--space-2)); }
+.od-settle-list { display: grid; }
+.od-settle-row { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-2); border-radius: var(--radius-md); box-shadow: inset 0 -0.5px 0 var(--line); }
+.od-settle-row.is-on { background: var(--accent-subtle); box-shadow: none; }
+.od-settle-pick { display: flex; align-items: center; gap: var(--space-3); min-width: 0; flex: 1; cursor: pointer; }
+.od-settle-pick > span { display: grid; gap: 2px; min-width: 0; }
+.od-settle-pick b { font-weight: var(--weight-medium); overflow-wrap: anywhere; }
+.od-settle-pick small, .od-settle-cap { color: var(--ink-tertiary); font-size: var(--type-caption-size); }
+.od-settle-cap { white-space: nowrap; }
+.od-settle-amount { width: 7.5em; text-align: right; flex: none; }
+.od-settle-list > .link { justify-self: center; margin-top: var(--space-2); }
+.od-settle-total small { color: var(--ink-secondary); }
+.od-settle-total small.is-warn { color: var(--warning); }
