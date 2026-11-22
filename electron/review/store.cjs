@@ -1,4 +1,4 @@
-const { systemDefinitions, systemTagRecords, isOther } = require("./system-tags.mjs");
+const { systemDefinitions, systemTagRecords } = require("./system-tags.mjs");
 const { blend, endpoints, validColor } = require("./palette.mjs");
 const { tagType, tagFits, orderedTags } = require("./tag-model.mjs");
 const { eventDates, validDate } = require("./event-model.mjs");
@@ -742,7 +742,6 @@ class ReviewStore {
       const row=this.current(id,version);
       if(row.review.kind==='transfer')throw new Error('Unlink the transfer before editing allocations.');
       const tags=portions(draft.tags||[], 'tag portions');
-      if(tags.some(p=>isOther(p.id,this.entities())))throw new Error('Leave the remainder unallocated instead of choosing Other.');
       const allocations=portions(draft.allocations||[], 'repayments');
       if(row.amountCents<=0&&allocations.length)throw new Error('Only incoming money can repay an expense.');
       const kind=row.amountCents<0?'expense':row.amountCents===0?'zero':allocations.some(p=>p.cents>0)?'repayment':tags.some(p=>p.cents>0)?'income':'unreviewed';

@@ -7,7 +7,6 @@ import {ledgerView,UNGROUPED_TAGS} from "./transactions-model.js";
 import {Icon} from "@derekurban/design-system";
 import {Alert,Segmented,StatRow} from "./ui.jsx";
 import {money,signedMoney,dayLabel,weekdayLabel,rangeLabel,plural} from "./format.js";
-import {isOther} from "../electron/review/system-tags.mjs";
 import "./transactions-workspace.css";
 const emptyReview={kind:"unreviewed",tags:[],groups:[],allocations:[],shares:null};
 const blank={month:"",from:"",through:"",account:"",currency:"",flow:"",tag:"",event:"",person:"",status:"",query:"",sort:"date",order:"desc"};
@@ -78,7 +77,7 @@ export function TransactionsWorkspace({data,run,busy,onSource,onOrganize,initial
  {selectedRow&&<WorkspaceModal className="ledger-detail-dialog" title={selectedRow.description||"Transaction"} onClose={()=>setSelected(null)} footer={<>{!selectedRow.manual&&<span className="footer-start"><button onClick={()=>openSource(selectedRow)}><Icon name="file-text" size={16}/>Original record</button></span>}{!snapshot&&selectedRow.manual&&<span className="footer-start"><button onClick={()=>{setCash(selectedRow);setSelected(null);}}><Icon name="pencil" size={16}/>Edit cash receipt</button></span>}<button onClick={()=>setSelected(null)}>Close</button>{!snapshot&&<button className="primary" onClick={()=>organize(selectedRow)}>Organize transaction<Icon name="arrow-right" size={16}/></button>}</>}>
   <div className="ledger-detail-summary"><span>{weekdayLabel(selectedRow.date)} · {selectedRow.account||"Cash"}</span><strong className="tabular">{signedMoney(selectedRow.amountCents,selectedRow.currency)}</strong></div>
   {snapshot?<p className="form-help">Saved snapshots keep the bank's original rows only. Tags, people and events live in the current ledger.</p>:<dl className="ledger-detail-facts">
-   <div><dt>Tags</dt><dd>{(()=>{const real=selectedRow.review.tags.filter(t=>!isOther(t.id,entities));return real.map(t=>`${nameOf(t.id)||"Tag"}${real.length>1?" "+money(t.cents,selectedRow.currency):""}`).join(", ")||"Not sorted yet";})()}</dd></div>
+   <div><dt>Tags</dt><dd>{(()=>{const real=selectedRow.tagsAutomatic?[]:selectedRow.review.tags;return real.map(t=>`${nameOf(t.id)||"Tag"}${real.length>1?" "+money(t.cents,selectedRow.currency):""}`).join(", ")||"Not sorted yet";})()}</dd></div>
    <div><dt>Events</dt><dd>{selectedRow.review.groups.map(id=>nameOf(id)||"Event").join(", ")||"None"}</dd></div>
    <div><dt>Shared with</dt><dd>{sharedWith(selectedRow).join(", ")||"Just you"}</dd></div>
    <div><dt>Person</dt><dd>{nameOf(selectedRow.review.personId)||nameOf(selectedRow.review.assignedPersonId)||"None"}</dd></div>

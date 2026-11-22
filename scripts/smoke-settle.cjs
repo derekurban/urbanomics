@@ -50,6 +50,7 @@ const { startWebServer } = require("../electron/web-server.cjs");
     // Sam's e-transfer: From is guessed from the description; it pays for two expenses.
     await page.getByLabel("Find a transaction").fill("E-TRANSFER SAM");
     await page.locator(".od-row-main", { hasText: "E-TRANSFER SAM" }).first().click();
+    await page.getByRole("combobox", { name: "Describe this transaction" }).evaluate((el) => el.blur());
     await page.getByRole("button", { name: "Settle against expenses…", exact: true }).click();
     await dialog.waitFor();
     assert.equal(await dialog.getByLabel("Who this money is from").inputValue(), sam);
@@ -77,6 +78,7 @@ const { startWebServer } = require("../electron/web-server.cjs");
     await page.setViewportSize({ width: 390, height: 844 });
     await page.getByLabel("Find a transaction").fill("HARDWARE STORE REFUND");
     await page.locator(".od-row-main", { hasText: "HARDWARE STORE REFUND" }).first().click();
+    await page.getByRole("combobox", { name: "Describe this transaction" }).evaluate((el) => el.blur());
     await page.getByRole("button", { name: "Settle against expenses…", exact: true }).click();
     await dialog.waitFor();
     assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);

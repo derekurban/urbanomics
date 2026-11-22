@@ -257,7 +257,8 @@ export function OrganizeDesk({data, run, onSource, target, onSettings}) {
 
   const accounts = useMemo(() => [...new Map(state.map(r => [r.accountId, {id: r.accountId, name: r.account, color: r.color}])).values()], [state]);
   const people = entities.filter(e => e.kind === 'person'), events = entities.filter(e => e.kind === 'group');
-  const tagChoices = useMemo(() => orderedTags(entities.filter(t => t.kind === 'category' && !isOther(t.id, entities))), [entities]);
+  // Other is a tag like any other, listed after the rest because it is the catch-all.
+  const tagChoices = useMemo(() => { const tags = entities.filter(t => t.kind === 'category'); return [...orderedTags(tags.filter(t => !t.systemRole)), ...tags.filter(t => t.systemRole)]; }, [entities]);
   const bucketName = id => entities.find(e => e.id === id)?.name;
   const basisPoints = config?.basisPoints ?? 0, maxDays = config?.maxDays ?? 1, routes = config?.routes || [];
   const onRoute = (out, inc) => routes.some(r => r.from === out.accountId && r.to === inc.accountId);

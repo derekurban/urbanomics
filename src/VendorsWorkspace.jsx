@@ -40,7 +40,7 @@ export function givesLabel(vendor, entities) {
 
 /* Tags in the order Settings shows them: expense tags under their categories, then ungrouped, then income. */
 function TagSelect({ value, entities, onChange, disabled }) {
-  const tags = entities.filter((e) => e.kind === "category" && !e.systemRole);
+  const tags = entities.filter((e) => e.kind === "category");
   const buckets = entities.filter((e) => e.kind === "bucket");
   const expense = tags.filter((t) => tagType(t) === "expense"), income = tags.filter((t) => tagType(t) === "income");
   const groups = [

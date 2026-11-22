@@ -1,4 +1,4 @@
-import {savedTags,isOther} from '../electron/review/system-tags.mjs';
+import {savedTags} from '../electron/review/system-tags.mjs';
 import {pendingTransfers} from '../electron/review/transfer-model.mjs';
 import {apportion} from './dashboard-model.js';
 const formats=new Map();
@@ -8,7 +8,7 @@ export function mapRecords(records,entities){
  const pending=new Set(pendingTransfers(records).map(r=>r.id));
  return records.filter(r=>r.amountCents!==0).map(row=>{
   const allocations=row.review.kind==='repayment'?row.review.allocations.filter(a=>a.cents>0):[];
-  let tags=savedTags(row).filter(t=>!isOther(t.id,entities));
+  let tags=savedTags(row);
   const budget=Math.abs(row.amountCents)-allocations.reduce((n,a)=>n+a.cents,0);
   const legacyScaling=row.amountCents>0&&allocations.length>0&&row.review.allocationMode!=='layers'&&tags.reduce((n,t)=>n+t.cents,0)>budget;
   if(legacyScaling)tags=apportion(budget,tags);

@@ -75,7 +75,7 @@ class VendorStore {
     for (const m of matchers) this.regex(compileMatcher(m));
     const entities = this.imports.review.entities();
     const tagId = typeof values.tagId === "string" ? values.tagId : "", personId = typeof values.personId === "string" ? values.personId : "";
-    if (tagId && !entities.some((e) => e.id === tagId && e.kind === "category" && !e.systemRole)) throw new Error("That tag is no longer available. Choose another.");
+    if (tagId && !entities.some((e) => e.id === tagId && e.kind === "category")) throw new Error("That tag is no longer available. Choose another.");
     if (personId && !entities.some((e) => e.id === personId && e.kind === "person")) throw new Error("That person is no longer available. Choose another.");
     if (values.id && !this.list().some((v) => v.id === values.id)) throw new Error("This vendor no longer exists. Reopen the editor.");
     return { id: values.id || "", name, matchers, tagId, personId };
