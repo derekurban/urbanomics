@@ -1,6 +1,6 @@
 {
   "name": "urbanomics",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "description": "Local desktop finance workspace",
   "main": "electron/main.cjs",
